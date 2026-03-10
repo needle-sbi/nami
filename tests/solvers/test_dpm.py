@@ -188,3 +188,28 @@ class TestDPMSolverPPDiffusion:
         )
         assert x1.shape == x0.shape
         assert torch.isfinite(x1).all()
+
+    def test_logsnr_increasing_lambda(self):
+        """logsnr skip with a schedule where lambda increases over [lo, hi]."""
+
+        class _IncreasingLambdaSchedule:
+            """alpha increases, sigma decreases => lambda = log(alpha/sigma) increases."""
+
+            def alpha(self, t):
+                return 0.1 + 0.9 * t
+
+            def sigma(self, t):
+                return 1.0 - 0.9 * t
+
+        solver = DPMSolverPP(steps=8, order=1, skip_type="logsnr")
+        schedule = _IncreasingLambdaSchedule()
+        x0 = torch.randn(4, 3)
+
+        def predict_eps(x, _t):
+            return torch.zeros_like(x)
+
+        x1 = solver.integrate_diffusion(
+            predict_eps, schedule, x0, t0=0.1, t1=0.9
+        )
+        assert x1.shape == x0.shape
+        assert torch.isfinite(x1).all()
