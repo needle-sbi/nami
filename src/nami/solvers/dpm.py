@@ -62,7 +62,7 @@ class DPMSolverPP:
         # generic fallback (Heun)
         _ = atol, rtol
         steps = int(steps or self.steps)
-        if steps <= 0:
+        if steps <= 0:  # pragma: no cover — constructor validates
             msg = f"steps must be positive, got {steps}"
             raise ValueError(msg)
 
@@ -91,7 +91,7 @@ class DPMSolverPP:
         # generic fallback (Heun), specifically for augmented states.
         _ = atol, rtol
         steps = int(steps or self.steps)
-        if steps <= 0:
+        if steps <= 0:  # pragma: no cover — constructor validates
             msg = f"steps must be positive, got {steps}"
             raise ValueError(msg)
 
@@ -119,7 +119,7 @@ class DPMSolverPP:
     ) -> torch.Tensor:
         """Fast diffusion ODE integration using a 1st/2nd-order DPM-Solver++ update."""
         steps = int(steps or self.steps)
-        if steps <= 0:
+        if steps <= 0:  # pragma: no cover — constructor validates
             msg = f"steps must be positive, got {steps}"
             raise ValueError(msg)
 

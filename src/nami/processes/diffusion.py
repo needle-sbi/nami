@@ -174,7 +174,7 @@ class DiffusionProcess:
         elif self._parameterization == "x0":
             # Expand alpha/sigma for broadcasting with x
             eps = (x - _expand_like(alpha, x) * out) / _expand_like(sigma, x)
-        else:
+        else:  # pragma: no cover — factory validates
             msg = "unknown parameterization"
             raise ValueError(msg)
 
