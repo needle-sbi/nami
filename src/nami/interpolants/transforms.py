@@ -144,6 +144,11 @@ class MarkovizationDriftFromVelocityScore(nn.Module):
     where ``u(x, t) = v(x, t) - gamma(t) * gamma_dot(t) * s(x, t)``.
     Equivalently:
     ``b(x, t) = v(x, t) + (-gamma*gamma_dot + 0.5*g^2) * s(x, t)``.
+
+    ``diffusion2`` is the squared diffusion coefficient ``g(t)^2``, given as a
+    constant ``float`` or a plain callable ``(Tensor) -> Tensor``.  It is **not**
+    registered as an ``nn.Module`` submodule, so learnable diffusion schedules
+    should be managed separately.
     """
 
     def __init__(
