@@ -2,15 +2,18 @@ from __future__ import annotations
 
 import torch
 
-
-def _expand_like(v: torch.Tensor, x: torch.Tensor) -> torch.Tensor:
-    while v.ndim < x.ndim:
-        v = v.unsqueeze(-1)
-    return v
+from ..fields.diffusion import _expand_like
 
 
 class DPMSolverPP:
-    """DPM-Solver++ inspired ODE solver, with a diffusion-specific fast path."""
+    """DPM-Solver++ inspired ODE solver, with a diffusion-specific fast path.
+
+    The specialised ``integrate_diffusion`` method implements a 1st/2nd-order
+    DPM-Solver++ update in log-SNR space.  The generic ``integrate`` and
+    ``integrate_augmented`` methods fall back to a Heun (improved-Euler) scheme
+    so the solver can be used as a drop-in replacement for other fixed-step
+    solvers.
+    """
 
     requires_steps = True
     supports_rsample = True
