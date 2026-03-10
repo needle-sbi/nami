@@ -3,10 +3,10 @@ from __future__ import annotations
 import pytest
 import torch
 
-from nami import DPMSolverPP, EDMSchedule, VESchedule, VPSchedule
+from nami import EDMSchedule, VESchedule, VPSchedule
 from nami.lazy import UnconditionalField
 from nami.processes.diffusion import Diffusion
-from nami.solvers import RK4, EulerMaruyama, Heun
+from nami.solvers import RK4, DPMSolverPP, EulerMaruyama, Heun
 
 
 def zero_field(x, _t, _c=None):
