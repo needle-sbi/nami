@@ -9,8 +9,14 @@ from .base import ProbabilityPath
 
 class CosinePath(ProbabilityPath):
     def sample_xt(
-        self, x_target: torch.Tensor, x_source: torch.Tensor, t: torch.Tensor
+        self,
+        x_target: torch.Tensor,
+        x_source: torch.Tensor,
+        t: torch.Tensor,
+        *,
+        z: torch.Tensor | None = None,
     ) -> torch.Tensor:
+        _ = z
         alpha_t = self._alpha(t)
         sigma_t = self._sigma(t)
         alpha_t_reshaped = alpha_t.reshape(
@@ -23,8 +29,14 @@ class CosinePath(ProbabilityPath):
         return alpha_t_reshaped * x_target + sigma_t_reshaped * x_source
 
     def target_ut(
-        self, x_target: torch.Tensor, x_source: torch.Tensor, t: torch.Tensor
+        self,
+        x_target: torch.Tensor,
+        x_source: torch.Tensor,
+        t: torch.Tensor,
+        *,
+        xt: torch.Tensor | None = None,
     ) -> torch.Tensor:
+        _ = xt
         alpha_prime = self._alpha_prime(t)
         sigma_prime = self._sigma_prime(t)
 
