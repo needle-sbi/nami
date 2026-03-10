@@ -45,3 +45,29 @@ class TestScaledBrownianGamma:
             rtol=1e-6,
             atol=1e-6,
         )
+
+    @pytest.mark.parametrize("sigma", [0.0, -1.0], ids=["zero", "negative"])
+    def test_from_sigma_invalid_raises(self, sigma):
+        with pytest.raises(ValueError, match="sigma must be positive"):
+            ScaledBrownianGamma.from_sigma(sigma=sigma)
+
+    def test_from_sigma_matches_scale_parameterization(self):
+        sigma = 1.7
+        eps = 1e-5
+        t = torch.linspace(0.1, 0.9, 9)
+
+        from_sigma = ScaledBrownianGamma.from_sigma(sigma=sigma, eps=eps)
+        from_scale = ScaledBrownianGamma(scale=sigma**2, eps=eps)
+
+        assert torch.allclose(
+            from_sigma.gamma(t), from_scale.gamma(t), atol=1e-6, rtol=1e-6
+        )
+        assert torch.allclose(
+            from_sigma.gamma_dot(t), from_scale.gamma_dot(t), atol=1e-6, rtol=1e-6
+        )
+        assert torch.allclose(
+            from_sigma.gamma_gamma_dot(t),
+            from_scale.gamma_gamma_dot(t),
+            atol=1e-6,
+            rtol=1e-6,
+        )

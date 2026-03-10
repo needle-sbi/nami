@@ -47,6 +47,15 @@ class BrownianGamma(GammaSchedule):
 
 @dataclass(frozen=True)
 class ScaledBrownianGamma(GammaSchedule):
+    """Brownian gamma schedule with variance scale.
+
+    The schedule is
+    ``gamma(t)^2 = scale * t * (1 - t)``.
+    For bridge paths parameterised by ``sigma`` where
+    ``gamma(t) = sigma * sqrt(t * (1 - t))``,
+    use ``scale = sigma**2`` (or ``from_sigma``).
+    """
+
     scale: float = 1.0
     eps: float = 1e-12
 
@@ -54,6 +63,14 @@ class ScaledBrownianGamma(GammaSchedule):
         if self.scale <= 0:
             msg = "scale must be positive"
             raise ValueError(msg)
+
+    @classmethod
+    def from_sigma(cls, sigma: float, eps: float = 1e-12) -> ScaledBrownianGamma:
+        """Construct a schedule with ``gamma(t) = sigma * sqrt(t * (1 - t))``."""
+        if sigma <= 0:
+            msg = "sigma must be positive"
+            raise ValueError(msg)
+        return cls(scale=float(sigma) ** 2, eps=eps)
 
     def gamma(self, t: torch.Tensor) -> torch.Tensor:
         return torch.sqrt(torch.clamp(self.scale * t * (1 - t), min=self.eps))
