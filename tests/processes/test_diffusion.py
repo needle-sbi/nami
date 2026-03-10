@@ -216,3 +216,129 @@ class TestDiffusionProcesses:
 
         sample = process.sample(sample_shape=(2, 3))
         assert sample.shape == (2, 3)
+
+    # ---------------------------------------------------------
+    # guidance_fn coverage
+    def test_sample_with_guidance_fn_ode(self):
+        """guidance_fn should be called during ODE sampling."""
+        model = UnconditionalField(zero_field)
+        schedule = VPSchedule()
+        solver = Heun()
+
+        diffusion = Diffusion(
+            model, schedule, solver, parameterization="eps", event_shape=(), t1=1e-3
+        )
+        process = diffusion()
+
+        calls = []
+
+        def guidance(x, t, eps):
+            calls.append(1)
+            return eps
+
+        sample = process.sample(sample_shape=(4, 2), guidance_fn=guidance)
+        assert sample.shape == (4, 2)
+        assert len(calls) > 0
+
+    def test_sample_with_guidance_fn_sde(self):
+        """guidance_fn should be called during SDE sampling."""
+        model = UnconditionalField(zero_field)
+        schedule = VPSchedule()
+        solver = EulerMaruyama()
+
+        diffusion = Diffusion(
+            model, schedule, solver, parameterization="eps", event_shape=(), t1=1e-3
+        )
+        process = diffusion()
+
+        calls = []
+
+        def guidance(x, t, eps):
+            calls.append(1)
+            return eps
+
+        sample = process.sample(sample_shape=(4, 2), guidance_fn=guidance)
+        assert sample.shape == (4, 2)
+        assert len(calls) > 0
+
+    def test_sample_with_guidance_fn_dpm(self):
+        """guidance_fn should be called via integrate_diffusion fast path."""
+        model = UnconditionalField(zero_field)
+        schedule = VPSchedule()
+        solver = DPMSolverPP(steps=5)
+
+        diffusion = Diffusion(
+            model, schedule, solver, parameterization="eps", event_shape=(), t1=1e-3
+        )
+        process = diffusion()
+
+        calls = []
+
+        def guidance(x, t, eps):
+            calls.append(1)
+            return eps
+
+        sample = process.sample(sample_shape=(4, 2), guidance_fn=guidance)
+        assert sample.shape == (4, 2)
+        assert len(calls) > 0
+
+    # ---------------------------------------------------------
+    # rsample coverage
+    def test_rsample_with_dpm_solver(self):
+        """rsample should work through DPMSolverPP integrate_diffusion path."""
+        model = UnconditionalField(zero_field)
+        schedule = VPSchedule()
+        solver = DPMSolverPP(steps=5)
+
+        diffusion = Diffusion(
+            model, schedule, solver, parameterization="eps", event_shape=(), t1=1e-3
+        )
+        process = diffusion()
+
+        sample = process.rsample(sample_shape=(3, 2))
+        assert sample.shape == (3, 2)
+
+    def test_rsample_with_guidance_fn(self):
+        """rsample should forward guidance_fn."""
+        model = UnconditionalField(zero_field)
+        schedule = VPSchedule()
+        solver = Heun()
+
+        diffusion = Diffusion(
+            model, schedule, solver, parameterization="eps", event_shape=(), t1=1e-3
+        )
+        process = diffusion()
+
+        calls = []
+
+        def guidance(x, t, eps):
+            calls.append(1)
+            return eps
+
+        sample = process.rsample(sample_shape=(3, 2), guidance_fn=guidance)
+        assert sample.shape == (3, 2)
+        assert len(calls) > 0
+
+    def test_rsample_no_rsample_solver_fails(self):
+        """rsample should fail if solver doesn't support rsample."""
+
+        class _NoRsampleSolver:
+            is_sde = False
+            supports_rsample = False
+            requires_steps = True
+            steps = 5
+
+            def integrate(self, f, x0, *, t0, t1, **kw):
+                return x0
+
+        model = UnconditionalField(zero_field)
+        schedule = VPSchedule()
+        solver = _NoRsampleSolver()
+
+        diffusion = Diffusion(
+            model, schedule, solver, parameterization="eps", event_shape=(), t1=1e-3
+        )
+        process = diffusion()
+
+        with pytest.raises(NotImplementedError, match="solver does not support rsample"):
+            process.rsample(sample_shape=(3, 2))
