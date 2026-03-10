@@ -5,16 +5,13 @@ import torch
 from ..interpolants.gamma import BrownianGamma, GammaSchedule
 from ..paths.linear import LinearPath
 from ._common import (
+    expand_like_time,
     leading_shape,
     per_sample_mse,
     prepare_time,
     reduce_loss,
     require_event_ndim,
 )
-
-
-def _expand_like_time(scale: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-    return scale.reshape(scale.shape + (1,) * (target.ndim - scale.ndim))
 
 
 def stochastic_fm_loss(
@@ -49,8 +46,8 @@ def stochastic_fm_loss(
         msg = "z must match the shape of path samples"
         raise ValueError(msg)
 
-    gamma_t = _expand_like_time(gamma.gamma(t), xt_det)
-    gamma_dot_t = _expand_like_time(gamma.gamma_dot(t), xt_det)
+    gamma_t = expand_like_time(gamma.gamma(t), xt_det, event_ndim=event_ndim)
+    gamma_dot_t = expand_like_time(gamma.gamma_dot(t), xt_det, event_ndim=event_ndim)
 
     xt = xt_det + gamma_t * z
     ut = ut_det + gamma_dot_t * z
