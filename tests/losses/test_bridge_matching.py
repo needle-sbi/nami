@@ -61,7 +61,41 @@ class _PerfectScoreField(nn.Module):
         return self.path.score_target(self.x_target, self.x_source, t, xt=xt)
 
 
+class _LinearField(nn.Module):
+    """Minimal learnable field for gradient testing."""
+
+    def __init__(self, dim: int, event_ndim: int = 1):
+        super().__init__()
+        self.linear = nn.Linear(dim, dim, bias=False)
+        self._event_ndim = event_ndim
+
+    @property
+    def event_ndim(self) -> int:
+        return self._event_ndim
+
+    def forward(self, x, t, c=None):
+        _ = t, c
+        return self.linear(x)
+
+
 class TestBridgeMatchingLoss:
+    def test_gradients_flow_to_parameters(self):
+        """Loss should produce gradients for both flow and score model parameters."""
+        torch.manual_seed(0)
+        flow = _LinearField(dim=3)
+        score = _LinearField(dim=3)
+        x_target = torch.randn(4, 3)
+        x_source = torch.randn(4, 3)
+        t = torch.rand(4).clamp(0.05, 0.95)
+
+        loss = bridge_matching_loss(flow, score, x_target, x_source, t=t)
+        loss.backward()
+
+        assert flow.linear.weight.grad is not None
+        assert score.linear.weight.grad is not None
+        assert flow.linear.weight.grad.abs().sum() > 0
+        assert score.linear.weight.grad.abs().sum() > 0
+
     def test_reductions(self):
         torch.manual_seed(0)
         flow = _Field()
