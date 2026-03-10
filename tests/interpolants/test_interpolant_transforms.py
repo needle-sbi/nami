@@ -212,6 +212,27 @@ class TestMarkovizationDriftFromVelocityScore:
         expected = torch.full_like(x, 2.0) + (-gg + 2.0) * 3.0
         assert torch.allclose(out, expected, rtol=1e-6, atol=1e-6)
 
+    def test_formula_with_callable_diffusion2(self):
+        velocity = ConstantModel(2.0)
+        score = ConstantModel(3.0)
+        gamma = ScaledBrownianGamma(scale=1.5)
+        diffusion2_fn = lambda t: 2.0 * t  # noqa: E731
+        wrapper = MarkovizationDriftFromVelocityScore(
+            velocity,
+            score,
+            gamma,
+            diffusion2=diffusion2_fn,
+        )
+
+        x = torch.randn(5, 7, 2)
+        t = torch.linspace(0.1, 0.9, 7)
+        out = wrapper(x, t)
+
+        gg = _expand_like_time(gamma.gamma_gamma_dot(t), x)
+        g2 = _expand_like_time(2.0 * t, x)
+        expected = torch.full_like(x, 2.0) + (-gg + 0.5 * g2) * 3.0
+        assert torch.allclose(out, expected, rtol=1e-6, atol=1e-6)
+
     def test_zero_diffusion2_matches_probability_flow(self):
         velocity = ConstantModel(2.0)
         score = ConstantModel(3.0)
