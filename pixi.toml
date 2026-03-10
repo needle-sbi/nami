@@ -18,7 +18,7 @@ build = "hatch build"
 kernel = "python -m ipykernel install --user --name nami"
 
 [environments]
-default = { features = ["docs"], solve-group = "default" }
+default = { features = ["docs", "test"], solve-group = "default" }
 
 [dependencies]
 pytorch = ">=2.10.0,<3"
@@ -26,6 +26,10 @@ pip = ">=25.3,<26"
 ipykernel = ">=7.1.0,<8"
 matplotlib = ">=3.10.8,<4"
 scipy = ">=1.17.0,<2"
+
+[feature.test.dependencies]
+pytest = ">=9.0.0,<10"
+pytest-cov = ">=7.0.0,<8"
 
 [feature.docs.dependencies]
 sphinx = ">=8.0.0,<9"
