@@ -185,31 +185,58 @@ class DiffusionProcess:
             return x
         return x * self._base_scale
 
+    def _integrate_ode(
+        self,
+        x0: torch.Tensor,
+        *,
+        context: torch.Tensor | None,
+        guidance_fn,
+    ) -> torch.Tensor:
+        kwargs = {}
+        if getattr(self._solver, "requires_steps", False):
+            steps = self._steps()
+            if steps is None:
+                msg = "solver requires steps"
+                raise ValueError(msg)
+            kwargs["steps"] = steps
+
+        if hasattr(self._solver, "integrate_diffusion"):
+
+            def predict_eps(x, t):
+                tt = self._cast_time(t, x)
+                eps, _, _ = self._predict_eps(x, tt, context)
+                if guidance_fn is not None:
+                    eps = guidance_fn(x, tt, eps)
+                return eps
+
+            return self._solver.integrate_diffusion(
+                predict_eps,
+                self._schedule,
+                x0,
+                t0=self._t0,
+                t1=self._t1,
+                **kwargs,
+            )
+
+        def drift(x, t):
+            tt = self._cast_time(t, x)
+            eps, _, sigma = self._predict_eps(x, tt, context)
+            if guidance_fn is not None:
+                eps = guidance_fn(x, tt, eps)
+            score = eps_to_score(eps, sigma)
+            g = _expand_like(self._schedule.diffusion(tt), x)
+            f = self._schedule.drift(x, tt)
+            return f - 0.5 * (g**2) * score
+
+        return self._solver.integrate(drift, x0, t0=self._t0, t1=self._t1, **kwargs)
+
     def sample(self, sample_shape=(), *, guidance_fn=None) -> torch.Tensor:
         x0 = self._base.sample(sample_shape)
         x0 = self._apply_base_scale(x0)
         context = self._expand_context(self._context, x0)
 
         if self._is_ode():
-
-            def drift(x, t):
-                tt = self._cast_time(t, x)
-                eps, _, sigma = self._predict_eps(x, tt, context)
-                if guidance_fn is not None:
-                    eps = guidance_fn(x, tt, eps)
-                score = eps_to_score(eps, sigma)
-                g = _expand_like(self._schedule.diffusion(tt), x)
-                f = self._schedule.drift(x, tt)
-                return f - 0.5 * (g**2) * score
-
-            kwargs = {}
-            if getattr(self._solver, "requires_steps", False):
-                steps = self._steps()
-                if steps is None:
-                    msg = "solver requires steps"
-                    raise ValueError(msg)
-                kwargs["steps"] = steps
-            return self._solver.integrate(drift, x0, t0=self._t0, t1=self._t1, **kwargs)
+            return self._integrate_ode(x0, context=context, guidance_fn=guidance_fn)
 
         def drift(x, t):
             tt = self._cast_time(t, x)
@@ -246,25 +273,7 @@ class DiffusionProcess:
         x0 = self._base.rsample(sample_shape)
         x0 = self._apply_base_scale(x0)
         context = self._expand_context(self._context, x0)
-
-        def drift(x, t):
-            tt = self._cast_time(t, x)
-            eps, _, sigma = self._predict_eps(x, tt, context)
-            if guidance_fn is not None:
-                eps = guidance_fn(x, tt, eps)
-            score = eps_to_score(eps, sigma)
-            g = _expand_like(self._schedule.diffusion(tt), x)
-            f = self._schedule.drift(x, tt)
-            return f - 0.5 * (g**2) * score
-
-        kwargs = {}
-        if getattr(self._solver, "requires_steps", False):
-            steps = self._steps()
-            if steps is None:
-                msg = "solver requires steps"
-                raise ValueError(msg)
-            kwargs["steps"] = steps
-        return self._solver.integrate(drift, x0, t0=self._t0, t1=self._t1, **kwargs)
+        return self._integrate_ode(x0, context=context, guidance_fn=guidance_fn)
 
 
 def _model_device_dtype(model) -> tuple[torch.device | None, torch.dtype | None]:
