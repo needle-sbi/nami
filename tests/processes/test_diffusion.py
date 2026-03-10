@@ -6,7 +6,7 @@ import torch
 from nami import EDMSchedule, VESchedule, VPSchedule
 from nami.lazy import UnconditionalField
 from nami.processes.diffusion import Diffusion
-from nami.solvers import RK4, EulerMaruyama, Heun
+from nami.solvers import RK4, DPMSolverPP, EulerMaruyama, Heun
 
 
 def zero_field(x, _t, _c=None):
@@ -77,7 +77,7 @@ class TestDiffusionProcesses:
 
     # ---------------------------------------------------------
     # test different solvers to make sure shapes are preserved
-    @pytest.mark.parametrize("solver_cls", [RK4, EulerMaruyama, Heun])
+    @pytest.mark.parametrize("solver_cls", [RK4, EulerMaruyama, Heun, DPMSolverPP])
     def test_diffusion_solvers(self, solver_cls):
         """Test diffusion with different solvers."""
         model = UnconditionalField(zero_field)
@@ -216,3 +216,246 @@ class TestDiffusionProcesses:
 
         sample = process.sample(sample_shape=(2, 3))
         assert sample.shape == (2, 3)
+
+    # ---------------------------------------------------------
+    # guidance_fn coverage
+    def test_sample_with_guidance_fn_ode(self):
+        """guidance_fn should be called during ODE sampling."""
+        model = UnconditionalField(zero_field)
+        schedule = VPSchedule()
+        solver = Heun()
+
+        diffusion = Diffusion(
+            model, schedule, solver, parameterization="eps", event_shape=(), t1=1e-3
+        )
+        process = diffusion()
+
+        calls = []
+
+        def guidance(x, t, eps):
+            calls.append(1)
+            return eps
+
+        sample = process.sample(sample_shape=(4, 2), guidance_fn=guidance)
+        assert sample.shape == (4, 2)
+        assert len(calls) > 0
+
+    def test_sample_with_guidance_fn_sde(self):
+        """guidance_fn should be called during SDE sampling."""
+        model = UnconditionalField(zero_field)
+        schedule = VPSchedule()
+        solver = EulerMaruyama()
+
+        diffusion = Diffusion(
+            model, schedule, solver, parameterization="eps", event_shape=(), t1=1e-3
+        )
+        process = diffusion()
+
+        calls = []
+
+        def guidance(x, t, eps):
+            calls.append(1)
+            return eps
+
+        sample = process.sample(sample_shape=(4, 2), guidance_fn=guidance)
+        assert sample.shape == (4, 2)
+        assert len(calls) > 0
+
+    def test_sample_with_guidance_fn_dpm(self):
+        """guidance_fn should be called via integrate_diffusion fast path."""
+        model = UnconditionalField(zero_field)
+        schedule = VPSchedule()
+        solver = DPMSolverPP(steps=5)
+
+        diffusion = Diffusion(
+            model, schedule, solver, parameterization="eps", event_shape=(), t1=1e-3
+        )
+        process = diffusion()
+
+        calls = []
+
+        def guidance(x, t, eps):
+            calls.append(1)
+            return eps
+
+        sample = process.sample(sample_shape=(4, 2), guidance_fn=guidance)
+        assert sample.shape == (4, 2)
+        assert len(calls) > 0
+
+    # ---------------------------------------------------------
+    # rsample coverage
+    def test_rsample_with_dpm_solver(self):
+        """rsample should work through DPMSolverPP integrate_diffusion path."""
+        model = UnconditionalField(zero_field)
+        schedule = VPSchedule()
+        solver = DPMSolverPP(steps=5)
+
+        diffusion = Diffusion(
+            model, schedule, solver, parameterization="eps", event_shape=(), t1=1e-3
+        )
+        process = diffusion()
+
+        sample = process.rsample(sample_shape=(3, 2))
+        assert sample.shape == (3, 2)
+
+    def test_rsample_with_guidance_fn(self):
+        """rsample should forward guidance_fn."""
+        model = UnconditionalField(zero_field)
+        schedule = VPSchedule()
+        solver = Heun()
+
+        diffusion = Diffusion(
+            model, schedule, solver, parameterization="eps", event_shape=(), t1=1e-3
+        )
+        process = diffusion()
+
+        calls = []
+
+        def guidance(x, t, eps):
+            calls.append(1)
+            return eps
+
+        sample = process.rsample(sample_shape=(3, 2), guidance_fn=guidance)
+        assert sample.shape == (3, 2)
+        assert len(calls) > 0
+
+    def test_rsample_no_rsample_solver_fails(self):
+        """rsample should fail if solver doesn't support rsample."""
+
+        class _NoRsampleSolver:
+            is_sde = False
+            supports_rsample = False
+            requires_steps = True
+            steps = 5
+
+            def integrate(self, f, x0, *, t0, t1, **kw):
+                return x0
+
+        model = UnconditionalField(zero_field)
+        schedule = VPSchedule()
+        solver = _NoRsampleSolver()
+
+        diffusion = Diffusion(
+            model, schedule, solver, parameterization="eps", event_shape=(), t1=1e-3
+        )
+        process = diffusion()
+
+        with pytest.raises(NotImplementedError, match="solver does not support rsample"):
+            process.rsample(sample_shape=(3, 2))
+
+    def test_rsample_no_rsample_base_fails(self):
+        """rsample should fail if base distribution lacks rsample."""
+
+        class _NoRsampleDist(torch.distributions.Distribution):
+            has_rsample = False
+
+            def __init__(self):
+                super().__init__(batch_shape=(), event_shape=(), validate_args=False)
+
+            def sample(self, sample_shape=()):
+                return torch.randn(sample_shape)
+
+        model = UnconditionalField(zero_field)
+        schedule = VPSchedule()
+        solver = Heun()
+        base = _NoRsampleDist()
+
+        diffusion = Diffusion(
+            model,
+            schedule,
+            solver,
+            parameterization="eps",
+            base=base,
+            t1=1e-3,
+            validate_args=False,
+        )
+        process = diffusion()
+
+        with pytest.raises(
+            NotImplementedError, match="base distribution does not support rsample"
+        ):
+            process.rsample(sample_shape=(3, 2))
+
+    def test_ode_solver_requires_steps_but_has_none(self):
+        """ODE solver with requires_steps=True but no steps attr should raise."""
+
+        class _SteplessSolver:
+            is_sde = False
+            requires_steps = True
+
+            def integrate(self, f, x0, *, t0, t1, **kw):
+                return x0
+
+        model = UnconditionalField(zero_field)
+        schedule = VPSchedule()
+        solver = _SteplessSolver()
+
+        diffusion = Diffusion(
+            model, schedule, solver, parameterization="eps", event_shape=(), t1=1e-3
+        )
+        process = diffusion()
+
+        with pytest.raises(ValueError, match="solver requires steps"):
+            process.sample(sample_shape=(2,))
+
+    def test_sde_solver_requires_steps_but_has_none(self):
+        """SDE solver without steps attr should raise."""
+
+        class _SteplessSDE:
+            is_sde = True
+            requires_steps = False
+
+            def integrate(self, drift, diffusion, x0, *, t0, t1, steps):
+                return x0
+
+        model = UnconditionalField(zero_field)
+        schedule = VPSchedule()
+        solver = _SteplessSDE()
+
+        diffusion = Diffusion(
+            model, schedule, solver, parameterization="eps", event_shape=(), t1=1e-3
+        )
+        process = diffusion()
+
+        with pytest.raises(ValueError, match="sde solver requires steps"):
+            process.sample(sample_shape=(2,))
+
+    def test_diffusion_with_custom_base_and_context(self):
+        """Custom base distribution with context should expand correctly."""
+        model = context_field
+        schedule = VPSchedule()
+        solver = Heun()
+        base = torch.distributions.Normal(torch.zeros(3), torch.ones(3))
+
+        diffusion = Diffusion(
+            model, schedule, solver, parameterization="eps", base=base, t1=1e-3
+        )
+        context = torch.randn(3, 2)
+        process = diffusion(context)
+
+        sample = process.sample(sample_shape=(4,))
+        assert torch.isfinite(sample).all()
+
+    def test_diffusion_with_nn_module_model(self):
+        """nn.Module model should have device/dtype detected from parameters."""
+
+        class _ZeroModule(torch.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.dummy = torch.nn.Parameter(torch.zeros(1))
+
+            def forward(self, x, _t, _c=None):
+                return torch.zeros_like(x)
+
+        model = UnconditionalField(_ZeroModule())
+        schedule = VPSchedule()
+        solver = Heun()
+
+        diffusion = Diffusion(
+            model, schedule, solver, parameterization="eps", event_shape=(), t1=1e-3
+        )
+        process = diffusion()
+
+        sample = process.sample(sample_shape=(4, 2))
+        assert sample.shape == (4, 2)
+        assert torch.isfinite(sample).all()

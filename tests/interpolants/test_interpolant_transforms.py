@@ -10,16 +10,8 @@ from nami.interpolants.transforms import (
     MirrorVelocityFromScore,
     ScoreFromNoise,
 )
+from nami.losses._common import expand_like_time
 from nami.paths.bridge import BrownianBridgePath
-
-
-def _expand_like_time(
-    scale: torch.Tensor, target: torch.Tensor, event_ndim: int = 1
-) -> torch.Tensor:
-    lead_ndim = target.ndim - event_ndim
-    n_prepend = lead_ndim - scale.ndim
-    shape = (1,) * n_prepend + tuple(scale.shape) + (1,) * event_ndim
-    return scale.reshape(shape)
 
 
 class ScoreModel(nn.Module):
@@ -46,7 +38,7 @@ class EtaModel(nn.Module):
 
     def forward(self, x, t, c=None):
         score = self.score_model(x, t, c)
-        gamma = _expand_like_time(self.gamma_schedule.gamma(t), score)
+        gamma = expand_like_time(self.gamma_schedule.gamma(t), score)
         return gamma * score
 
 
@@ -127,7 +119,7 @@ class TestDriftFromVelocityScore:
         t = torch.linspace(0.1, 0.9, 7)
         out = wrapper(x, t)
 
-        gg = _expand_like_time(gamma.gamma_gamma_dot(t), x)
+        gg = expand_like_time(gamma.gamma_gamma_dot(t), x)
         expected = torch.full_like(x, 2.0) - gg * 3.0
         assert torch.allclose(out, expected, rtol=1e-6, atol=1e-6)
 
@@ -185,7 +177,7 @@ class TestMirrorVelocityFromScore:
         c = torch.randn(5, 1)
         out = wrapper(x, t, c)
 
-        gg = _expand_like_time(gamma.gamma_gamma_dot(t), x)
+        gg = expand_like_time(gamma.gamma_gamma_dot(t), x)
         expected = gg * 4.0
         assert wrapper.event_ndim == 1
         assert torch.allclose(out, expected, rtol=1e-6, atol=1e-6)
@@ -208,7 +200,7 @@ class TestMarkovizationDriftFromVelocityScore:
         t = torch.linspace(0.1, 0.9, 7)
         out = wrapper(x, t)
 
-        gg = _expand_like_time(gamma.gamma_gamma_dot(t), x)
+        gg = expand_like_time(gamma.gamma_gamma_dot(t), x)
         expected = torch.full_like(x, 2.0) + (-gg + 2.0) * 3.0
         assert torch.allclose(out, expected, rtol=1e-6, atol=1e-6)
 
@@ -228,8 +220,8 @@ class TestMarkovizationDriftFromVelocityScore:
         t = torch.linspace(0.1, 0.9, 7)
         out = wrapper(x, t)
 
-        gg = _expand_like_time(gamma.gamma_gamma_dot(t), x)
-        g2 = _expand_like_time(2.0 * t, x)
+        gg = expand_like_time(gamma.gamma_gamma_dot(t), x)
+        g2 = expand_like_time(2.0 * t, x)
         expected = torch.full_like(x, 2.0) + (-gg + 0.5 * g2) * 3.0
         assert torch.allclose(out, expected, rtol=1e-6, atol=1e-6)
 

@@ -3,6 +3,15 @@ from __future__ import annotations
 import torch
 
 
+def expand_like_time(
+    scale: torch.Tensor, target: torch.Tensor, event_ndim: int = 1
+) -> torch.Tensor:
+    lead_ndim = target.ndim - event_ndim
+    n_prepend = lead_ndim - scale.ndim
+    shape = (1,) * n_prepend + tuple(scale.shape) + (1,) * event_ndim
+    return scale.reshape(shape)
+
+
 def require_event_ndim(field) -> int:
     event_ndim = getattr(field, "event_ndim", None)
     if event_ndim is None:
