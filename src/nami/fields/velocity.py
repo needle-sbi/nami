@@ -9,7 +9,7 @@ from ..core.specs import (
     unflatten_event,
     validate_shapes,
 )
-from ._common import normalize_event_shape, validate_context
+from ._common import normalise_event_shape, validate_context
 from .base import VectorField
 
 
@@ -48,7 +48,7 @@ class VelocityField(VectorField):
             msg = f"condition_dim must be non-negative, got {condition_dim}"
             raise ValueError(msg)
 
-        self.event_shape = normalize_event_shape(dim)
+        self.event_shape = normalise_event_shape(dim)
         self.condition_dim = int(condition_dim)
         self.flat_dim = event_numel(self.event_shape)
         self.time_embedding = ScalarTimeEmbedding()
