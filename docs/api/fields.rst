@@ -8,4 +8,5 @@ Fields
 
    base
    diffusion
+   transformer
    velocity
