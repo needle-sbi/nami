@@ -48,11 +48,21 @@ def divergence_stats(
     if estimator is not None:
         div = estimator(field, x, t, c)
     else:
+        call_and_divergence = getattr(field, "call_and_divergence", None)
+        if call_and_divergence is None:
+            msg = (
+                "divergence_stats requires either `estimator=...` or a field "
+                "implementing `call_and_divergence(x, t, c)`"
+            )
+            raise TypeError(msg)
         try:
-            _, div = field.call_and_divergence(x, t, c)
-        except NotImplementedError as exc:
-            msg = "field must implement call_and_divergence or provide an estimator"
-            raise NotImplementedError(msg) from exc
+            _, div = call_and_divergence(x, t, c)
+        except NotImplementedError:
+            msg = (
+                "divergence_stats requires either `estimator=...` or a field "
+                "implementing `call_and_divergence(x, t, c)`"
+            )
+            raise TypeError(msg) from None
 
     return {
         "mean": div.mean(),
