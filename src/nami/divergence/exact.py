@@ -7,8 +7,9 @@ from .base import DivergenceEstimator
 
 
 class ExactDivergence(DivergenceEstimator):
-    def __init__(self, max_dim: int = 16):
+    def __init__(self, max_dim: int = 16, *, create_graph: bool = False):
         self.max_dim = int(max_dim)
+        self.create_graph = bool(create_graph)
 
     def __call__(
         self, field, x: torch.Tensor, t: torch.Tensor, c: torch.Tensor | None
@@ -34,7 +35,13 @@ class ExactDivergence(DivergenceEstimator):
 
             for i in range(numel):
                 grad = torch.autograd.grad(
-                    v_flat[..., i].sum(), x_req, create_graph=False
+                    v_flat[..., i].sum(),
+                    x_req,
+                    create_graph=self.create_graph,
+                    # When create_graph=True we must retain the graph on every
+                    # component pull, otherwise downstream backward through
+                    # log_prob can fail with "backward through graph a second time".
+                    retain_graph=(self.create_graph or i < numel - 1),
                 )[0]
                 grad_flat = grad.reshape(*lead, numel)
                 div = div + grad_flat[..., i]

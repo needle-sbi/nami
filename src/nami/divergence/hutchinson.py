@@ -11,11 +11,12 @@ def _rademacher_like(x: torch.Tensor) -> torch.Tensor:
 
 
 class HutchinsonDivergence(DivergenceEstimator):
-    def __init__(self, probe: str = "rademacher"):
+    def __init__(self, probe: str = "rademacher", *, create_graph: bool = False):
         if probe not in {"rademacher", "gaussian"}:
             msg = "probe must be 'rademacher' or 'gaussian'"
             raise ValueError(msg)
         self.probe = probe
+        self.create_graph = bool(create_graph)
 
     def __call__(
         self, field, x: torch.Tensor, t: torch.Tensor, c: torch.Tensor | None
@@ -39,6 +40,10 @@ class HutchinsonDivergence(DivergenceEstimator):
                 eps = _rademacher_like(x_req)
 
             dot = (v * eps).sum()
-            grad = torch.autograd.grad(dot, x_req, create_graph=False)[0]
+            grad = torch.autograd.grad(
+                dot,
+                x_req,
+                create_graph=self.create_graph,
+            )[0]
 
         return (grad * eps).reshape(*lead, -1).sum(dim=-1)
