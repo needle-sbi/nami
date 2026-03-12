@@ -184,6 +184,14 @@ class FlowMatchingProcess:
         return self._integrate(f, z, t0=self._t0, t1=self._t1)
 
     def log_prob(self, x: torch.Tensor, *, estimator=None) -> torch.Tensor:
+        """Evaluate log-density via change of variables.
+
+        Callers should usually pass ``estimator=...`` unless the field
+        implements ``call_and_divergence`` itself. We do not auto-select a
+        divergence estimator here because the tradeoff is model-dependent:
+        exact traces are deterministic but can be expensive, while
+        Hutchinson-style estimators scale better but add stochasticity.
+        """
         event_ndim = getattr(self._field, "event_ndim", None)
         if event_ndim is None:
             msg = "field.event_ndim is required"
@@ -198,11 +206,21 @@ class FlowMatchingProcess:
                 v = self._field(xi, tt, context)
                 div = estimator(self._field, xi, tt, context)
             else:
+                call_and_divergence = getattr(self._field, "call_and_divergence", None)
+                if call_and_divergence is None:
+                    msg = (
+                        "log_prob requires either `estimator=...` or a field "
+                        "implementing `call_and_divergence(x, t, c)`"
+                    )
+                    raise TypeError(msg)
                 try:
-                    v, div = self._field.call_and_divergence(xi, tt, context)
-                except NotImplementedError as exc:
-                    msg = "field must implement call_and_divergence or provide an estimator"
-                    raise NotImplementedError(msg) from exc
+                    v, div = call_and_divergence(xi, tt, context)
+                except NotImplementedError:
+                    msg = (
+                        "log_prob requires either `estimator=...` or a field "
+                        "implementing `call_and_divergence(x, t, c)`"
+                    )
+                    raise TypeError(msg) from None
             return v, -div
 
         z, delta = self._integrate_augmented(f_aug, x, logp0, t0=self._t1, t1=self._t0)
