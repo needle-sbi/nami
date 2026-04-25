@@ -1,25 +1,24 @@
 from __future__ import annotations
 
-import importlib.metadata
 import importlib.util
-import sys
 from pathlib import Path
 import shutil
+import warnings
+
+import nami
+
+try:
+    from nbformat.validator import MissingIDFieldWarning
+except ImportError:
+    MissingIDFieldWarning = None
+else:
+    warnings.filterwarnings("ignore", category=MissingIDFieldWarning)
 
 project = "nami"
 author = "Levi Evans"
 copyright = "2026, Levi Evans"
 
-
-try:
-    version = release = importlib.metadata.version("nami")
-except importlib.metadata.PackageNotFoundError:
-    version = release = "0+local"
-
-if not version:
-    version = "0+local"
-if not release:
-    release = version
+version = release = nami.__version__
 
 extensions = [
     "sphinx.ext.autodoc",
@@ -27,6 +26,7 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
+    "sphinx_design",
 ]
 
 if importlib.util.find_spec("myst_nb") is not None:
@@ -48,6 +48,7 @@ if "myst_nb" in extensions:
         "amsmath",
     ]
     myst_dmath_double_inline = True
+    myst_heading_anchors = 3
 else:
     source_suffix = {
         ".rst": "restructuredtext",
@@ -58,6 +59,7 @@ exclude_patterns = [
     "_build",
     "_generated",
     "**.ipynb_checkpoints",
+    "books/test/**",
     ".DS_Store",
 ]
 
@@ -77,8 +79,8 @@ nb_execution_mode = "off"
 
 html_title = f"{project} v{version}"
 html_static_path = ["_static"]
-html_logo = "assets/nami.svg"
-html_favicon = "assets/nami.svg"
+html_logo = "assets/nami_logo.svg"
+html_favicon = "assets/nami_logo.svg"
 html_css_files = ["custom.css"]
 
 if html_theme == "pydata_sphinx_theme":
@@ -86,18 +88,21 @@ if html_theme == "pydata_sphinx_theme":
         "github_url": "https://github.com/LeviSamuelEvans/nami",
         "header_links_before_dropdown": 6,
         "logo": {
-            "text": "nami",
-            "image_light": "assets/nami.svg",
-            "image_dark": "assets/nami.svg",
+            #"text": "nami",
+            "image_light": "assets/nami_logo.svg",
+            "image_dark": "assets/nami_logo.svg",
         },
         "navbar_start": ["navbar-logo"],
         "navbar_center": ["navbar-nav"],
         "navbar_end": ["theme-switcher", "navbar-icon-links"],
         "navbar_persistent": ["search-button"],
+        "navbar_align": "content",
+        "sidebar_includehidden": True,
+        "collapse_navigation": True,
         "show_nav_level": 2,
         "show_toc_level": 2,
-        "secondary_sidebar_items": ["page-toc"],
         "navigation_depth": 4,
+        "secondary_sidebar_items": ["page-toc"],
         "show_prev_next": False,
     }
     html_sidebars = {

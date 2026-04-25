@@ -92,6 +92,7 @@ pydata-sphinx-theme = ">=0.16.1,<0.17"
 myst-nb = ">=1.1.0,<2"
 sphinx-copybutton = ">=0.5.2,<0.6"
 sphinx-autodoc-typehints = ">=3.2.0,<4"
+sphinx-design = ">=0.7.0,<0.8"
 
 
 [tool.hatch.build.targets.wheel]
