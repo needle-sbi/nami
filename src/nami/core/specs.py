@@ -97,7 +97,7 @@ class TensorSpec:
     """Minimal tensor specification for models, samplers, and distributions.
 
     Attributes:
-    ----------
+    -----------
         event_shape (tuple[int, ...]): The shape of a single event (sample, vector, matrix, etc).
         dtype (torch.dtype | None): The expected data type of the tensor.
     """

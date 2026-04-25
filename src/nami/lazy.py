@@ -11,6 +11,11 @@ class LazyDistribution(nn.Module):
         raise NotImplementedError
 
 
+class LazyProcess(nn.Module):
+    def forward(self, c: torch.Tensor | None = None):
+        raise NotImplementedError
+
+
 class LazyField(nn.Module):
     @property
     def event_ndim(self) -> int | None:

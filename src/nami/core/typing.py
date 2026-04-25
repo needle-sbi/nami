@@ -17,7 +17,7 @@ class ProbabilityPath(Protocol):
     """Interface for interpolation paths in the fm models
 
     Methods:
-    ---
+    --------
     - `sample_xt`: given data, noise and time, return the interpolated point along the path
     - `target_ut`: ground truth velocity field used in the loss
     """
@@ -36,7 +36,7 @@ class NoiseSchedule(Protocol):
     x_t = alpha(t)*x_0 + sigma(t) * epsilon
 
     Methods:
-    ---
+    --------
     - `alpha(t)`: signal scaling coeff. at time t
     - `sigma(t)`: noise scaling coeff. at time t
     - `snr`: signal-to-noise ratio (alpha^2/sigma^2)
@@ -59,7 +59,7 @@ class ODESolver(Protocol):
     """Interface for ODE integrators.
 
     Methods:
-    ----
+    --------
     - `integrate`: solve dx/dt = f(x,t) from t0 to t1 given initial state x0
     - `integrate_augmented`: jointly solve for state and the log-prob change
     """
