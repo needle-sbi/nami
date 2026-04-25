@@ -51,6 +51,48 @@ docs = [
   "pydata-sphinx-theme>=0.16",
 ]
 
+[tool.pixi.workspace]
+authors = ["Levi Evans <levi.samuel.evans@cern.ch>"]
+channels = ["conda-forge"]
+platforms = ["osx-arm64", "linux-64"]
+
+[tool.pixi.tasks]
+setup = "python -m pip install -e ."
+test = "pytest -q"
+cov = "pytest --cov --cov-report=term-missing"
+lint = "ruff check src tests"
+fmt = "ruff format src tests"
+typecheck = "mypy"
+docs = "LC_ALL= LC_CTYPE= sphinx-build -a -E -b html docs docs/_build/html"
+docs-serve = "LC_ALL= LC_CTYPE= sphinx-autobuild -a -E --host 127.0.0.1 --port 8000 --watch src/nami --ignore docs/books docs docs/_build/html"
+build = "hatch build"
+kernel = "python -m ipykernel install --user --name nami"
+
+[tool.pixi.environments]
+default = { features = ["docs", "lint", "test"], solve-group = "default" }
+
+[tool.pixi.dependencies]
+pytorch = ">=2.10.0,<3"
+pip = ">=25.3,<26"
+ipykernel = ">=7.1.0,<8"
+matplotlib = ">=3.10.8,<4"
+scipy = ">=1.17.0,<2"
+
+[tool.pixi.feature.test.dependencies]
+pytest = ">=9.0.0,<10"
+pytest-cov = ">=7.0.0,<8"
+
+[tool.pixi.feature.lint.dependencies]
+ruff = ">=0.15.5,<0.16"
+
+[tool.pixi.feature.docs.dependencies]
+sphinx = ">=8.0.0,<9"
+sphinx-autobuild = ">=2024.10.3,<2025"
+pydata-sphinx-theme = ">=0.16.1,<0.17"
+myst-nb = ">=1.1.0,<2"
+sphinx-copybutton = ">=0.5.2,<0.6"
+sphinx-autodoc-typehints = ">=3.2.0,<4"
+
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/nami", "src/nami_toys"]
