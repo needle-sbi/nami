@@ -1,4 +1,13 @@
+"""Event-shape primitives: tuple normalisation, flatten/unflatten, validation.
+
+Establishes nami's ``leading_shape + event_shape`` convention. ``event_shape``
+is the shape of a single sample (e.g. ``(d,)`` for vectors, ``(C, H, W)``
+for images); everything to the left is batch / sample / time replication.
+"""
+
 from __future__ import annotations
+
+
 
 import math
 from collections.abc import Iterable
@@ -11,11 +20,9 @@ def as_tuple(x: Iterable[int] | int | None) -> tuple[int, ...]:
     """normaliser to take flexible input and return always a tuple for convenience."""
     if x is None:
         return ()
-    if isinstance(x, tuple):
-        return x
-    if isinstance(x, list):
-        return tuple(int(v) for v in x)
-    return (int(x),)
+    if isinstance(x, int):
+        return (int(x),)
+    return tuple(int(v) for v in x)
 
 
 def event_numel(event_shape: Iterable[int] | None) -> int:

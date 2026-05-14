@@ -1,9 +1,25 @@
+"""Heun's method (improved-Euler / RK2) fixed-step ODE solver.
+
+Second-order trapezoidal predictor-corrector — the deterministic
+sampler from EDM (Karras et al., 2022) and a standard FM /
+probability-flow integrator.
+
+References
+----------
+- Karras et al., *Elucidating the Design Space of Diffusion-Based
+  Generative Models* (EDM), 2022 (arXiv:2206.00364).
+"""
+
 from __future__ import annotations
+
+
 
 import torch
 
 
 class Heun:
+    """Heun's method (RK2) ODE solver with optional augmented-state pass."""
+
     requires_steps = True
     supports_rsample = True
     is_sde = False
@@ -23,6 +39,7 @@ class Heun:
         t1: float,
         steps: int | None = None,
     ) -> torch.Tensor:
+        """Integrate ``dx/dt = f(x, t)`` from ``t0`` to ``t1`` with ``steps`` RK2 steps."""
         steps = int(steps or self.steps)
         if steps <= 0:
             msg = f"steps must be positive, got {steps}"
@@ -49,6 +66,7 @@ class Heun:
         t1: float,
         steps: int | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Joint RK2 integration of state and log-density."""
         steps = int(steps or self.steps)
         if steps <= 0:
             msg = f"steps must be positive, got {steps}"

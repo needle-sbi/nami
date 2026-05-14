@@ -1,11 +1,34 @@
+"""Variance-Preserving (VP) noise schedule.
+
+Linear ``\\beta(t) = \\beta_{\\min} + t (\\beta_{\\max} - \\beta_{\\min})`` from
+the score-SDE / DDPM family: ``\\alpha(t)^2 + \\sigma(t)^2 = 1``.
+
+References
+----------
+- Song et al., *Score-Based Generative Modeling through SDEs*, 2020
+  (arXiv:2011.13456).
+- Ho et al., *Denoising Diffusion Probabilistic Models*, 2020
+  (arXiv:2006.11239) — original DDPM noise convention.
+"""
+
 from __future__ import annotations
+
+
 
 import torch
 
-from .base import NoiseSchedule
+from nami.schedules.base import NoiseSchedule
 
 
 class VPSchedule(NoiseSchedule):
+    """Linear-beta variance-preserving schedule (DDPM / VP-SDE).
+
+    Parameters
+    ----------
+    beta_min, beta_max : float
+        Endpoints of the linear ``\\beta(t)`` ramp.
+    """
+
     def __init__(self, beta_min: float = 0.1, beta_max: float = 20.0):
         if beta_min <= 0 or beta_max <= 0:
             msg = "beta_min and beta_max must be positive"

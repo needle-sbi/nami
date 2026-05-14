@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+
+
 from dataclasses import dataclass, field
 from functools import cached_property
 
@@ -52,7 +54,9 @@ class GaussianMixture:
     ) -> ToyDataset:
         """Draw a Poisson-fluctuated dataset of signal + background events."""
         n_total = int(torch.poisson(torch.tensor(float(n_expected))).item())
-        n_sig = int(Binomial(n_total, sig_frac).sample().item())
+        n_sig = int(
+            Binomial(n_total, probs=torch.tensor(float(sig_frac))).sample().item()
+        )
         n_bkg = n_total - n_sig
 
         sig_data = self.sig.sample((n_sig,))

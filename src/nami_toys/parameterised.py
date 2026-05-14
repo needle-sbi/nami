@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+
+
 from dataclasses import dataclass, field
 from functools import cached_property
 
@@ -86,7 +88,9 @@ class ParameterisedGaussian:
     ) -> ToyDataset:
         """Draw a Poisson-fluctuated dataset at the given *theta*."""
         n_total = int(torch.poisson(torch.tensor(float(n_expected))).item())
-        n_sig = int(Binomial(n_total, self.sig_frac).sample().item())
+        n_sig = int(
+            Binomial(n_total, probs=torch.tensor(float(self.sig_frac))).sample().item()
+        )
         n_bkg = n_total - n_sig
 
         sig = self.sig_at(theta)

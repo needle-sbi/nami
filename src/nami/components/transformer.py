@@ -1,9 +1,23 @@
+"""Transformer blocks with optional cross-attention.
+
+Standard pre-norm encoder block (self-attention + MLP) with an
+optional cross-attention sub-layer for context tokens. Followed by a
+:class:`TransformerBackbone` stacking ``depth`` blocks.
+
+References
+----------
+- Vaswani et al., *Attention Is All You Need*, 2017
+  (arXiv:1706.03762).
+"""
+
 from __future__ import annotations
+
+
 
 import torch
 from torch import nn
 
-from .activation import get_activation
+from nami.components.activation import get_activation
 
 
 # -------------------------------------------------------------------------------------
@@ -87,6 +101,7 @@ class TransformerBlock(nn.Module):
         x: torch.Tensor,
         context: torch.Tensor | None = None,
     ) -> torch.Tensor:
+        """Self-attend ``x`` (and cross-attend ``context`` if provided)."""
         tokens, lead_shape = _flatten_tokens(x)
 
         if context is not None and not self.cross_attention:
@@ -172,6 +187,7 @@ class TransformerBackbone(nn.Module):
         x: torch.Tensor,
         context: torch.Tensor | None = None,
     ) -> torch.Tensor:
+        """Apply ``depth`` transformer blocks then a final layer norm."""
         lead_shape = tuple(x.shape[:-2])
         self._validate_context_tokens(context, lead_shape)
         for block in self.blocks:

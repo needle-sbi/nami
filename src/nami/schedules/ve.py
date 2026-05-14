@@ -1,13 +1,34 @@
+"""Variance-Exploding (VE) noise schedule.
+
+``\\alpha(t) = 1``, ``\\sigma(t) = \\sigma_{\\min} (\\sigma_{\\max}/\\sigma_{\\min})^t``
+— the geometric VE SDE from Song et al.
+
+References
+----------
+- Song et al., *Score-Based Generative Modeling through SDEs*, 2020
+  (arXiv:2011.13456).
+"""
+
 from __future__ import annotations
+
+
 
 import math
 
 import torch
 
-from .base import NoiseSchedule
+from nami.schedules.base import NoiseSchedule
 
 
 class VESchedule(NoiseSchedule):
+    """Geometric variance-exploding schedule of Song et al. (2020).
+
+    Parameters
+    ----------
+    sigma_min, sigma_max : float
+        Endpoint noise levels (defaults match score-SDE conventions).
+    """
+
     def __init__(self, sigma_min: float = 0.01, sigma_max: float = 50.0):
         self.sigma_min = float(sigma_min)
         self.sigma_max = float(sigma_max)

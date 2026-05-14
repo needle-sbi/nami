@@ -1,9 +1,13 @@
+"""Generic MLP backbone operating on the last tensor dimension."""
+
 from __future__ import annotations
+
+
 
 import torch
 from torch import nn
 
-from .activation import get_activation
+from nami.components.activation import get_activation
 
 
 def _validate_mlp_config(hidden: int, layers: int, dropout: float) -> None:
@@ -74,4 +78,5 @@ class MLPBackbone(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Apply the MLP along the last dimension of ``x``."""
         return self.net(x)

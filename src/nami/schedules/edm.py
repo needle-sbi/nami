@@ -1,11 +1,34 @@
+"""EDM noise schedule (Karras et al., 2022).
+
+Variance-exploding schedule with rho-warped sigma grid. ``\\alpha(t) = 1``,
+``\\sigma(t) = (\\sigma_{\\min}^{1/\\rho} + t (\\sigma_{\\max}^{1/\\rho} - \\sigma_{\\min}^{1/\\rho}))^\\rho``.
+
+References
+----------
+- Karras et al., *Elucidating the Design Space of Diffusion-Based
+  Generative Models*, 2022 (arXiv:2206.00364).
+"""
+
 from __future__ import annotations
+
+
 
 import torch
 
-from .base import NoiseSchedule
+from nami.schedules.base import NoiseSchedule
 
 
 class EDMSchedule(NoiseSchedule):
+    """EDM rho-warped variance-exploding schedule.
+
+    Parameters
+    ----------
+    sigma_min, sigma_max : float
+        Endpoint noise levels.
+    rho : float
+        Warping exponent (Karras default 7.0).
+    """
+
     def __init__(
         self, sigma_min: float = 0.002, sigma_max: float = 80.0, rho: float = 7.0
     ):

@@ -1,20 +1,52 @@
+"""Inspection helpers: tensor descriptions, field statistics, reversibility.
+
+Lightweight diagnostics for sanity-checking trained fields and
+solvers. Not on the import-time hot path.
+"""
+
 from __future__ import annotations
+
+
 
 import torch
 
-from .core.broadcast import broadcast
+from nami.core.broadcast import broadcast
+from nami.core.specs import split_event
+from nami.fields._common import require_event_ndim
+from nami.processes._common import cast_time
+
+
+def describe(
+    x: torch.Tensor | None = None,
+    c: torch.Tensor | None = None,
+    t: torch.Tensor | None = None,
+    event_ndim: int | None = None,
+) -> str:
+    """Format the shape / dtype / device of input tensors for inspection."""
+    lines = []
+    if x is not None:
+        lines.append(f"x: shape={tuple(x.shape)} dtype={x.dtype} device={x.device}")
+        if event_ndim is not None:
+            lead, event_shape = split_event(x, event_ndim)
+            lines.append(f"  lead={lead} event_shape={event_shape}")
+    if c is not None:
+        lines.append(f"c: shape={tuple(c.shape)} dtype={c.dtype} device={c.device}")
+    if t is not None:
+        lines.append(f"t: shape={tuple(t.shape)} dtype={t.dtype} device={t.device}")
+    return "\n".join(lines)
 
 
 def field_stats(
     field, x: torch.Tensor, t: torch.Tensor, c: torch.Tensor | None = None
 ) -> dict[str, torch.Tensor]:
-    event_ndim = getattr(field, "event_ndim", None)
-    if event_ndim is None:
-        msg = "field.event_ndim is required"
-        raise ValueError(msg)
+    """Return mean / std / min / max of per-sample velocity norms at ``(x, t)``."""
+    event_ndim = require_event_ndim(field)
 
-    x, t, c = broadcast(x, t, c, event_ndim=event_ndim, validate_args=True)
-    v = field(x, t, c)
+    bx, bt, bc = broadcast(x, t, c, event_ndim=event_ndim, validate_args=True)
+    if bt is None:  # pragma: no cover - t is required by the function signature
+        msg = "t is required"
+        raise TypeError(msg)
+    v = field(bx, bt, bc)
 
     if event_ndim:
         flat = v.reshape(*v.shape[:-event_ndim], -1)
@@ -38,15 +70,16 @@ def divergence_stats(
     *,
     estimator=None,
 ) -> dict[str, torch.Tensor]:
-    event_ndim = getattr(field, "event_ndim", None)
-    if event_ndim is None:
-        msg = "field.event_ndim is required"
-        raise ValueError(msg)
+    """Return mean / std / min / max of the field's divergence at ``(x, t)``."""
+    event_ndim = require_event_ndim(field)
 
-    x, t, c = broadcast(x, t, c, event_ndim=event_ndim, validate_args=True)
+    bx, bt, bc = broadcast(x, t, c, event_ndim=event_ndim, validate_args=True)
+    if bt is None:  # pragma: no cover - t is required by the function signature
+        msg = "t is required"
+        raise TypeError(msg)
 
     if estimator is not None:
-        div = estimator(field, x, t, c)
+        div = estimator(field, bx, bt, bc)
     else:
         call_and_divergence = getattr(field, "call_and_divergence", None)
         if call_and_divergence is None:
@@ -56,7 +89,7 @@ def divergence_stats(
             )
             raise TypeError(msg)
         try:
-            _, div = call_and_divergence(x, t, c)
+            _, div = call_and_divergence(bx, bt, bc)
         except NotImplementedError:
             msg = (
                 "divergence_stats requires either `estimator=...` or a field "
@@ -82,13 +115,11 @@ def reversibility_error(
     steps: int | None = None,
     c: torch.Tensor | None = None,
 ) -> dict[str, torch.Tensor]:
-    event_ndim = getattr(field, "event_ndim", None)
-    if event_ndim is None:
-        msg = "field.event_ndim is required"
-        raise ValueError(msg)
+    """Round-trip error of integrating ``field`` from ``t1 -> t0 -> t1``.
 
-    def cast_time(t: float | torch.Tensor, like: torch.Tensor) -> torch.Tensor:
-        return torch.as_tensor(t, device=like.device, dtype=like.dtype)
+    Useful as a smoke test for trained fields and solver step counts.
+    """
+    event_ndim = require_event_ndim(field)
 
     def f(xi: torch.Tensor, t: float | torch.Tensor) -> torch.Tensor:
         tt = cast_time(t, xi)

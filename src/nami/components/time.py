@@ -1,4 +1,20 @@
+"""Time embeddings used by velocity / score / action fields.
+
+``ScalarTimeEmbedding`` passes ``t`` through unchanged (one feature);
+``SinusoidalTimeEmbedding`` follows the Transformer / DDPM convention
+of sinusoids at geometrically spaced frequencies.
+
+References
+----------
+- Vaswani et al., *Attention Is All You Need*, 2017
+  (arXiv:1706.03762) — sinusoidal positional encoding.
+- Ho et al., *Denoising Diffusion Probabilistic Models*, 2020
+  (arXiv:2006.11239) — sinusoidal time embedding for diffusion.
+"""
+
 from __future__ import annotations
+
+
 
 import math
 

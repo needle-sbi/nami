@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+
+
 import math
 from dataclasses import dataclass
 
@@ -36,7 +38,9 @@ class GaussianShell:
     ) -> ToyDataset:
         """Draw a Poisson-fluctuated 2-D shell dataset."""
         n_total = int(torch.poisson(torch.tensor(float(n_expected))).item())
-        n_sig = int(Binomial(n_total, sig_frac).sample().item())
+        n_sig = int(
+            Binomial(n_total, probs=torch.tensor(float(sig_frac))).sample().item()
+        )
         n_bkg = n_total - n_sig
 
         # signal: points on a noisy ring
