@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling>=1.26"]
+requires = ["hatchling>=1.26", "hatch-vcs>=0.5"]
 build-backend = "hatchling.build"
 
 [project]
@@ -7,12 +7,12 @@ name = "nami"
 authors = [
   { name = "Levi Evans", email = "levi.samuel.evans@cern.ch" },
 ]
-description = "library for flow-based generative models"
+description = "A library for composable transport maps"
 readme = "README.md"
 license = "MIT"
-requires-python = ">=3.10"
+requires-python = ">=3.10,<3.14"
 classifiers = [
-  "Development Status :: 1 - Planning",
+  "Development Status :: 2 - Pre-Alpha",
   "Intended Audience :: Science/Research",
   "Intended Audience :: Developers",
   "Operating System :: OS Independent",
@@ -26,35 +26,53 @@ classifiers = [
   "Topic :: Scientific/Engineering",
   "Typing :: Typed",
 ]
-version = "0.1.0"
+dynamic = ["version"]
 
 dependencies = [
-  "torch >= 2.0.0",
-  ]
+  "torch >= 2.0.0,<3",
+]
 
 [project.urls]
-
+Homepage = "https://github.com/LeviSamuelEvans/nami"
+Documentation = "https://levisamuelevans.github.io/nami/"
+Repository = "https://github.com/LeviSamuelEvans/nami"
+Issues = "https://github.com/LeviSamuelEvans/nami/issues"
 
 [dependency-groups]
 test = [
-  "pytest >=6",
-  "pytest-cov >=3",
+  "pytest >=9.0.0,<10",
+  "pytest-cov >=7.0.0,<8",
+]
+lint = [
+  "ruff >=0.15.5,<0.16",
+  "pylint >=4.0.0,<5",
+]
+typecheck = [
+  "mypy >=1.19.0,<2",
+]
+build = [
+  "hatch >=1.16.0,<2",
 ]
 dev = [
   { include-group = "test" },
+  { include-group = "lint" },
+  { include-group = "typecheck" },
+  { include-group = "build" },
 ]
 docs = [
-  "sphinx>=7.0",
-  "myst-nb>=1.1.0",
-  "sphinx_copybutton",
-  "sphinx_autodoc_typehints",
-  "pydata-sphinx-theme>=0.16",
+  "sphinx >=8.0.0,<9",
+  "sphinx-autobuild >=2024.10.3,<2025",
+  "pydata-sphinx-theme >=0.16.1,<0.17",
+  "myst-nb >=1.1.0,<2",
+  "sphinx-copybutton >=0.5.2,<0.6",
+  "sphinx-autodoc-typehints >=3.2.0,<4",
+  "sphinx-design >=0.7.0,<0.8",
 ]
 
 [tool.pixi.workspace]
 authors = ["Levi Evans <levi.samuel.evans@cern.ch>"]
 channels = ["conda-forge"]
-platforms = ["osx-arm64", "linux-64"]
+platforms = ["osx-arm64", "linux-64", "win-64"]
 
 [tool.pixi.tasks]
 setup = "python -m pip install -e ."
@@ -62,21 +80,40 @@ test = "pytest -q"
 cov = "pytest --cov --cov-report=term-missing"
 lint = "ruff check src tests"
 fmt = "ruff format src tests"
-typecheck = "mypy"
+typecheck = "ty check src/nami src/nami_toys"
+pylint = "pylint src/nami src/nami_toys"
 docs = "LC_ALL= LC_CTYPE= sphinx-build -a -E -b html docs docs/_build/html"
-docs-serve = "LC_ALL= LC_CTYPE= sphinx-autobuild -a -E --host 127.0.0.1 --port 8000 --watch src/nami --ignore docs/books docs docs/_build/html"
+docs-rtd = "LC_ALL= LC_CTYPE= sphinx-build -T -b html -d docs/_build/doctrees -D language=en docs $READTHEDOCS_OUTPUT/html"
+docs-serve = "LC_ALL= LC_CTYPE= sphinx-autobuild -a -E --host 127.0.0.1 --port 8001 --watch src/nami --ignore docs/books docs docs/_build/html"
 build = "hatch build"
 kernel = "python -m ipykernel install --user --name nami"
 
 [tool.pixi.environments]
-default = { features = ["docs", "lint", "test"], solve-group = "default" }
+default = { features = ["cpu", "docs", "lint", "test", "typecheck", "build", "experiments", "hooks"], solve-group = "cpu" }
+cpu = { features = ["cpu", "docs", "lint", "test", "typecheck", "build", "experiments", "hooks"], solve-group = "cpu" }
+gpu = { features = ["gpu", "docs", "lint", "test", "typecheck", "build", "experiments", "hooks"], solve-group = "gpu" }
 
 [tool.pixi.dependencies]
-pytorch = ">=2.10.0,<3"
+python = ">=3.10,<3.14"
 pip = ">=25.3,<26"
 ipykernel = ">=7.1.0,<8"
 matplotlib = ">=3.10.8,<4"
 scipy = ">=1.17.0,<2"
+
+[tool.pixi.pypi-dependencies]
+marimo = ">=0.23.6,<0.24"
+
+[tool.pixi.feature.cpu.dependencies]
+pytorch-cpu = ">=2.0.0,<3"
+
+[tool.pixi.feature.gpu]
+platforms = ["linux-64"]
+
+[tool.pixi.feature.gpu.system-requirements]
+cuda = "12"
+
+[tool.pixi.feature.gpu.target.linux-64.dependencies]
+pytorch-gpu = ">=2.0.0,<3"
 
 [tool.pixi.feature.test.dependencies]
 pytest = ">=9.0.0,<10"
@@ -84,6 +121,13 @@ pytest-cov = ">=7.0.0,<8"
 
 [tool.pixi.feature.lint.dependencies]
 ruff = ">=0.15.5,<0.16"
+pylint = ">=4.0.0,<5"
+
+[tool.pixi.feature.typecheck.dependencies]
+ty = ">=0.0.33"
+
+[tool.pixi.feature.build.dependencies]
+hatch = ">=1.16.0,<2"
 
 [tool.pixi.feature.docs.dependencies]
 sphinx = ">=8.0.0,<9"
@@ -94,15 +138,28 @@ sphinx-copybutton = ">=0.5.2,<0.6"
 sphinx-autodoc-typehints = ">=3.2.0,<4"
 sphinx-design = ">=0.7.0,<0.8"
 
+[tool.pixi.feature.experiments.dependencies]
+ipykernel = ">=7.1.0,<8"
+matplotlib = ">=3.10.8,<4"
+scipy = ">=1.17.0,<2"
+sbi = ">=0.26.1,<0.27"
+
+[tool.pixi.feature.hooks.dependencies]
+pre-commit = "*"
+
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/nami", "src/nami_toys"]
+packages = ["src/nami"] ###"src/nami_toys"
 
-[tool.hatch]
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/nami/_version.py"
+
 
 [tool.hatch.envs.default]
-# duplicate for now since hatch doesn't support groups yet
-dependencies = []
+dependency-groups = ["test"]
 scripts.test = "pytest {args}"
 
 
@@ -131,23 +188,15 @@ report.exclude_also = [
   'if typing.TYPE_CHECKING:',
 ]
 
-[tool.mypy]
-files = ["src", "tests"]
-python_version = "3.12"
-warn_unused_configs = true
-strict = true
-enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
-warn_unreachable = true
-disallow_untyped_defs = false
-disallow_incomplete_defs = false
+[tool.ty.environment]
+python-version = "3.12"
 
-[[tool.mypy.overrides]]
-module = "nami.*"
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-
+[tool.ty.src]
+include = ["src", "tests"]
 
 [tool.ruff]
+src = ["src", "tests"]
+target-version = "py310"
 
 [tool.ruff.lint]
 extend-select = [
@@ -184,8 +233,8 @@ isort.required-imports = ["from __future__ import annotations"]
 "noxfile.py" = ["T20"]
 
 
-[tool.pylint]
-py-version = "3.11"
+[tool.lint]
+py-version = "3.10"
 ignore-paths = [".*/_version.py"]
 reports.output-format = "colorized"
 similarities.ignore-imports = "yes"
