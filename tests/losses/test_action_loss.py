@@ -11,6 +11,7 @@ Pins:
   (``create_graph=True``).
 * Rejects non-``Action`` parameterisations with an explicit message.
 """
+
 from __future__ import annotations
 
 import pytest

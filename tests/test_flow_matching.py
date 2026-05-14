@@ -161,11 +161,6 @@ def test_lazy_process_and_lazy_distribution_are_split():
     assert isinstance(base, LazyDistribution)
 
 
-# ---------------------------------------------------------------------------
-# Stage 2b: Parameterization integration
-# ---------------------------------------------------------------------------
-
-
 class _LinearField(nn.Module):
     """Field with a non-trivial deterministic velocity for sampling tests."""
 
@@ -262,6 +257,7 @@ def test_log_prob_divergence_uses_transformed_field():
     ``(field, output_transform)`` into ``_TransformedField`` before
     handing the estimator something to differentiate.
     """
+
     class _NegX(nn.Module):
         event_ndim = 1
 
@@ -311,6 +307,7 @@ def test_log_prob_call_and_divergence_path_rejects_non_identity_transform():
     ``output_transform`` would mix two different velocities in the
     density bookkeeping.  Force the user to pass an estimator instead.
     """
+
     class _FieldWithDivergence(nn.Module):
         event_ndim = 1
 
@@ -336,11 +333,6 @@ def test_log_prob_call_and_divergence_path_rejects_non_identity_transform():
 
 
 def test_legacy_string_parameterization_kwarg_does_not_exist():
-    """Stage 2b chose to introduce the kwarg without ever supporting a
-    string-flag form; this test pins that ``parameterization="velocity"``
-    fails clearly rather than silently accepting and ignoring the
-    string.
-    """
     field = _LinearField()
     base = StandardNormal(event_shape=(3,))
 

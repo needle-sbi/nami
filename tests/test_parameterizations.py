@@ -1,17 +1,3 @@
-"""Stage-0 invariants for the parameterization vocabulary.
-
-These tests do not exercise any concrete model — they pin the *shape* of
-the new vocabulary so that later stages cannot silently drift back into a
-parallel hierarchy.  Two invariants are protected here:
-
-1. ``Target`` enumerates exactly the variants the design committed to.
-   Adding a new variant must be a deliberate choice that updates the
-   union, this test, and every consumer's pattern match.
-2. Pattern-matching dispatch over ``Target`` works structurally.  The
-   sentinel test below mirrors how concrete interpolants will dispatch
-   in Stage 1 onward; if it stops compiling cleanly, the protocol has
-   regressed.
-"""
 from __future__ import annotations
 
 from typing import get_args

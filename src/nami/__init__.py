@@ -5,6 +5,7 @@
 * **Process -> sample / log_prob**
 
 """
+
 from __future__ import annotations
 
 try:

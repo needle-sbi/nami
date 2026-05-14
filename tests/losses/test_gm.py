@@ -1,13 +1,3 @@
-"""GM-flavoured semantic tests on the unified ``regression_loss`` path.
-
-The legacy ``gm_loss`` / ``cgm_loss`` and ``LinearGeneratorPath`` /
-``BrownianGeneratorPath`` were deleted in stage 3d.  Most of what the
-old ``test_gm.py`` covered (reductions, context forwarding, t-sampling
-discipline) is already pinned in ``tests/losses/test_regression.py``
-and ``tests/interpolants/test_bridge.py``; the remaining GM-specific
-semantic claim — *a field that emits the conditional generator drift
-exactly produces zero loss* — lives here.
-"""
 from __future__ import annotations
 
 import torch

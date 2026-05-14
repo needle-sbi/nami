@@ -177,6 +177,7 @@ def epsilon_prediction(schedule: NoiseSchedule) -> Parameterization:
     prediction with their conventional weightings.
     """
     del schedule  # unused — epsilon-prediction's omega is schedule-independent
+
     def weighting(t: torch.Tensor) -> torch.Tensor:
         return torch.ones_like(t)
 

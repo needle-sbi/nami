@@ -34,9 +34,7 @@ def _state(interpolant, x_data, x_noise, t, xt):  # noqa: ARG001
     t, xt — so the noise slot can be left ``None`` for these test
     fields without affecting the computed target.
     """
-    return InterpolantState(
-        xt=xt, x_data=x_data, x_noise=x_noise, t=t, noise=None
-    )
+    return InterpolantState(xt=xt, x_data=x_data, x_noise=x_noise, t=t, noise=None)
 
 
 class _PerfectFlowField(nn.Module):
@@ -378,9 +376,7 @@ class TestBridgeMatchingLoss:
         x_data = torch.randn(16, 3)
         x_noise = torch.randn(16, 3)
 
-        _ = bridge_matching_loss(
-            flow, score, x_data, x_noise, interpolant=interpolant
-        )
+        _ = bridge_matching_loss(flow, score, x_data, x_noise, interpolant=interpolant)
 
         assert flow.last_t is not None
         assert score.last_t is not None

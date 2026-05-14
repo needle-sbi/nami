@@ -1,12 +1,4 @@
-"""Direct semantic tests for ``consistency_loss`` on the unified vocabulary.
-
-The migration-time golden equivalence tests against legacy
-``cfm_loss`` / ``cfm_reverse_loss`` ran successfully (bit-exact match
-to ``atol/rtol = 1e-12`` in float64, parametrised across forward /
-reverse, target_field EMA, euler_step, and reduction modes); they
-were deleted in stage 4 alongside the legacy losses they validated
-against.  The semantic claims they preserved are pinned here directly:
-
+"""
 * A perfect velocity field (``v = x_data - x_noise`` for the
   linear interpolant) yields zero loss because the consistency
   function ``f(x_t, t, v) = x_t + (T - t) v`` evaluates to
@@ -25,6 +17,7 @@ against.  The semantic claims they preserved are pinned here directly:
   cannot synthesise a velocity without a schedule, which this loss
   carries none of.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -63,15 +56,15 @@ class _LinearField(nn.Module):
 
 # ---------------------------------------------------------------------------
 # Perfect-field claims
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize("target_time", [0.0, 1.0])
 def test_perfect_velocity_gives_zero_loss(target_time: float) -> None:
     """For the linear interpolant, ``v = x_data - x_noise`` is the
     true conditional velocity, so ``f(x_t, t, v)`` is independent of
-    ``t`` and the consistency MSE collapses to zero — both for forward
-    (``T=0``) and reverse (``T=1``) consistency.
+    ``t`` and the consistency MSE collapses to zero — both for reverse
+    (``T=0``, noise endpoint) and forward (``T=1``, data endpoint)
+    consistency in nami's FM convention.
     """
     torch.manual_seed(0)
     x_data = torch.randn(32, 4, dtype=torch.float64)
@@ -91,11 +84,6 @@ def test_perfect_velocity_gives_zero_loss(target_time: float) -> None:
         eps_t=0.0,
     )
     assert torch.allclose(loss, torch.tensor(0.0, dtype=torch.float64), atol=1e-12)
-
-
-# ---------------------------------------------------------------------------
-# Anchor / gradient flow
-# ---------------------------------------------------------------------------
 
 
 def test_anchor_target_field_receives_no_gradient() -> None:
@@ -202,11 +190,6 @@ def test_forward_anchor_detach_path_blocks_gradient() -> None:
     assert torch.isfinite(field.scalar.grad)
 
 
-# ---------------------------------------------------------------------------
-# target_field (EMA anchor)
-# ---------------------------------------------------------------------------
-
-
 def test_target_field_changes_anchor_value() -> None:
     """Supplying a ``target_field`` swaps the anchor from the online
     network's detached output to the target network's output.  With
@@ -251,11 +234,6 @@ def test_target_field_changes_anchor_value() -> None:
         eps_t=0.0,
     )
     assert not torch.allclose(loss_no_target, loss_with_target, atol=1e-6)
-
-
-# ---------------------------------------------------------------------------
-# euler_step
-# ---------------------------------------------------------------------------
 
 
 def test_euler_step_runs_and_finite() -> None:
@@ -313,11 +291,6 @@ def test_euler_step_perfect_field_still_zero_loss() -> None:
     assert torch.allclose(loss, torch.tensor(0.0, dtype=torch.float64), atol=1e-12)
 
 
-# ---------------------------------------------------------------------------
-# delta clamping at t=1
-# ---------------------------------------------------------------------------
-
-
 def test_delta_clamp_at_t_equals_one() -> None:
     """When ``t + δ > 1`` the loss internally clamps ``tt`` to 1.0;
     the result must remain finite even at the boundary.
@@ -339,11 +312,6 @@ def test_delta_clamp_at_t_equals_one() -> None:
         eps_t=0.0,
     )
     assert torch.isfinite(loss)
-
-
-# ---------------------------------------------------------------------------
-# Validation
-# ---------------------------------------------------------------------------
 
 
 def test_non_velocity_target_rejected() -> None:

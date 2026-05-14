@@ -171,6 +171,7 @@ def log_density_consistency_loss(
 
     if euler_step:
         vt = field(xt, t, c)
+
         def _reshape(s: torch.Tensor) -> torch.Tensor:
             return s.reshape(s.shape + (1,) * event_ndim)
 

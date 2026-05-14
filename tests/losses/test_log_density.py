@@ -5,6 +5,7 @@ deleted in stage 4 alongside ``cfm_loss`` / ``cfm_reverse_loss``;
 their semantic claims are pinned in ``tests/losses/test_consistency.py``
 against the unified ``consistency_loss``.
 """
+
 from __future__ import annotations
 
 import math

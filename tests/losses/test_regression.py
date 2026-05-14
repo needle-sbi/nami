@@ -1,18 +1,3 @@
-"""Stage-1b tests: regression_loss + factory equivalence.
-
-The headline test is factory equivalence: with three parameterizations
-acting on algebraically-related network outputs (so that all three
-emit the "same" prediction expressed in their respective target
-spaces), the per-sample weighted losses are equal.  That is the
-structural fix for the silent re-weighting bug — switching
-parameterization no longer requires manually re-deriving ω(t), because
-ω travels with the target choice in :class:`Parameterization`.
-
-A companion test demonstrates that breaking the binding (passing
-score-prediction's target with eps-prediction's weighting) makes the
-losses *unequal* — proof that the weighting is doing real work and
-the factory defaults are the load-bearing part.
-"""
 from __future__ import annotations
 
 import pytest

@@ -57,6 +57,7 @@ def action_prediction() -> Parameterization:
     """
     return Parameterization(target=Action())
 
+
 def _grad_x_s(
     field,
     xt: torch.Tensor,

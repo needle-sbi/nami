@@ -1,20 +1,3 @@
-"""Forward-compatibility stubs added at the end of stage 4.
-
-The unified vocabulary deferred a handful of items to future stages:
-
-* ``VPrediction`` Target variant (Salimans-Ho v-prediction) — partially landed
-  here (concrete for ``GaussianInterpolant``, unsupported elsewhere).
-* ``TwoHeadField`` Protocol (replaces the deleted two-model
-  ``transforms.py`` combiners; awaits a stochastic-interpolant Process
-  to drive the requirement).
-* ``Action`` Target variant (Neklyudov et al., 2023) — variant declared
-  and dispatch arms in place on every interpolant; the matching
-  ``action_matching_loss`` and ``ActionMatching`` Process land in a
-  follow-up MR.
-
-These tests pin the stubs' shape so they don't silently regress
-between now and the migrations that complete them.
-"""
 from __future__ import annotations
 
 from typing import get_args
@@ -42,10 +25,6 @@ from nami.fields.composite import TwoHeadField
 from nami.lazy import UnconditionalField
 from nami.parameterizations import Action, Target
 from nami.schedules.vp import VPSchedule
-
-# ---------------------------------------------------------------------------
-# VPrediction target — Gaussian interpolant has the closed form
-# ---------------------------------------------------------------------------
 
 
 def test_v_target_gaussian_matches_alpha_eps_minus_sigma_x0() -> None:
@@ -146,11 +125,6 @@ def test_v_prediction_works_end_to_end_in_diffusion_process() -> None:
     )
 
 
-# ---------------------------------------------------------------------------
-# LogDensityHead
-# ---------------------------------------------------------------------------
-
-
 def test_log_density_head_constructs_and_runs() -> None:
     head = LogDensityHead(dim=3)
     x = torch.randn(4, 3)
@@ -158,11 +132,6 @@ def test_log_density_head_constructs_and_runs() -> None:
     out = head(x, t)
     assert out.shape == (4,)
     assert torch.isfinite(out).all()
-
-
-# ---------------------------------------------------------------------------
-# TwoHeadField Protocol
-# ---------------------------------------------------------------------------
 
 
 def test_two_head_field_protocol_is_runtime_checkable() -> None:
@@ -195,15 +164,6 @@ def test_two_head_field_rejects_non_conformer() -> None:
     assert not isinstance(_MissingEventNdim(), TwoHeadField)
 
 
-# ---------------------------------------------------------------------------
-# Action target — variant scaffolding.  Every interpolant supporting
-# ``Velocity`` now returns the conditional velocity for ``Action`` too
-# (since action-matching regresses ``∇_x s`` against that velocity);
-# ``GaussianInterpolant`` is the lone exception (no schedule
-# derivatives exposed by ``NoiseSchedule``).
-# ---------------------------------------------------------------------------
-
-
 def _state_for(interpolant) -> object:
     x_data = torch.randn(4, 3)
     x_noise = torch.randn(4, 3)
@@ -222,7 +182,7 @@ def _state_for(interpolant) -> object:
     ids=["linear", "stochastic_linear", "cosine", "bridge"],
 )
 def test_action_target_returns_conditional_velocity(interpolant, name) -> None:  # noqa: ARG001
-    """The action target *is* the conditional velocity ∇_x s should match.
+    """The action target *is* the conditional velocity nabla_x s should match.
 
     Pinned bit-exactly against the ``Velocity`` arm for the deterministic
     interpolants; the stochastic ones get a shape check (the velocity

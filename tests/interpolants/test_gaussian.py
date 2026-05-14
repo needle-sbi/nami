@@ -4,6 +4,7 @@ Covers the building blocks only.  Loss-level equivalence between the
 three factories under change of variables lands in stage 1b alongside
 ``regression_loss``.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -170,8 +171,7 @@ def test_score_target_is_singular_at_t_one_by_design(
     # magnitude reflects the unclamped 1/alpha(1) divergence.
     a1 = float(interpolant.schedule.alpha(torch.tensor(1.0)))
     assert score.abs().max().item() >= 1.0 / a1 - 1e-3, (
-        "Score should diverge as 1/alpha(t) at t=1; if a clamp landed, "
-        "update this test"
+        "Score should diverge as 1/alpha(t) at t=1; if a clamp landed, update this test"
     )
 
 

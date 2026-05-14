@@ -1,15 +1,3 @@
-"""ActionMatching Process tests.
-
-Pins:
-
-* The integrator drift is ``∇_x s(x, t)`` (recovered by autograd).
-* A perfect linear scalar potential samples the same as a flow with
-  the equivalent velocity field — the structural equivalence between
-  ``ActionMatching`` and ``FlowMatching`` under the
-  ``∇_x s = u`` identity.
-* ``log_prob`` raises NotImplementedError (deferred until a consumer
-  drives the Laplacian-of-s second-order autograd plumbing).
-"""
 from __future__ import annotations
 
 import pytest

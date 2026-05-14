@@ -14,6 +14,7 @@ If ``regression_loss`` ever drifts from this formula, the abstraction
 no longer implements linear-path flow matching — which is exactly what
 the deleted ``fm_loss`` used to encode.
 """
+
 from __future__ import annotations
 
 import pytest

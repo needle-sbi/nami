@@ -1,4 +1,5 @@
 """Shared pytest fixtures for nami tests."""
+
 from __future__ import annotations
 
 import pytest

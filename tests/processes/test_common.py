@@ -8,6 +8,7 @@ them risked silent behaviour drift; this test file pins each helper's
 contract independently and verifies all four Process classes share
 the mixin.
 """
+
 from __future__ import annotations
 
 import pytest

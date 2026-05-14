@@ -9,8 +9,8 @@ r"""Training-target language for transport processes.
   emission into the target's space.  Carrying the weighting alongside the
   target choice closes the silent re-weighting bug class that string-flag
   parameterisations (``"eps" | "score" | "x0"``) historically permitted.
-* The dispatch is a method on the :class:`~nami.interpolants.protocol.Interpolant`, 
-  not a free function: each interpolant knows which targets it can express and 
+* The dispatch is a method on the :class:`~nami.interpolants.protocol.Interpolant`,
+  not a free function: each interpolant knows which targets it can express and
   raises ``NotImplementedError`` for those it cannot.
 """
 

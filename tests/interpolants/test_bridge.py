@@ -1,13 +1,3 @@
-"""``BrownianBridgeInterpolant`` structural and analytic-baseline tests.
-
-Originally these tests pinned the new interpolant against the legacy
-``BrownianBridgePath`` and ``BrownianGeneratorPath``.  Both legacy
-classes were deleted in stage 5; this file's equivalence tests now
-use **inline analytic baselines** computed from the bridge formulas
-directly, so a future refactor of the interpolant body that breaks
-the math fails against the formula itself, not against a stale
-reference.
-"""
 from __future__ import annotations
 
 import pytest
@@ -53,7 +43,7 @@ def _bridge_velocity(x_data, x_noise, t, xt, *, eps):
 
 
 def _bridge_score(x_data, x_noise, t, xt, *, sigma, eps):
-    """Closed-form bridge conditional score: ∇ log p_t(x_t)."""
+    """Closed-form bridge conditional score: nabla_x log p_t(x_t)."""
     tt = t.reshape(t.shape + (1,) * (x_data.ndim - t.ndim))
     mu = (1.0 - tt) * x_noise + tt * x_data
     var = sigma**2 * torch.clamp(tt * (1.0 - tt), min=eps)
@@ -70,11 +60,6 @@ def batch() -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     t = 0.05 + 0.9 * torch.rand(16, dtype=torch.float64)
     z = torch.randn(16, 4, dtype=torch.float64)
     return x_data, x_noise, t, z
-
-
-# ---------------------------------------------------------------------------
-# Sample
-# ---------------------------------------------------------------------------
 
 
 def test_sample_matches_analytic_bridge_formula(
@@ -115,11 +100,6 @@ def test_sample_with_no_noise_draws_internally(
     state_b = interpolant.sample(x_data, x_noise, t)
     # Different draws → different xt.
     assert not torch.allclose(state_a.xt, state_b.xt)
-
-
-# ---------------------------------------------------------------------------
-# Targets — equivalence with legacy path classes (the duplication-collapse claim)
-# ---------------------------------------------------------------------------
 
 
 def test_velocity_matches_analytic_bridge_velocity(
@@ -181,11 +161,6 @@ def test_generator_params_drift_equals_velocity_target(
     assert torch.allclose(actual, expected, atol=1e-12, rtol=1e-12)
 
 
-# ---------------------------------------------------------------------------
-# Targets — unsupported variants
-# ---------------------------------------------------------------------------
-
-
 @pytest.mark.parametrize("target_cls", [Epsilon, X0], ids=["epsilon", "x0"])
 def test_unsupported_targets_raise(
     interpolant: BrownianBridgeInterpolant,
@@ -196,11 +171,6 @@ def test_unsupported_targets_raise(
     state = interpolant.sample(x_data, x_noise, t, noise=z)
     with pytest.raises(NotImplementedError, match="Brownian-bridge increment"):
         interpolant.target(target_cls(), state)
-
-
-# ---------------------------------------------------------------------------
-# Validation
-# ---------------------------------------------------------------------------
 
 
 def test_invalid_sigma_or_eps_rejected() -> None:
