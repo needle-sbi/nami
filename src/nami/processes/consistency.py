@@ -69,9 +69,9 @@ class ConsistencyFlowMatching(LazyProcess):
         :meth:`log_prob` evaluates the head at the data endpoint in a
         single forward pass.
     t0 : float
-        Source time (noise), default ``1.0``.
+        Source time (noise endpoint), default ``0.0``.
     t1 : float
-        Target time (data / consistency endpoint), default ``0.0``.
+        Target time (data / consistency endpoint), default ``1.0``.
     event_ndim : int or None
         Fallback when the field does not expose ``event_ndim``.
     validate_args : bool

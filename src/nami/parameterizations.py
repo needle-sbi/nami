@@ -48,7 +48,7 @@ class Score:
 
 @dataclass(frozen=True)
 class Epsilon:
-    r"""Standardised noise ``\epsilon`` such that ``x_t = \alpha_t x_0 + \sigma_t \epsilon``."""
+    r"""Standardised noise ``\epsilon`` such that ``x_t = \alpha_t \epsilon + \sigma_t x_0`` (FM convention)."""
 
 
 @dataclass(frozen=True)

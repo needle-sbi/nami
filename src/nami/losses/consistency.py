@@ -1,15 +1,22 @@
 r"""Unified consistency loss for trajectory-pair self-consistency training.
 
-Replaces the legacy ``cfm_loss`` (forward consistency, ``target_time=0``)
-and ``cfm_reverse_loss`` (reverse consistency, ``target_time=1``) with
-one function on the unified Interpolant + Parameterization vocabulary.
+Replaces the legacy ``cfm_loss`` (forward consistency) and
+``cfm_reverse_loss`` (reverse consistency) with one function on the
+unified Interpolant + Parameterization vocabulary.
+
+In nami's FM convention (``t=0`` is noise, ``t=1`` is data), forward
+consistency anchors at the **data** endpoint (the generation target,
+``target_time=1.0``) and reverse consistency anchors at the **noise**
+endpoint (``target_time=0.0``).  This is the opposite of the legacy
+labels under the old diffusion convention; the underlying mathematical
+objects are unchanged.
 
 Implements consistency-style distillation / training in the spirit of
 Song et al., *Consistency Models*, 2023 (arXiv:2303.01469), with the
 flow-matching variant of Yang et al., *Consistency Flow Matching*,
 2024.  The consistency function ``f(x, t, v) = x + (T - t) v`` is the
-linear-interpolant boundary map; ``target_time = 0`` reduces to the
-forward-consistency objective and ``target_time = 1`` to the reverse-
+linear-interpolant boundary map; ``target_time = 1`` reduces to the
+forward-consistency objective and ``target_time = 0`` to the reverse-
 consistency objective.
 
 Consistency-style losses do **not** fit the
@@ -21,7 +28,7 @@ dispatch.
 
 The anchor side (which point is detached vs receives gradient) is
 chosen automatically based on whether ``target_time`` is closer to
-``t=0`` (data endpoint, "forward consistency") or ``t=1`` (source
+``t=1`` (data endpoint, "forward consistency") or ``t=0`` (noise
 endpoint, "reverse consistency").  Only ``Velocity`` targets are
 supported — the consistency function ``f(x, t, v) = x + (T - t) v``
 needs a velocity, and this loss carries no schedule with which to
@@ -52,7 +59,7 @@ def consistency_loss(
     *,
     interpolant: Interpolant,
     parameterization: Parameterization,
-    target_time: float = 0.0,
+    target_time: float = 1.0,
     delta: float = 0.01,
     target_field=None,
     euler_step: bool = False,
@@ -68,8 +75,8 @@ def consistency_loss(
     arXiv:2303.01469; Yang et al., *Consistency Flow Matching*, 2024)
     that enforces ``f(x_t, t) \approx f(x_{t+\delta}, t+\delta)`` along the conditional
     path of an interpolant.  The anchor side (stop-gradient) is chosen
-    by proximity to ``target_time``: ``t=0`` to forward consistency,
-    ``t=1`` to reverse consistency.
+    by proximity to ``target_time``: ``t=1`` (data) to forward
+    consistency, ``t=0`` (noise) to reverse consistency.
 
     Parameters
     ----------
@@ -91,8 +98,8 @@ def consistency_loss(
         it enters the consistency function.
     target_time
         Endpoint ``T`` of the consistency function.  Must be exactly
-        ``0.0`` (data; forward consistency, legacy ``cfm_loss``) or
-        ``1.0`` (source; reverse consistency, legacy
+        ``1.0`` (data; forward consistency, legacy ``cfm_loss``) or
+        ``0.0`` (noise; reverse consistency, legacy
         ``cfm_reverse_loss``).  Intermediate values are rejected
         because the anchor-side selection is endpoint-specific:
         per-sample anchor selection (the only honest extension to
@@ -139,11 +146,11 @@ def consistency_loss(
 
     if target_time not in (0.0, 1.0):
         msg = (
-            f"target_time must be exactly 0.0 (forward consistency) or "
-            f"1.0 (reverse consistency); got {target_time}.  The anchor-"
-            "side selection is endpoint-specific; intermediate values "
-            "would need per-sample anchor selection, which is a future "
-            "stage."
+            f"target_time must be exactly 1.0 (forward consistency, data "
+            f"endpoint) or 0.0 (reverse consistency, noise endpoint); "
+            f"got {target_time}.  The anchor-side selection is endpoint-"
+            "specific; intermediate values would need per-sample anchor "
+            "selection, which is a future stage."
         )
         raise ValueError(msg)
 
@@ -188,9 +195,10 @@ def consistency_loss(
 
     # Anchor selection: the side closer to ``target_time`` is the
     # reliable boundary value (because f's identity is at T) and is
-    # detached.  For target_time=0 (forward consistency) that's the
-    # t-side; for target_time=1 (reverse consistency) that's the
-    # tt-side.  ``target_time`` is validated to be exactly one of
+    # detached.  For target_time=0 (reverse consistency, noise endpoint)
+    # that's the t-side (smaller t, closer to 0); for target_time=1
+    # (forward consistency, data endpoint) that's the tt-side (larger t,
+    # closer to 1).  ``target_time`` is validated to be exactly one of
     # those two values above, so this branch is the only honest split.
     if target_time == 0.0:
         if target_field is not None:

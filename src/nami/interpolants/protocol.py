@@ -16,8 +16,8 @@ class InterpolantState:
     Carries enough information for any :class:`~nami.parameterizations.Target`
     to be derived without re-sampling.  ``xt`` is the interpolated point;
     ``x_data`` and ``x_noise`` are the endpoint draws that defined this
-    realisation (``t = 0`` is data, ``t = 1`` is noise, per nami's
-    convention); ``noise`` is the latent ``z`` used for stochastic paths and
+    realisation (``t = 0`` is noise, ``t = 1`` is data, per nami's
+    FM convention); ``noise`` is the latent ``z`` used for stochastic paths and
     is ``None`` for deterministic interpolants.
     """
 

@@ -1,8 +1,27 @@
 """Abstract noise-schedule contract for Gaussian conditional paths.
 
-Defines the four scalar fields a schedule must expose for the forward
-process ``x_t = \\alpha(t) x_0 + \\sigma(t) \\epsilon`` and the associated
-reverse-time SDE ``dx = [f(x,t) - g(t)^2 \\nabla \\log p_t(x)] dt + g(t) d\\bar W``.
+Defines the four scalar fields a schedule must expose. The functions
+``\\alpha(t)`` and ``\\sigma(t)`` are defined by their numerical contracts:
+``\\alpha(0)=1, \\alpha(1)=0`` and ``\\sigma(0)=0, \\sigma(1)=1`` (VP-style;
+VE-style modifies ``\\sigma``). Two consumers reinterpret which operand
+each multiplies:
+
+* :class:`~nami.processes.diffusion.Diffusion` (diffusion convention,
+  retained for the score-based reverse-time PF-ODE) reads
+  ``x_t = \\alpha(t) x_0 + \\sigma(t) \\epsilon`` — ``\\alpha`` is the signal
+  scale, ``\\sigma`` is the noise scale.  ``drift(x, t)`` and
+  ``diffusion(t)`` describe the forward SDE
+  ``dx = [f(x,t) - g(t)^2 \\nabla \\log p_t(x)] dt + g(t) d\\bar W`` in this
+  convention.
+* :class:`~nami.interpolants.gaussian.GaussianInterpolant` (FM
+  convention, ``t=0`` noise → ``t=1`` data) reads
+  ``x_t = \\alpha(t) \\epsilon + \\sigma(t) x_0`` — ``\\alpha`` is the noise
+  coefficient and ``\\sigma`` is the data coefficient (operand swap, same
+  numerical functions).
+
+The legacy "signal scale" / "noise scale" naming below reflects the
+diffusion-convention interpretation; FM-convention callers should
+mentally swap the labels.
 
 References
 ----------

@@ -151,8 +151,8 @@ def masked_sample(
     *,
     sample_shape: tuple[int, ...] = (),
     c: torch.Tensor | None = None,
-    t0: float = 1.0,
-    t1: float = 0.0,
+    t0: float = 0.0,
+    t1: float = 1.0,
 ) -> torch.Tensor:
     """Sample from a flow matching model with variable-cardinality masking.
 
@@ -175,9 +175,10 @@ def masked_sample(
     c : Tensor, optional
         Conditioning context forwarded to the field.
     t0 : float
-        Integration start (default ``1.0``, noise end).
+        Integration start (default ``0.0``, noise endpoint in nami's
+        FM convention).
     t1 : float
-        Integration end (default ``0.0``, data end).
+        Integration end (default ``1.0``, data endpoint).
 
     Returns
     -------

@@ -70,8 +70,8 @@ def regression_loss(
     field
         Network emitting raw parameters.  Must expose ``event_ndim``.
     x_data, x_noise
-        Endpoints of the conditional path (data at ``t=0``, source / noise
-        at ``t=1`` per nami's convention).
+        Endpoints of the conditional path (noise at ``t=0``, data at
+        ``t=1`` per nami's FM convention).
     t
         Optional pre-sampled times of shape matching the leading dims of
         ``x_data``.  When ``None``, drawn from ``U[eps_t, 1 - eps_t]``.

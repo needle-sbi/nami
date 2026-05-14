@@ -124,8 +124,8 @@ def action_matching_loss(
         :class:`~nami.fields.action.ActionHead` for the canonical
         implementation.
     x_data, x_noise
-        Endpoints of the conditional path (data at ``t=0``, source /
-        noise at ``t=1`` per nami's convention).
+        Endpoints of the conditional path (noise at ``t=0``, data at
+        ``t=1`` per nami's FM convention).
     t
         Optional pre-sampled times.  When ``None``, drawn from
         ``U[eps_t, 1 - eps_t]``.
