@@ -33,9 +33,9 @@ def interpolant() -> BrownianBridgeInterpolant:
 
 
 def _bridge_xt(x_data, x_noise, t, z, *, sigma):
-    """Closed-form bridge sample: (1-t) x_data + t x_noise + sigma sqrt(t(1-t)) z."""
+    """Closed-form bridge sample: (1-t) x_noise + t x_data + sigma sqrt(t(1-t)) z."""
     tt = t.reshape(t.shape + (1,) * (x_data.ndim - t.ndim))
-    mu = (1.0 - tt) * x_data + tt * x_noise
+    mu = (1.0 - tt) * x_noise + tt * x_data
     std = sigma * torch.sqrt(tt * (1.0 - tt))
     return mu + std * z
 
@@ -43,19 +43,19 @@ def _bridge_xt(x_data, x_noise, t, z, *, sigma):
 def _bridge_velocity(x_data, x_noise, t, xt, *, eps):
     """Closed-form bridge conditional velocity at xt.
 
-    u_t(x_t) = (x_noise - x_data) + (1-2t)/(2 t(1-t)) * (x_t - mu_t)
+    u_t(x_t) = (x_data - x_noise) + (2t-1)/(2 t(1-t)) * (x_t - mu_t)
     """
     tt = t.reshape(t.shape + (1,) * (x_data.ndim - t.ndim))
-    mu = (1.0 - tt) * x_data + tt * x_noise
+    mu = (1.0 - tt) * x_noise + tt * x_data
     denom = 2.0 * torch.clamp(tt * (1.0 - tt), min=eps)
-    coeff = (1.0 - 2.0 * tt) / denom
-    return (x_noise - x_data) + coeff * (xt - mu)
+    coeff = (2.0 * tt - 1.0) / denom
+    return (x_data - x_noise) + coeff * (xt - mu)
 
 
 def _bridge_score(x_data, x_noise, t, xt, *, sigma, eps):
     """Closed-form bridge conditional score: ∇ log p_t(x_t)."""
     tt = t.reshape(t.shape + (1,) * (x_data.ndim - t.ndim))
-    mu = (1.0 - tt) * x_data + tt * x_noise
+    mu = (1.0 - tt) * x_noise + tt * x_data
     var = sigma**2 * torch.clamp(tt * (1.0 - tt), min=eps)
     return (mu - xt) / var
 
@@ -126,7 +126,7 @@ def test_velocity_matches_analytic_bridge_velocity(
     interpolant: BrownianBridgeInterpolant,
     batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
 ) -> None:
-    """Pins: Velocity target = ``(x_noise - x_data) + (1-2t)/(2 t(1-t))*(x_t - mu_t)``."""
+    """Pins: Velocity target = ``(x_data - x_noise) + (2t-1)/(2 t(1-t))*(x_t - mu_t)``."""
     x_data, x_noise, t, z = batch
     state = interpolant.sample(x_data, x_noise, t, noise=z)
     expected = _bridge_velocity(x_data, x_noise, t, state.xt, eps=EPS)
@@ -213,7 +213,7 @@ def test_invalid_sigma_or_eps_rejected() -> None:
 
 
 def test_linear_interpolant_generator_params_drift_equals_velocity() -> None:
-    """Sibling check: linear-path drift target is just ``x_noise - x_data``,
+    """Sibling check: linear-path drift target is just ``x_data - x_noise``,
     packed via the operator (with zero diffusion for the diagonal mode).
 
     The legacy ``LinearGeneratorPath`` was deleted in stage 3d; this
@@ -227,7 +227,7 @@ def test_linear_interpolant_generator_params_drift_equals_velocity() -> None:
     interpolant = LinearInterpolant()
     state = interpolant.sample(x_data, x_noise, t)
 
-    expected_drift = x_noise - x_data
+    expected_drift = x_data - x_noise
 
     for diffusion_mode in ("none", "diagonal"):
         op = ItoGeneratorOperator(event_shape=(3,), diffusion=diffusion_mode)

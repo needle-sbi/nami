@@ -5,8 +5,8 @@ against the legacy ``fm_loss``.  ``fm_loss`` was deleted in stage 2d;
 the baseline is now computed analytically from the linear-path
 velocity formula::
 
-    x_t = (1 - t) * x_data + t * x_noise
-    u_t = x_noise - x_data  (constant)
+    x_t = (1 - t) * x_noise + t * x_data
+    u_t = x_data - x_noise  (constant)
     L_per_sample(x_data, x_noise, t)
         = mean_over_event_dims( (field(x_t, t) - u_t) ** 2 )
 
@@ -60,7 +60,7 @@ def test_sample_matches_linear_formula(
 ) -> None:
     x_data, x_noise, t = batch
     state = interpolant.sample(x_data, x_noise, t)
-    expected = (1.0 - t.unsqueeze(-1)) * x_data + t.unsqueeze(-1) * x_noise
+    expected = (1.0 - t.unsqueeze(-1)) * x_noise + t.unsqueeze(-1) * x_data
     assert torch.allclose(state.xt, expected, atol=1e-6)
 
 
@@ -69,8 +69,8 @@ def test_sample_endpoints(interpolant: LinearInterpolant) -> None:
     x_noise = torch.randn(4, 2)
     state0 = interpolant.sample(x_data, x_noise, torch.zeros(4))
     state1 = interpolant.sample(x_data, x_noise, torch.ones(4))
-    assert torch.allclose(state0.xt, x_data, atol=1e-6)
-    assert torch.allclose(state1.xt, x_noise, atol=1e-6)
+    assert torch.allclose(state0.xt, x_noise, atol=1e-6)
+    assert torch.allclose(state1.xt, x_data, atol=1e-6)
 
 
 def test_sample_state_has_no_noise(
@@ -101,11 +101,11 @@ def test_target_velocity_is_constant_difference(
     interpolant: LinearInterpolant,
     batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor],
 ) -> None:
-    """u_t = x_noise - x_data — independent of x_t and t."""
+    """u_t = x_data - x_noise — independent of x_t and t."""
     x_data, x_noise, t = batch
     state = interpolant.sample(x_data, x_noise, t)
     velocity = interpolant.target(Velocity(), state)
-    assert torch.equal(velocity, x_noise - x_data)
+    assert torch.equal(velocity, x_data - x_noise)
 
 
 @pytest.mark.parametrize(
@@ -154,15 +154,15 @@ def _analytic_linear_velocity_loss(
     """Reference implementation of linear-path FM loss.
 
     Computed from first principles: the conditional velocity for the
-    linear path ``x_t = (1-t) x_data + t x_noise`` is the constant
-    ``u_t = x_noise - x_data``, the FM weighting is ω(t)=1, and
+    linear path ``x_t = (1-t) x_noise + t x_data`` is the constant
+    ``u_t = x_data - x_noise``, the FM weighting is ω(t)=1, and
     per-sample MSE is the mean over event dimensions.  This is the
     formula the deleted ``fm_loss`` encoded; ``regression_loss`` with
     ``LinearInterpolant + Velocity`` must reproduce it.
     """
     tt = t.reshape(t.shape + (1,) * (x_data.ndim - t.ndim))
-    xt = (1.0 - tt) * x_data + tt * x_noise
-    ut = x_noise - x_data
+    xt = (1.0 - tt) * x_noise + tt * x_data
+    ut = x_data - x_noise
     vt = field(xt, t)
     per_sample = (vt - ut).pow(2).reshape(*t.shape, -1).mean(dim=-1)
     if reduction == "none":

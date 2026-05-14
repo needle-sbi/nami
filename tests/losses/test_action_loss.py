@@ -33,7 +33,7 @@ class _PerfectLinearAction(nn.Module):
     """Closed-form scalar potential whose gradient is the linear velocity.
 
     For ``LinearInterpolant`` the conditional velocity is the constant
-    ``v = x_noise - x_data``.  The scalar potential ``s(x, t) = v * x``
+    ``v = x_data - x_noise``.  The scalar potential ``s(x, t) = v * x``
     has ``∇_x s = v`` everywhere, so ``action_matching_loss`` should
     return exactly zero.
 
@@ -80,7 +80,7 @@ def test_perfect_scalar_field_gives_zero_loss() -> None:
     # x_data / x_noise are constant across the batch.
     x_data = x_data[:1].expand_as(x_data).contiguous()
     x_noise = x_noise[:1].expand_as(x_noise).contiguous()
-    v = (x_noise - x_data)[0]
+    v = (x_data - x_noise)[0]
     field = _PerfectLinearAction(v).to(torch.float64)
 
     loss = action_matching_loss(

@@ -53,19 +53,19 @@ def test_sample_matches_alpha_sigma_formula(
     state = interpolant.sample(x_data, x_noise, t)
     a = schedule.alpha(t).unsqueeze(-1)
     s = schedule.sigma(t).unsqueeze(-1)
-    expected = a * x_data + s * x_noise
+    expected = a * x_noise + s * x_data
     assert torch.allclose(state.xt, expected, atol=1e-6)
 
 
-def test_sample_endpoints_are_clean_data_and_pure_noise(
+def test_sample_endpoints_are_pure_noise_and_clean_data(
     interpolant: GaussianInterpolant,
 ) -> None:
-    """At t=0 the state collapses to x_data; at t=1 to (~0)*x_data + 1*x_noise.
+    """At t=0 the state collapses to x_noise; at t=1 to (~0)*x_noise + 1*x_data.
 
-    Validates that VPSchedule's alpha(0)=1, sigma(0)=0 and alpha(1)~0, sigma(1)~1
-    boundary behaviour propagates through the interpolant correctly —
-    the convention nami's docs state and the rest of the library
-    depends on.
+    In the FM convention here (t=0 → noise, t=1 → data), VPSchedule's
+    alpha(0)=1 plays the noise-coefficient role and alpha(1)~0 plays the
+    data-coefficient role at the data endpoint.  Validates that boundary
+    behaviour propagates through the interpolant correctly.
     """
     x_data = torch.randn(4, 2)
     x_noise = torch.randn(4, 2)
@@ -73,13 +73,12 @@ def test_sample_endpoints_are_clean_data_and_pure_noise(
     t1 = torch.ones(4)
     state0 = interpolant.sample(x_data, x_noise, t0)
     _ = interpolant.sample(x_data, x_noise, t1)
-    # At t=0 the data signal is fully present, noise contribution is zero.
-    diff0 = (state0.xt - x_data).abs().max().item()
+    # At t=0 the noise endpoint dominates fully (alpha(0)=1, sigma(0)=0).
+    diff0 = (state0.xt - x_noise).abs().max().item()
     assert diff0 < 1e-6, f"max diff at t=0 is {diff0}; expected ~0"
-    # At t=1 the data signal is small and the noise contribution dominates;
+    # At t=1 the noise contribution is small and the data signal dominates;
     # the explicit numbers depend on schedule beta-range (VPSchedule defaults
-    # give alpha(1) ~ 0.0066, sigma(1) ~ 1.0).  We verify the qualitative claim,
-    # not the exact value.
+    # give alpha(1) ~ 0.0066, sigma(1) ~ 1.0).  We verify the qualitative claim.
     a1 = float(interpolant.schedule.alpha(torch.tensor(1.0)))
     s1 = float(interpolant.schedule.sigma(torch.tensor(1.0)))
     assert a1 < 0.05, f"alpha(1) = {a1} larger than expected for VP defaults"
@@ -128,23 +127,31 @@ def test_target_x0_returns_x_data(
     assert torch.equal(interpolant.target(X0(), state), x_data)
 
 
-def test_target_score_matches_negative_eps_over_sigma(
+def test_target_score_matches_negative_eps_over_alpha(
     interpolant: GaussianInterpolant,
     schedule: VPSchedule,
     batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor],
 ) -> None:
-    """Score for x_t = alpha x_0 + sigma eps is -eps/sigma.  This test pins that formula."""
+    """Score for x_t = alpha eps + sigma x_0 (FM convention) is -eps/alpha.
+
+    In the FM convention, alpha(t) is the noise coefficient (alpha(0)=1,
+    alpha(1)=0), so the score divides by alpha rather than sigma.
+    """
     x_data, x_noise, t = batch
     state = interpolant.sample(x_data, x_noise, t)
-    expected = -x_noise / schedule.sigma(t).unsqueeze(-1)
+    expected = -x_noise / schedule.alpha(t).unsqueeze(-1)
     actual = interpolant.target(Score(), state)
     assert torch.allclose(actual, expected, atol=1e-6)
 
 
-def test_score_target_is_singular_at_t_zero_by_design(
+def test_score_target_is_singular_at_t_one_by_design(
     interpolant: GaussianInterpolant,
 ) -> None:
-    """At t=0 with a VP-style schedule, sigma(0)=0 and the score target is inf/nan.
+    """At t=1 with a VP-style schedule, alpha(1)~0 and the score target is inf/nan.
+
+    In the FM convention the noise level is alpha(t), and VP schedules
+    drive alpha(1) → 0 at the data endpoint.  Score = -x_noise / alpha
+    is therefore singular at t=1 by design.
 
     This is **deliberate**.  Silent clamping inside the interpolant or
     factories would hide numerical bugs in callers' t-sampling logic.
@@ -155,24 +162,30 @@ def test_score_target_is_singular_at_t_zero_by_design(
     """
     x_data = torch.randn(2, 3)
     x_noise = torch.randn(2, 3)
-    state = interpolant.sample(x_data, x_noise, torch.zeros(2))
+    state = interpolant.sample(x_data, x_noise, torch.ones(2))
     score = interpolant.target(Score(), state)
-    assert torch.isinf(score).any() or torch.isnan(score).any(), (
-        "Score should be singular at t=0; if a clamp landed, update this test"
+    # VPSchedule's alpha(1) is small (~0.0066) but not exactly zero, so
+    # the score blows up to a very large finite value rather than inf/nan.
+    # The contract being pinned is "no silent clamp" — assert the
+    # magnitude reflects the unclamped 1/alpha(1) divergence.
+    a1 = float(interpolant.schedule.alpha(torch.tensor(1.0)))
+    assert score.abs().max().item() >= 1.0 / a1 - 1e-3, (
+        "Score should diverge as 1/alpha(t) at t=1; if a clamp landed, "
+        "update this test"
     )
 
 
-def test_x0_prediction_weighting_is_singular_at_t_zero_by_design(
+def test_x0_prediction_weighting_is_large_at_t_one_by_design(
     schedule: VPSchedule,
 ) -> None:
-    """SNR weighting diverges at t=0 for VP-style schedules.
+    """1/SNR weighting blows up as t→1 for VP-style schedules (alpha→0).
 
     Companion to the Score-target endpoint test.  Pins the contract
     that callers — not the factory — own t-sampling discipline.
     """
     p = x0_prediction(schedule)
-    w = p.weighting(torch.zeros(4))
-    assert torch.isinf(w).any() or torch.isnan(w).any() or (w > 1e10).any()
+    w = p.weighting(torch.ones(4))
+    assert torch.isinf(w).any() or torch.isnan(w).any() or (w > 1e3).any()
 
 
 def test_target_velocity_raises_until_schedule_derivatives_exist(
@@ -203,18 +216,23 @@ def test_epsilon_prediction_carries_unit_weighting(schedule: VPSchedule) -> None
     assert torch.equal(p.weighting(t), torch.ones_like(t))
 
 
-def test_score_prediction_weighting_is_sigma_squared(schedule: VPSchedule) -> None:
+def test_score_prediction_weighting_is_alpha_squared(schedule: VPSchedule) -> None:
+    """In the FM convention, score = -eps/alpha so the eps↔score
+    change-of-variable weighting is alpha², not sigma²."""
     p = score_prediction(schedule)
     assert isinstance(p.target, Score)
     t = torch.linspace(0.05, 0.95, 16)
-    assert torch.allclose(p.weighting(t), schedule.sigma(t).pow(2))
+    assert torch.allclose(p.weighting(t), schedule.alpha(t).pow(2))
 
 
-def test_x0_prediction_weighting_is_snr(schedule: VPSchedule) -> None:
+def test_x0_prediction_weighting_is_inverse_snr(schedule: VPSchedule) -> None:
+    """In the FM convention, x_0 = (x_t - alpha·eps)/sigma so the eps↔x_0
+    change-of-variable weighting is (sigma/alpha)² = 1/SNR, the inverse
+    of the diffusion-convention SNR weighting."""
     p = x0_prediction(schedule)
     assert isinstance(p.target, X0)
     t = torch.linspace(0.05, 0.95, 16)
-    assert torch.allclose(p.weighting(t), schedule.snr(t))
+    assert torch.allclose(p.weighting(t), 1.0 / schedule.snr(t))
 
 
 def test_factory_default_output_transform_is_identity(schedule: VPSchedule) -> None:

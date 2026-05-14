@@ -49,7 +49,7 @@ from nami.parameterizations import (
 class BrownianBridgeInterpolant:
     r"""Stochastic Brownian-bridge interpolant.
 
-    ``x_t = (1-t) x_data + t x_noise + \sigma \sqrt{t (1-t)} z``
+    ``x_t = (1-t) x_noise + t x_data + \sigma \sqrt{t (1-t)} z``
 
     where ``z ~ N(0, I)`` is supplied via ``noise=`` to keep sampling
     deterministic across calls (e.g. for the equivalence tests against
@@ -101,7 +101,7 @@ class BrownianBridgeInterpolant:
         noise: torch.Tensor | None = None,
     ) -> InterpolantState:
         tt = _broadcast_t(t, x_data)
-        mu = (1.0 - tt) * x_data + tt * x_noise
+        mu = (1.0 - tt) * x_noise + tt * x_data
         if noise is None:
             noise = torch.randn_like(mu)
         std = self.sigma * torch.sqrt(tt * (1.0 - tt))
@@ -149,14 +149,15 @@ class BrownianBridgeInterpolant:
     def _velocity(self, state: InterpolantState) -> torch.Tensor:
         x_data, x_noise = state.x_data, state.x_noise
         tt = _broadcast_t(state.t, x_data)
-        mu = (1.0 - tt) * x_data + tt * x_noise
+        mu = (1.0 - tt) * x_noise + tt * x_data
         denom = 2.0 * torch.clamp(tt * (1.0 - tt), min=self.eps)
-        coeff = (1.0 - 2.0 * tt) / denom
-        return (x_noise - x_data) + coeff * (state.xt - mu)
+        # Sign flip from chain rule on the (1-2t) coefficient under t -> 1-t.
+        coeff = (2.0 * tt - 1.0) / denom
+        return (x_data - x_noise) + coeff * (state.xt - mu)
 
     def _score(self, state: InterpolantState) -> torch.Tensor:
         x_data, x_noise = state.x_data, state.x_noise
         tt = _broadcast_t(state.t, x_data)
-        mu = (1.0 - tt) * x_data + tt * x_noise
+        mu = (1.0 - tt) * x_noise + tt * x_data
         var = self.sigma**2 * torch.clamp(tt * (1.0 - tt), min=self.eps)
         return (mu - state.xt) / var

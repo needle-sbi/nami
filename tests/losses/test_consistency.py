@@ -7,7 +7,7 @@ reverse, target_field EMA, euler_step, and reduction modes); they
 were deleted in stage 4 alongside the legacy losses they validated
 against.  The semantic claims they preserved are pinned here directly:
 
-* A perfect velocity field (``v = x_noise - x_data`` for the
+* A perfect velocity field (``v = x_data - x_noise`` for the
   linear interpolant) yields zero loss because the consistency
   function ``f(x_t, t, v) = x_t + (T - t) v`` evaluates to
   ``(1-T) x_data + T x_noise`` independent of ``t`` — both
@@ -38,7 +38,7 @@ from nami.parameterizations import Parameterization, Score
 
 
 class _PerfectLinearVelocityField(nn.Module):
-    """Emits ``x_noise - x_data`` exactly — the conditional velocity
+    """Emits ``x_data - x_noise`` exactly — the conditional velocity
     of the linear interpolant.
     """
 
@@ -46,7 +46,7 @@ class _PerfectLinearVelocityField(nn.Module):
 
     def __init__(self, x_data: torch.Tensor, x_noise: torch.Tensor):
         super().__init__()
-        self.register_buffer("v", x_noise - x_data)
+        self.register_buffer("v", x_data - x_noise)  # FM-convention velocity
 
     def forward(self, x, t, c=None):  # noqa: ARG002
         return self.v
@@ -68,7 +68,7 @@ class _LinearField(nn.Module):
 
 @pytest.mark.parametrize("target_time", [0.0, 1.0])
 def test_perfect_velocity_gives_zero_loss(target_time: float) -> None:
-    """For the linear interpolant, ``v = x_noise - x_data`` is the
+    """For the linear interpolant, ``v = x_data - x_noise`` is the
     true conditional velocity, so ``f(x_t, t, v)`` is independent of
     ``t`` and the consistency MSE collapses to zero — both for forward
     (``T=0``) and reverse (``T=1``) consistency.
@@ -288,7 +288,7 @@ def test_euler_step_runs_and_finite() -> None:
 def test_euler_step_perfect_field_still_zero_loss() -> None:
     """Under the perfect velocity field, the Euler step produces
     ``x_{t+δ} = x_t + δ v`` which lies exactly on the linear path
-    (because ``v = x_noise - x_data`` is the analytic velocity).
+    (because ``v = x_data - x_noise`` is the analytic velocity).
     So both consistency-function evaluations agree and the loss is
     zero.
     """

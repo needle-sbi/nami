@@ -65,8 +65,9 @@ class _ConsistentScoreField(nn.Module):
         self.schedule = schedule
 
     def forward(self, x, t, c=None):  # noqa: ARG002
-        sigma = expand_like(self.schedule.sigma(t), self.y_eps)
-        return -self.y_eps / sigma
+        # FM convention: score = -eps / alpha(t) (alpha is the noise level).
+        alpha = expand_like(self.schedule.alpha(t), self.y_eps)
+        return -self.y_eps / alpha
 
 
 class _ConsistentX0Field(nn.Module):
@@ -78,9 +79,11 @@ class _ConsistentX0Field(nn.Module):
         self.schedule = schedule
 
     def forward(self, x, t, c=None):  # noqa: ARG002
+        # FM convention: x_t = alpha(t) * eps + sigma(t) * x_0,
+        # so x_0 = (x_t - alpha(t) * eps) / sigma(t).
         alpha = expand_like(self.schedule.alpha(t), x)
         sigma = expand_like(self.schedule.sigma(t), x)
-        return (x - sigma * self.y_eps) / alpha
+        return (x - alpha * self.y_eps) / sigma
 
 
 @pytest.fixture

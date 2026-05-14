@@ -1,9 +1,11 @@
 r"""Cosine-scheduled deterministic interpolant.
 
-``x_t = \alpha(t) x_data + \sigma(t) x_noise`` with ``\alpha(t) = \cos(\pi t/2)`` and
-``\sigma(t) = \sin(\pi t/2)``. The conditional velocity is
+``x_t = \alpha(t) x_noise + \sigma(t) x_data`` with ``\alpha(t) = \cos(\pi t/2)`` and
+``\sigma(t) = \sin(\pi t/2)``. At ``t=0`` the path is pure noise
+(``\alpha(0)=1, \sigma(0)=0``); at ``t=1`` it is pure data
+(``\alpha(1)=0, \sigma(1)=1``). The conditional velocity is
 
-    ``u_t = \alpha'(t) x_data + \sigma'(t) x_noise``
+    ``u_t = \alpha'(t) x_noise + \sigma'(t) x_data``
 
 with ``\alpha'(t) = -\pi/2 \cdot \sin(\pi t/2)`` and ``\sigma'(t) = \pi/2 \cdot \cos(\pi t/2)``,
 so unlike :class:`~nami.interpolants.linear.LinearInterpolant` the
@@ -63,7 +65,7 @@ class CosineInterpolant:
             raise ValueError(msg)
         a = _broadcast_t(self._alpha(t), x_data)
         s = _broadcast_t(self._sigma(t), x_data)
-        xt = a * x_data + s * x_noise
+        xt = a * x_noise + s * x_data
         return InterpolantState(
             xt=xt,
             x_data=x_data,
@@ -77,7 +79,7 @@ class CosineInterpolant:
             case Velocity():
                 ap = _broadcast_t(self._alpha_prime(state.t), state.x_data)
                 sp = _broadcast_t(self._sigma_prime(state.t), state.x_data)
-                return ap * state.x_data + sp * state.x_noise
+                return ap * state.x_noise + sp * state.x_data
             case Score() | Epsilon() | X0() | VPrediction():
                 msg = (
                     f"CosineInterpolant does not support {type(target).__name__}: "
@@ -89,7 +91,7 @@ class CosineInterpolant:
                 # is the same closed-form expression as the Velocity arm.
                 ap = _broadcast_t(self._alpha_prime(state.t), state.x_data)
                 sp = _broadcast_t(self._sigma_prime(state.t), state.x_data)
-                return ap * state.x_data + sp * state.x_noise
+                return ap * state.x_noise + sp * state.x_data
             case GeneratorParams():
                 msg = (
                     "CosineInterpolant does not support GeneratorParams; "
