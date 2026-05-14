@@ -77,8 +77,8 @@ class FlowMatching(LazyProcess):
         solver,
         *,
         parameterization: Parameterization | None = None,
-        t0: float = 1.0,
-        t1: float = 0.0,
+        t0: float = 0.0,
+        t1: float = 1.0,
         event_ndim: int | None = None,
         validate_args: bool = True,
     ):
@@ -151,8 +151,8 @@ class FlowMatchingProcess(ProcessRuntimeMixin):
         solver,
         *,
         parameterization: Parameterization | None = None,
-        t0: float = 1.0,
-        t1: float = 0.0,
+        t0: float = 0.0,
+        t1: float = 1.0,
         context: torch.Tensor | None = None,
         validate_args: bool = True,
     ):

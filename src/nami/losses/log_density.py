@@ -116,7 +116,8 @@ def log_density_consistency_loss(
     delta : float
         Time offset along the trajectory.
     lambda_boundary : float
-        Weight of the boundary loss at :math:`t = 1`.
+        Weight of the boundary loss at :math:`t = 0` (the noise endpoint
+        in the FM convention).
     divergence_estimator : nami.divergence.base.DivergenceEstimator or None
         Estimator for :math:`\\operatorname{div} v_\\theta`.  Defaults to
         :class:`HutchinsonDivergence`.
@@ -127,8 +128,8 @@ def log_density_consistency_loss(
     z : Tensor or None
         Optional latent noise for stochastic interpolants.  Forwarded
         as ``noise=z`` to *both* trajectory-point samples (``x_t`` and
-        ``x_{t+\delta}``) so they sit on the same bridge realisation. The
-        boundary point ``x_1`` is *not* given the same noise — it is
+        ``x_{t-\delta}``) so they sit on the same bridge realisation. The
+        boundary point ``x_0`` is *not* given the same noise — it is
         meant to be a fresh sample from the noise endpoint distribution
         for the boundary anchor.  Deterministic interpolants
         (``LinearInterpolant``) reject ``z`` explicitly; stochastic
@@ -143,9 +144,9 @@ def log_density_consistency_loss(
     if delta <= 0.0:
         msg = (
             f"delta must be positive; got {delta}.  Non-positive delta "
-            "would make the trajectory pair degenerate or push tt below "
-            "zero (negative deltas are *not* clamped — only the upper "
-            "bound is)."
+            "would make the trajectory pair degenerate or push tt above "
+            "one (negative deltas are *not* clamped — only the lower "
+            "bound at zero is)."
         )
         raise ValueError(msg)
 
@@ -156,10 +157,13 @@ def log_density_consistency_loss(
 
     lead = leading_shape(x_data, event_ndim)
     t = sample_t(x_data, lead, t, eps_t=0.0)
-    tt = (t + delta).clamp(max=1.0)
+    # Step backward toward the noise endpoint at t=0 (the boundary anchor
+    # in the FM convention).  tt < t and (tt - t) < 0 inside the
+    # consistency formula — the sign falls out naturally.
+    tt = (t - delta).clamp(min=0.0)
 
     # Trajectory-pair samples share ``z`` so a stochastic interpolant
-    # places ``x_t`` and ``x_{t+\delta}`` on the same realisation.
+    # places ``x_t`` and ``x_{t-\delta}`` on the same realisation.
     xt = interpolant.sample(x_data, x_noise, t, noise=z).xt
 
     # Divergence of the velocity field at (xt, t).
@@ -176,7 +180,7 @@ def log_density_consistency_loss(
         xtt = interpolant.sample(x_data, x_noise, tt, noise=z).xt
 
     # h predictions at both trajectory points.
-    # h has its known boundary at t=1 (noise), so h_tt (closer to t=1) is
+    # h has its known boundary at t=0 (noise), so h_tt (closer to t=0) is
     # the reliable anchor.  The online prediction h_t receives gradient.
     h_t = h_head(xt, t, c)
 
@@ -193,11 +197,11 @@ def log_density_consistency_loss(
 
     consistency_mse = (h_t - target).pow(2)
 
-    # Boundary loss: h(x, 1) should equal log p_base(x) at the noise endpoint.
-    x_at_one = interpolant.sample(x_data, x_noise, torch.ones_like(t)).xt
-    h_at_one = h_head(x_at_one, torch.ones_like(t), c)
-    log_p_base = _log_prob_base_normal(x_at_one, event_ndim)
-    boundary_mse = (h_at_one - log_p_base).pow(2)
+    # Boundary loss: h(x, 0) should equal log p_base(x) at the noise endpoint.
+    x_at_zero = interpolant.sample(x_data, x_noise, torch.zeros_like(t)).xt
+    h_at_zero = h_head(x_at_zero, torch.zeros_like(t), c)
+    log_p_base = _log_prob_base_normal(x_at_zero, event_ndim)
+    boundary_mse = (h_at_zero - log_p_base).pow(2)
 
     total = consistency_mse + lambda_boundary * boundary_mse
     return reduce_loss(total, reduction)

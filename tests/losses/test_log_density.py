@@ -89,7 +89,7 @@ def test_log_density_consistency_loss_reductions():
 
 
 def test_log_density_consistency_loss_boundary_anchors_at_noise():
-    """At t=1 (noise endpoint), h should match log p_base."""
+    """At t=0 (noise endpoint, FM convention), h should match log p_base."""
     dim = 3
     field = _differentiable_zero_field()
 
@@ -206,7 +206,7 @@ def test_z_argument_shares_noise_across_trajectory_pair():
     }
 
     # Two calls with the same explicit z give bit-identical loss values
-    # (the boundary x_at_one is sampled with noise=None and would draw
+    # (the boundary x_at_zero is sampled with noise=None and would draw
     # fresh noise per call, but the boundary loss is computed on the
     # noise-distribution endpoint where x_t = x_noise for the bridge,
     # so the boundary-z draw cancels out in the deterministic-h_head

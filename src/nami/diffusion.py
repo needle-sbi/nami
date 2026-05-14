@@ -40,33 +40,39 @@ def expand_like(scale: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
 
 
 def eps_to_score(eps: torch.Tensor, sigma: torch.Tensor) -> torch.Tensor:
-    r"""``score = -\epsilon / \sigma(t)``."""
+    r"""``score = -\epsilon / \sigma(t)``.
+
+    Diffusion-convention conversion (``x_t = \alpha(t)x_0 + \sigma(t)\epsilon``).
+    Used by the score-based reverse-time PF-ODE inside
+    :class:`nami.processes.diffusion.Diffusion`, which deliberately
+    retains the diffusion convention even after the broader Phase 3 flip.
+    """
     return -eps / expand_like(sigma, eps)
 
 
 def score_to_eps(score: torch.Tensor, sigma: torch.Tensor) -> torch.Tensor:
-    r"""``\epsilon = -\sigma(t) \cdot score``."""
+    r"""``\epsilon = -\sigma(t) \cdot score`` (diffusion convention)."""
     return -score * expand_like(sigma, score)
 
 
 def eps_to_x0(
     x: torch.Tensor, eps: torch.Tensor, alpha: torch.Tensor, sigma: torch.Tensor
 ) -> torch.Tensor:
-    r"""``x_0 = (x_t - \sigma(t) \epsilon) / \alpha(t)``."""
+    r"""``x_0 = (x_t - \sigma(t) \epsilon) / \alpha(t)`` (diffusion convention)."""
     return (x - expand_like(sigma, x) * eps) / expand_like(alpha, x)
 
 
 def x0_to_eps(
     x: torch.Tensor, x0: torch.Tensor, alpha: torch.Tensor, sigma: torch.Tensor
 ) -> torch.Tensor:
-    r"""``\epsilon = (x_t - \alpha(t) x_0) / \sigma(t)``."""
+    r"""``\epsilon = (x_t - \alpha(t) x_0) / \sigma(t)`` (diffusion convention)."""
     return (x - expand_like(alpha, x) * x0) / expand_like(sigma, x)
 
 
 def score_to_x0(
     x: torch.Tensor, score: torch.Tensor, alpha: torch.Tensor, sigma: torch.Tensor
 ) -> torch.Tensor:
-    r"""``x_0 = (x_t + \sigma^2(t) \cdot score) / \alpha(t)``."""
+    r"""``x_0 = (x_t + \sigma^2(t) \cdot score) / \alpha(t)`` (diffusion convention)."""
     sigma_exp = expand_like(sigma, x)
     return (x + (sigma_exp**2) * score) / expand_like(alpha, x)
 
@@ -74,7 +80,7 @@ def score_to_x0(
 def x0_to_score(
     x: torch.Tensor, x0: torch.Tensor, alpha: torch.Tensor, sigma: torch.Tensor
 ) -> torch.Tensor:
-    r"""``score = (\alpha(t) x_0 - x_t) / \sigma^2(t)``."""
+    r"""``score = (\alpha(t) x_0 - x_t) / \sigma^2(t)`` (diffusion convention)."""
     sigma_exp = expand_like(sigma, x)
     return (expand_like(alpha, x) * x0 - x) / (sigma_exp**2)
 
@@ -85,7 +91,7 @@ def v_to_eps(
     alpha: torch.Tensor,
     sigma: torch.Tensor,
 ) -> torch.Tensor:
-    r"""Salimans-Ho v-prediction to ``\epsilon`` conversion.
+    r"""Salimans-Ho v-prediction to ``\epsilon`` conversion (diffusion convention).
 
     From the system ``v = \alpha \epsilon - \sigma x_0`` and ``x_t = \alpha x_0 + \sigma \epsilon``,
     Cramer's rule gives::

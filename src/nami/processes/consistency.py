@@ -86,8 +86,8 @@ class ConsistencyFlowMatching(LazyProcess):
         *,
         parameterization: Parameterization | None = None,
         h_head=None,
-        t0: float = 1.0,
-        t1: float = 0.0,
+        t0: float = 0.0,
+        t1: float = 1.0,
         event_ndim: int | None = None,
         validate_args: bool = True,
     ):
@@ -176,8 +176,8 @@ class ConsistencyFlowMatchingProcess(ProcessRuntimeMixin):
         *,
         parameterization: Parameterization | None = None,
         h_head=None,
-        t0: float = 1.0,
-        t1: float = 0.0,
+        t0: float = 0.0,
+        t1: float = 1.0,
         context: torch.Tensor | None = None,
         validate_args: bool = True,
     ):
@@ -243,8 +243,8 @@ class ConsistencyFlowMatchingProcess(ProcessRuntimeMixin):
 
             z = x + (t_0 - t_1) \\cdot v_\\theta(x, t_1)
 
-        With defaults ``t0=1.0, t1=0.0`` this gives
-        ``z = x + v_\\theta(x, 0)``.
+        With defaults ``t0=0.0, t1=1.0`` this gives
+        ``z = x - v_\\theta(x, 1)``.
         """
         context = self._expand_context(self._context, x)
         t1 = cast_time(self._t1, x)

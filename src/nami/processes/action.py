@@ -71,7 +71,7 @@ class ActionMatching(LazyProcess):
         consumes it; the field's emission *is* the action and there is
         no analogous output projection.
     t0, t1
-        Time endpoints for integration.  ``t0=1.0, t1=0.0`` matches the
+        Time endpoints for integration.  ``t0=0.0, t1=1.0`` matches the
         flow-matching convention (noise to data).
     event_ndim
         Optional override for the field's event rank.
@@ -84,8 +84,8 @@ class ActionMatching(LazyProcess):
         solver,
         *,
         parameterization: Parameterization | None = None,
-        t0: float = 1.0,
-        t1: float = 0.0,
+        t0: float = 0.0,
+        t1: float = 1.0,
         event_ndim: int | None = None,
         validate_args: bool = True,
     ):
@@ -159,8 +159,8 @@ class ActionMatchingProcess(ProcessRuntimeMixin):
         solver,
         *,
         parameterization: Parameterization | None = None,
-        t0: float = 1.0,
-        t1: float = 0.0,
+        t0: float = 0.0,
+        t1: float = 1.0,
         context: torch.Tensor | None = None,
         validate_args: bool = True,
     ):

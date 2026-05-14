@@ -70,6 +70,14 @@ class Diffusion(LazyProcess):
         solver,
         *,
         parameterization: Parameterization,
+        # NOTE: Diffusion intentionally retains the diffusion-convention
+        # time direction (t0=1.0 → noise, t1=0.0 → data) even after the
+        # FM-convention flip in Phase 3.  The score-based reverse-time
+        # PF-ODE drift `f - 0.5*g²*score` is intrinsically tied to that
+        # direction; the schedule's drift/diffusion functions describe
+        # the *forward* SDE that corrupts data into noise.  Re-deriving
+        # the Diffusion process for the FM convention requires a
+        # different drift formulation and is left out of scope here.
         t0: float = 1.0,
         t1: float = 0.0,
         base: LazyDistribution | torch.distributions.Distribution | None = None,
@@ -161,6 +169,8 @@ class DiffusionProcess(ProcessRuntimeMixin):
         solver,
         *,
         parameterization: Parameterization,
+        # See note on Diffusion.__init__ above — diffusion retains the
+        # diffusion-convention t-direction.
         t0: float = 1.0,
         t1: float = 0.0,
         base: torch.distributions.Distribution,

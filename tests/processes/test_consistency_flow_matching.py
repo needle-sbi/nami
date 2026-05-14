@@ -122,15 +122,15 @@ def test_cfm_invert_round_trip_with_identity_field():
     torch.manual_seed(42)
     z = torch.randn(8, 3)
 
-    # With zero velocity: sample(z) = z + (0-1)*0 = z, invert(x) = x + (1-0)*0 = x
-    x = z + (0.0 - 1.0) * torch.zeros_like(z)  # = z
+    # With zero velocity: sample(z) = z + (1-0)*0 = z, invert(x) = x + (0-1)*0 = x
+    x = z + (1.0 - 0.0) * torch.zeros_like(z)  # = z
     z_hat = process.invert(x)
 
     assert torch.allclose(z_hat, z, atol=1e-6)
 
 
 class _LinearField(torch.nn.Module):
-    """Predicts the true conditional velocity u_t = x_noise - x_data.
+    """Predicts the true conditional velocity u_t = x_data - x_noise (FM convention).
 
     For round-trip testing: if v is exact, then f(g(x)) = x and g(f(z)) = z.
     This field stores (x_data, x_noise) so it can return the exact velocity.
@@ -140,7 +140,7 @@ class _LinearField(torch.nn.Module):
 
     def __init__(self, x_data, x_noise):
         super().__init__()
-        self._v = x_noise - x_data
+        self._v = x_data - x_noise
 
     def forward(self, x, t, c=None):
         _ = t, c
@@ -151,8 +151,9 @@ def test_cfm_invert_round_trip_with_linear_field():
     """With the exact conditional velocity, sample → invert recovers the
     original noise (up to floating-point precision).
 
-    sample: x = z + (t1 - t0) * v = z + (0 - 1) * v = z - v
-    invert: z' = x + (t0 - t1) * v = x + (1 - 0) * v = x + v = z
+    FM convention (t0=0, t1=1):
+    sample: x = z + (t1 - t0) * v = z + (1 - 0) * v = z + v
+    invert: z' = x + (t0 - t1) * v = x + (0 - 1) * v = x - v = z
     """
     x_data = torch.randn(6, 4)
     x_noise = torch.randn(6, 4)
@@ -164,8 +165,8 @@ def test_cfm_invert_round_trip_with_linear_field():
     )()
 
     z = torch.randn(6, 4)
-    # Manual single-step sample: x = z - v
-    x = z + (0.0 - 1.0) * field._v
+    # Manual single-step sample: x = z + v
+    x = z + (1.0 - 0.0) * field._v
     z_hat = process.invert(x)
 
     assert torch.allclose(z_hat, z, atol=1e-5)
