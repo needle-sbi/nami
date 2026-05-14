@@ -1,23 +1,18 @@
 from __future__ import annotations
 
+
+
 import torch
 
+from nami.fields._common import require_event_ndim
 
-def expand_like_time(
-    scale: torch.Tensor, target: torch.Tensor, event_ndim: int = 1
-) -> torch.Tensor:
-    lead_ndim = target.ndim - event_ndim
-    n_prepend = lead_ndim - scale.ndim
-    shape = (1,) * n_prepend + tuple(scale.shape) + (1,) * event_ndim
-    return scale.reshape(shape)
-
-
-def require_event_ndim(field) -> int:
-    event_ndim = getattr(field, "event_ndim", None)
-    if event_ndim is None:
-        msg = "field.event_ndim is required"
-        raise ValueError(msg)
-    return int(event_ndim)
+__all__ = [
+    "leading_shape",
+    "per_sample_mse",
+    "reduce_loss",
+    "require_event_ndim",
+    "sample_t",
+]
 
 
 def leading_shape(x: torch.Tensor, event_ndim: int) -> tuple[int, ...]:
@@ -26,17 +21,39 @@ def leading_shape(x: torch.Tensor, event_ndim: int) -> tuple[int, ...]:
     return tuple(x.shape)
 
 
-def prepare_time(
+def sample_t(
     x_target: torch.Tensor,
     lead: tuple[int, ...],
     t: torch.Tensor | None,
+    eps_t: float,
 ) -> torch.Tensor:
-    if t is None:
-        dtype = x_target.dtype if x_target.dtype.is_floating_point else torch.float32
-        return torch.rand(lead, device=x_target.device, dtype=dtype)
-    if tuple(t.shape) != lead:
-        return t.expand(lead)
-    return t
+    """Sample ``t ~ U[eps_t, 1 - eps_t]`` or coerce supplied ``t`` to ``lead``.
+
+    Used by both :func:`~nami.losses.regression.regression_loss` and
+    :func:`~nami.losses.consistency.consistency_loss` so they share the
+    same t-sampling discipline contract.  Pass ``eps_t=0.0`` to draw
+    unclamped ``U[0, 1]`` samples (the right choice for losses whose
+    targets are non-singular at the endpoints).
+
+    When ``t`` is supplied we do *not* clamp it — that's the caller's
+    responsibility (the contract pinned by stage-1a's
+    ``test_explicit_t_is_not_silently_clamped``).  Clamping only kicks
+    in for the auto-sampled path so the singularity discipline is
+    opt-out, not silent.
+    """
+    if t is not None:
+        if tuple(t.shape) != lead:
+            return t.expand(lead)
+        return t
+
+    dtype = x_target.dtype if x_target.dtype.is_floating_point else torch.float32
+    u = torch.rand(lead, device=x_target.device, dtype=dtype)
+    if eps_t == 0.0:
+        return u
+    if not 0.0 < eps_t < 0.5:
+        msg = "eps_t must be in (0, 0.5) or exactly 0 to disable clamping"
+        raise ValueError(msg)
+    return eps_t + (1.0 - 2.0 * eps_t) * u
 
 
 def per_sample_mse(
