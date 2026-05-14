@@ -1,12 +1,27 @@
+"""Transformer-based velocity field, with a cross-attention token for conditioning.
+
+Treats each scalar of the flattened event tensor as a token; time is
+embedded once per sample via :class:`SinusoidalTimeEmbedding` and
+broadcast across tokens. Optional context enters as a single
+cross-attention token.
+"""
 from __future__ import annotations
+
+# --------------------------------------------------------------------
+# TODO: fields currently mixes role-named files
+# (velocity.py, generator.py, action.py) with arch-named variants of the 
+# velocity role (adaln.py, this file). We should decide whether to group by role
+# (one velocity.py with multiple classes) or keep split, and whether a
+# small shared abstraction would clean up the repeated event/time/
+# context plumbing.
 
 import torch
 from torch import nn
 
-from ..components import SinusoidalTimeEmbedding, TransformerBackbone
-from ..core.specs import event_numel, flatten_event, unflatten_event, validate_shapes
-from ._common import normalise_event_shape, validate_context
-from .base import VectorField
+from nami.components import SinusoidalTimeEmbedding, TransformerBackbone
+from nami.core.specs import event_numel, flatten_event, unflatten_event, validate_shapes
+from nami.fields._common import normalise_event_shape, validate_context
+from nami.fields.base import VectorField
 
 
 class TransformerVelocityField(VectorField):

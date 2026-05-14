@@ -1,48 +1,39 @@
-"""MLP velocity field for flow-matching and related transports.
-
-Consumed by :class:`FlowMatching` and (via :class:`Velocity` target)
-any Process expecting a vector-valued field over the event shape.
-
-References
-----------
-- Lipman et al., *Flow Matching for Generative Modeling*, 2022
-  (arXiv:2210.02747).
-"""
-
 from __future__ import annotations
 
 
 
 import torch
+from torch import nn
 
 from nami.components import MLPBackbone, ScalarTimeEmbedding
-from nami.core.specs import (
-    event_numel,
-    flatten_event,
-    unflatten_event,
-    validate_shapes,
-)
+from nami.core.specs import event_numel, flatten_event, validate_shapes
 from nami.fields._common import normalise_event_shape, validate_context
-from nami.fields.base import VectorField
 
 
-class VelocityField(VectorField):
-    """MLP velocity field for flow matching.
+class LogDensityHead(nn.Module):
+    """Scalar head that predicts :math:`\\log p_t(x_t)`.
 
-    Supports unconditional and conditional workflows. When ``condition_dim``
-    is non-zero the field expects a context vector ``c`` concatenated to the
-    input; otherwise ``c`` should be ``None``.  Conditioning is handled by
-    the process layer via lazy binding. This field simply receives whatever
-    context the process passes through.
+    Follows the same ``(x, t, c)`` calling convention as
+    :class:`~nami.VelocityField` but outputs a single scalar per sample
+    rather than a vector.  Intended for use with
+    :func:`~nami.log_density_consistency_loss`.
 
-    Args:
-        dim: Data dimensionality or event shape.
-        condition_dim: Conditioning vector dimensionality (0 for unconditional).
-        hidden: Hidden layer width.
-        layers: Number of hidden layers.
-        activation: Activation function ('silu', 'relu', 'gelu', 'tanh').
-        dropout: Dropout probability (0 disables).
-        layer_norm: Whether to apply layer normalisation in hidden layers.
+    Parameters
+    ----------
+    dim : int or tuple[int, ...]
+        Data dimensionality (event shape).
+    condition_dim : int
+        Conditioning vector dimensionality (0 for unconditional).
+    hidden : int
+        Hidden layer width.
+    layers : int
+        Number of hidden layers.
+    activation : str
+        Activation function.
+    dropout : float
+        Dropout probability.
+    layer_norm : bool
+        Whether to apply layer normalisation.
     """
 
     def __init__(
@@ -50,8 +41,8 @@ class VelocityField(VectorField):
         dim: int | tuple[int, ...],
         *,
         condition_dim: int = 0,
-        hidden: int = 256,
-        layers: int = 3,
+        hidden: int = 128,
+        layers: int = 2,
         activation: str = "silu",
         dropout: float = 0.0,
         layer_norm: bool = False,
@@ -67,7 +58,7 @@ class VelocityField(VectorField):
         self.time_embedding = ScalarTimeEmbedding()
         self.backbone = MLPBackbone(
             self.flat_dim + 1 + self.condition_dim,
-            self.flat_dim,
+            1,  # scalar output
             hidden=hidden,
             layers=layers,
             activation=activation,
@@ -85,6 +76,13 @@ class VelocityField(VectorField):
         t: torch.Tensor,
         c: torch.Tensor | None = None,
     ) -> torch.Tensor:
+        """Predict log p_t(x).
+
+        Returns
+        -------
+        Tensor, shape ``(*lead,)``
+            Scalar log-density prediction per sample.
+        """
         validate_shapes(x, self.event_ndim, expected_event_shape=self.event_shape)
         x_flat = flatten_event(x, self.event_ndim)
         lead_shape = tuple(x_flat.shape[:-1])
@@ -98,4 +96,4 @@ class VelocityField(VectorField):
         inputs = torch.cat([x_flat, t_features], dim=-1)
         if c is not None:
             inputs = torch.cat([inputs, c], dim=-1)
-        return unflatten_event(self.backbone(inputs), self.event_shape)
+        return self.backbone(inputs).squeeze(-1)

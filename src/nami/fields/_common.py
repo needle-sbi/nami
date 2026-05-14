@@ -1,8 +1,26 @@
 from __future__ import annotations
 
+
+
 import torch
 
-from ..core.specs import as_tuple
+from nami.core.specs import as_tuple
+
+
+def require_event_ndim(field) -> int:
+    """Read the required ``event_ndim`` from a field-like object.
+
+    A field's ``event_ndim`` is the contract every loss and Process leans
+    on to broadcast time tensors and reduce per-sample MSE.  Centralising
+    the lookup here keeps the failure message consistent and avoids the
+    parallel definitions that drifted between ``losses._common`` and
+    ``processes._common``.
+    """
+    event_ndim = getattr(field, "event_ndim", None)
+    if event_ndim is None:
+        msg = "field.event_ndim is required"
+        raise ValueError(msg)
+    return int(event_ndim)
 
 
 def normalise_event_shape(dim: int | tuple[int, ...]) -> tuple[int, ...]:

@@ -1,12 +1,13 @@
-"""MLP velocity field for flow-matching and related transports.
+"""MLP field that emits packed generator-operator parameters.
 
-Consumed by :class:`FlowMatching` and (via :class:`Velocity` target)
-any Process expecting a vector-valued field over the event shape.
+Backbone is shape-aware: it maps the flattened event tensor plus a
+scalar-time feature (and optional context) to a tensor in the
+operator's ``parameter_shape``. Consumed by :class:`GeneratorMatching`
+via :class:`GeneratorParams` targets.
 
 References
 ----------
-- Lipman et al., *Flow Matching for Generative Modeling*, 2022
-  (arXiv:2210.02747).
+- Holderrieth et al., *Generator Matching*, 2024.
 """
 
 from __future__ import annotations
@@ -16,39 +17,19 @@ from __future__ import annotations
 import torch
 
 from nami.components import MLPBackbone, ScalarTimeEmbedding
-from nami.core.specs import (
-    event_numel,
-    flatten_event,
-    unflatten_event,
-    validate_shapes,
-)
+from nami.core.specs import event_numel, flatten_event, validate_shapes
 from nami.fields._common import normalise_event_shape, validate_context
 from nami.fields.base import VectorField
 
 
-class VelocityField(VectorField):
-    """MLP velocity field for flow matching.
-
-    Supports unconditional and conditional workflows. When ``condition_dim``
-    is non-zero the field expects a context vector ``c`` concatenated to the
-    input; otherwise ``c`` should be ``None``.  Conditioning is handled by
-    the process layer via lazy binding. This field simply receives whatever
-    context the process passes through.
-
-    Args:
-        dim: Data dimensionality or event shape.
-        condition_dim: Conditioning vector dimensionality (0 for unconditional).
-        hidden: Hidden layer width.
-        layers: Number of hidden layers.
-        activation: Activation function ('silu', 'relu', 'gelu', 'tanh').
-        dropout: Dropout probability (0 disables).
-        layer_norm: Whether to apply layer normalisation in hidden layers.
-    """
+class GeneratorField(VectorField):
+    """MLP field that predicts generator parameters."""
 
     def __init__(
         self,
         dim: int | tuple[int, ...],
         *,
+        operator,
         condition_dim: int = 0,
         hidden: int = 256,
         layers: int = 3,
@@ -62,12 +43,22 @@ class VelocityField(VectorField):
             raise ValueError(msg)
 
         self.event_shape = normalise_event_shape(dim)
+        if tuple(operator.event_shape) != self.event_shape:
+            msg = (
+                f"operator.event_shape must match dim: expected {self.event_shape}, "
+                f"got {tuple(operator.event_shape)}"
+            )
+            raise ValueError(msg)
+
+        self.operator = operator
         self.condition_dim = int(condition_dim)
         self.flat_dim = event_numel(self.event_shape)
+        self.parameter_shape = tuple(operator.parameter_shape)
+        self.parameter_dim = event_numel(self.parameter_shape)
         self.time_embedding = ScalarTimeEmbedding()
         self.backbone = MLPBackbone(
             self.flat_dim + 1 + self.condition_dim,
-            self.flat_dim,
+            self.parameter_dim,
             hidden=hidden,
             layers=layers,
             activation=activation,
@@ -98,4 +89,5 @@ class VelocityField(VectorField):
         inputs = torch.cat([x_flat, t_features], dim=-1)
         if c is not None:
             inputs = torch.cat([inputs, c], dim=-1)
-        return unflatten_event(self.backbone(inputs), self.event_shape)
+        outputs = self.backbone(inputs)
+        return outputs.reshape(*lead_shape, *self.parameter_shape)
