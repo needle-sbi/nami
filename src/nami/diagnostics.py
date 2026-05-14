@@ -1,7 +1,7 @@
 """Inspection helpers: tensor descriptions, field statistics, reversibility.
 
-Lightweight diagnostics for sanity-checking trained fields and
-solvers. Not on the import-time hot path.
+Diagnostics for validating trained fields and
+solvers.
 """
 
 from __future__ import annotations

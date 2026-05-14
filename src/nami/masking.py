@@ -4,12 +4,7 @@ Masked flow matching for variable-cardinality inputs.
 Mask convention: ``1 = real object``, ``0 = padding``.  Masks have shape
 ``(..., N)`` where *N* is the object (first event) dimension.
 
-The training-time loss is now expressed on the unified vocabulary —
-``masked_fm_loss`` is a thin variant of
-:func:`~nami.losses.regression.regression_loss` that masks the
-per-object squared error before averaging.  The runtime
-:func:`masked_sample` is unchanged: it integrates the masked velocity
-field directly.
+TODO: better incoporate into main api, move to losses
 """
 
 from __future__ import annotations

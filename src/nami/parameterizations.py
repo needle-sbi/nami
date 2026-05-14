@@ -1,26 +1,17 @@
 r"""Training-target language for transport processes.
 
-Three concepts live here:
-
 * :data:`Target` is a sum type over the named mathematical objects a network
   can learn to emit (velocity, score, epsilon, x0, generator parameters).
-  New target families are added as new variants — pattern-match dispatch
+  New target families are added as new variants, and pattern-match dispatch
   ensures every consumer is forced to handle them.
 * :class:`Parameterization` bundles a :data:`Target` with the implicit
   weighting ``\omega(t)`` and the ``output_transform`` that maps a raw network
   emission into the target's space.  Carrying the weighting alongside the
   target choice closes the silent re-weighting bug class that string-flag
   parameterisations (``"eps" | "score" | "x0"``) historically permitted.
-* The dispatch is a method on the
-  :class:`~nami.interpolants.protocol.Interpolant` itself, not a free
-  function: each interpolant knows which targets it can express and raises
-  ``NotImplementedError`` for those it cannot.
-
-This module is the foundational vocabulary layer.  It is dependency-free
-in one direction (it imports nothing from interpolants, fields, losses,
-or processes) so that those layers can depend on it without cycles.
-Concrete consumers - :mod:`nami.interpolants.gaussian` is the first -
-import from here, never the reverse.
+* The dispatch is a method on the :class:`~nami.interpolants.protocol.Interpolant`, 
+  not a free function: each interpolant knows which targets it can express and 
+  raises ``NotImplementedError`` for those it cannot.
 """
 
 from __future__ import annotations
@@ -36,7 +27,7 @@ if TYPE_CHECKING:
 
 
 # ---------------------------------------------------------------------------
-# Target sum type
+# Note:
 # ---------------------------------------------------------------------------
 # Every variant is a frozen dataclass so it can carry per-target metadata
 # (e.g. the GeneratorOperator that interprets GeneratorParams) without

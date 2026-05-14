@@ -2,10 +2,8 @@
 
 Conditional workflows pass context ``c`` once at process-instantiation
 time and recover a concrete object that does not have to thread ``c``
-through every call. The ``Unconditional*`` wrappers are trivial
-adapters that ignore ``c`` and return the underlying object — they
-let user-facing APIs accept either plain ``torch.distributions``
-objects or lazy ones uniformly.
+through every call. The ``Unconditional*`` wrappers are
+adapters that ignore ``c`` and return the underlying object
 """
 
 from __future__ import annotations

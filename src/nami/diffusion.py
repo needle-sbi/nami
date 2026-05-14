@@ -16,11 +16,9 @@ into another using only ``(x_t, \alpha, \sigma)``.  Used by:
   :func:`expand_like` to broadcast schedule scalars over batched
   state tensors.
 
-Why a top-level module rather than ``nami.fields.diffusion`` (where
-these used to live): they aren't fields.  They're algebraic
-identities between target spaces — schedule-adjacent but not
-schedules either, since they don't define ``\alpha(t), \sigma(t)``; they
-*consume* them.
+These are algebraic identities between target spaces, so schedule-adjacent but not
+schedules in themselves, since they don't define ``\alpha(t), \sigma(t)``; they
+consume them.
 """
 
 from __future__ import annotations
