@@ -5,9 +5,9 @@ import torch
 from torch import nn
 
 from nami.distributions.normal import StandardNormal
-from nami.losses.fm import fm_loss
+from nami.interpolants import CosineInterpolant, LinearInterpolant, velocity_prediction
+from nami.losses.regression import regression_loss
 from nami.masking import _expand_mask, masked_fm_loss, masked_sample
-from nami.paths.cosine import CosinePath
 from nami.solvers.ode import RK4
 
 
@@ -155,8 +155,12 @@ class TestMaskedFmLoss:
         loss = masked_fm_loss(field, x_target, x_source, mask, reduction="sum")
         assert loss.shape == ()
 
-    def test_all_ones_mask_matches_fm_loss(self):
-        """With all-ones mask, masked_fm_loss should equal fm_loss exactly."""
+    def test_all_ones_mask_matches_regression_loss(self):
+        """With an all-ones mask, ``masked_fm_loss`` equals plain
+        ``regression_loss`` with the same ``LinearInterpolant +
+        Velocity`` setup.  Pins that the masking discipline reduces
+        cleanly to the unmasked case.
+        """
         torch.manual_seed(0)
         n_objects, dim, batch = 5, 3, 4
         field = SimpleSetField(n_objects, dim)
@@ -166,7 +170,15 @@ class TestMaskedFmLoss:
         t = torch.rand(batch)
 
         loss_masked = masked_fm_loss(field, x_target, x_source, mask, t=t)
-        loss_plain = fm_loss(field, x_target, x_source, t=t)
+        loss_plain = regression_loss(
+            field,
+            x_target,
+            x_source,
+            t=t,
+            interpolant=LinearInterpolant(),
+            parameterization=velocity_prediction(),
+            eps_t=0.0,
+        )
         assert torch.allclose(loss_masked, loss_plain, atol=1e-6)
 
     def test_exact_value_with_zero_field(self):
@@ -177,7 +189,7 @@ class TestMaskedFmLoss:
             x_source = zeros
             mask     = [1, 1, 0]
 
-        LinearPath gives ut = x_source - x_target, vt = 0.
+        LinearInterpolant gives ut = x_source - x_target, vt = 0.
         sq_err = x_target^2.  Masked per-object means: [2.5, 12.5, 0].
         Loss = (2.5 + 12.5) / 2 = 7.5
         """
@@ -216,9 +228,11 @@ class TestMaskedFmLoss:
         with pytest.raises(ValueError, match="event_ndim is required"):
             masked_fm_loss(field, x, x, mask)
 
-    def test_custom_path(self, setup):
+    def test_custom_interpolant(self, setup):
         field, x_target, x_source, mask = setup
-        loss = masked_fm_loss(field, x_target, x_source, mask, path=CosinePath())
+        loss = masked_fm_loss(
+            field, x_target, x_source, mask, interpolant=CosineInterpolant()
+        )
         assert loss.shape == ()
         assert loss.item() > 0
 

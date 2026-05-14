@@ -183,9 +183,7 @@ class TestDPMSolverPPDiffusion:
         def predict_eps(x, _t):
             return torch.zeros_like(x)
 
-        x1 = solver.integrate_diffusion(
-            predict_eps, schedule, x0, t0=1.0, t1=1e-3
-        )
+        x1 = solver.integrate_diffusion(predict_eps, schedule, x0, t0=1.0, t1=1e-3)
         assert x1.shape == x0.shape
         assert torch.isfinite(x1).all()
 
@@ -208,8 +206,6 @@ class TestDPMSolverPPDiffusion:
         def predict_eps(x, _t):
             return torch.zeros_like(x)
 
-        x1 = solver.integrate_diffusion(
-            predict_eps, schedule, x0, t0=0.1, t1=0.9
-        )
+        x1 = solver.integrate_diffusion(predict_eps, schedule, x0, t0=0.1, t1=0.9)
         assert x1.shape == x0.shape
         assert torch.isfinite(x1).all()

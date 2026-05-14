@@ -45,6 +45,7 @@ def test_get_activation_unknown_raises():
     with pytest.raises(ValueError, match="Unknown activation"):
         get_activation("nonexistent")
 
+
 # ---------------------------------------------------------
 # MLP
 
@@ -99,7 +100,9 @@ def test_scalar_and_sinusoidal_time_embeddings_match_leading_shape():
     leading_shape = (2, 3, 4)
     t = torch.rand(2, 3, 4)
 
-    scalar = ScalarTimeEmbedding()(t, leading_shape=leading_shape, device=t.device, dtype=t.dtype)
+    scalar = ScalarTimeEmbedding()(
+        t, leading_shape=leading_shape, device=t.device, dtype=t.dtype
+    )
     sinusoidal = SinusoidalTimeEmbedding(7)(
         t,
         leading_shape=leading_shape,

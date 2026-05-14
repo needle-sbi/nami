@@ -1,12 +1,9 @@
 """Shared pytest fixtures for nami tests."""
-
 from __future__ import annotations
 
 import pytest
 import torch
 
-from nami.paths.cosine import CosinePath
-from nami.paths.linear import LinearPath
 from nami.solvers.heun import Heun
 from nami.solvers.ode import RK4
 
@@ -45,15 +42,3 @@ def heun_solver():
 def rk4_solver():
     """Default RK4 solver for tests."""
     return RK4(steps=10)
-
-
-@pytest.fixture
-def cosine_path():
-    """CosinePath instance for tests."""
-    return CosinePath()
-
-
-@pytest.fixture
-def linear_path():
-    """LinearPath instance for tests."""
-    return LinearPath()

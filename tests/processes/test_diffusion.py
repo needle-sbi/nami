@@ -4,7 +4,10 @@ import pytest
 import torch
 
 from nami import EDMSchedule, VESchedule, VPSchedule
+from nami.diffusion import expand_like
+from nami.interpolants import epsilon_prediction, score_prediction, x0_prediction
 from nami.lazy import UnconditionalField
+from nami.parameterizations import Parameterization, Velocity
 from nami.processes.diffusion import Diffusion
 from nami.solvers import RK4, DPMSolverPP, EulerMaruyama, Heun
 
@@ -28,7 +31,12 @@ class TestDiffusionProcesses:
         solver = Heun()
 
         diffusion = Diffusion(
-            model, schedule, solver, parameterization="eps", event_shape=(), t1=1e-3
+            model,
+            schedule,
+            solver,
+            parameterization=epsilon_prediction(schedule),
+            event_shape=(),
+            t1=1e-3,
         )
         process = diffusion()
 
@@ -38,9 +46,18 @@ class TestDiffusionProcesses:
 
     # ---------------------------------------------------------
     # test different versions of the diffusion process (noise, score, x0)
-    @pytest.mark.parametrize("parameterization", ["eps", "score", "x0"])
-    def test_diffusion_parameterizations(self, parameterization):
-        """Test different diffusion param."""
+    @pytest.mark.parametrize(
+        "factory",
+        [epsilon_prediction, score_prediction, x0_prediction],
+        ids=["epsilon", "score", "x0"],
+    )
+    def test_diffusion_parameterizations(self, factory):
+        """Sampling works under all three target choices.
+
+        Factories replace the legacy ``parameterization="eps"|"score"|"x0"``
+        flag.  The Process pattern-matches on ``parameterization.target``
+        to dispatch the right eps-conversion.
+        """
         model = UnconditionalField(zero_field)
         schedule = VPSchedule()
         solver = Heun()
@@ -49,7 +66,7 @@ class TestDiffusionProcesses:
             model,
             schedule,
             solver,
-            parameterization=parameterization,
+            parameterization=factory(schedule),
             event_shape=(),
             t1=1e-3,
         )
@@ -68,7 +85,12 @@ class TestDiffusionProcesses:
         solver = Heun()
 
         diffusion = Diffusion(
-            model, schedule, solver, parameterization="eps", event_shape=(), t1=1e-3
+            model,
+            schedule,
+            solver,
+            parameterization=epsilon_prediction(schedule),
+            event_shape=(),
+            t1=1e-3,
         )
         process = diffusion()
 
@@ -85,7 +107,12 @@ class TestDiffusionProcesses:
         solver = solver_cls()
 
         diffusion = Diffusion(
-            model, schedule, solver, parameterization="eps", event_shape=(), t1=1e-3
+            model,
+            schedule,
+            solver,
+            parameterization=epsilon_prediction(schedule),
+            event_shape=(),
+            t1=1e-3,
         )
         process = diffusion()
 
@@ -101,7 +128,12 @@ class TestDiffusionProcesses:
         solver = Heun()
 
         diffusion = Diffusion(
-            model, schedule, solver, parameterization="eps", event_shape=(), t1=1e-3
+            model,
+            schedule,
+            solver,
+            parameterization=epsilon_prediction(schedule),
+            event_shape=(),
+            t1=1e-3,
         )
         context = torch.randn(3, 2)
         process = diffusion(context)
@@ -112,18 +144,48 @@ class TestDiffusionProcesses:
         assert sample.shape == (3, 4, 3)
 
     # ---------------------------------------------------------
-    # test error handling for invalid parameterization to make sure the error is raised
-    def test_diffusion_invalid_parameterization(self):
-        """Test error handling for invalid param."""
+    def test_diffusion_rejects_legacy_string_flag(self):
+        """The legacy string flag was removed; passing one fails clearly.
+
+        Pins the API break: callers who pass ``parameterization="eps"``
+        get an explicit migration message rather than a silent
+        ``isinstance`` False that propagates to a confusing later error.
+        """
         model = UnconditionalField(zero_field)
         schedule = VPSchedule()
         solver = Heun()
 
         diffusion = Diffusion(
-            model, schedule, solver, parameterization="invalid", event_shape=()
+            model,
+            schedule,
+            solver,
+            parameterization="eps",  # type: ignore[arg-type]
+            event_shape=(),
         )
 
-        with pytest.raises(ValueError, match="parameterization must be"):
+        with pytest.raises(TypeError, match="Parameterization"):
+            diffusion()
+
+    def test_diffusion_rejects_unsupported_target(self):
+        """Diffusion supports only Epsilon / Score / X0 targets.
+
+        Velocity and GeneratorParams targets must fail at construction
+        time with a clear message — pattern-match fallthrough errors
+        appear too late.
+        """
+        model = UnconditionalField(zero_field)
+        schedule = VPSchedule()
+        solver = Heun()
+
+        diffusion = Diffusion(
+            model,
+            schedule,
+            solver,
+            parameterization=Parameterization(target=Velocity()),
+            event_shape=(),
+        )
+
+        with pytest.raises(TypeError, match="Diffusion supports targets"):
             diffusion()
 
     # ---------------------------------------------------------
@@ -134,7 +196,9 @@ class TestDiffusionProcesses:
         schedule = VPSchedule()
         solver = Heun()
 
-        diffusion = Diffusion(model, schedule, solver, parameterization="eps")
+        diffusion = Diffusion(
+            model, schedule, solver, parameterization=epsilon_prediction(schedule)
+        )
         with pytest.raises(
             ValueError, match="event_shape is required when base is None"
         ):
@@ -157,7 +221,11 @@ class TestDiffusionProcesses:
         solver = Heun()
 
         diffusion = Diffusion(
-            model, schedule, solver, parameterization="eps", event_shape=(2,)
+            model,
+            schedule,
+            solver,
+            parameterization=epsilon_prediction(schedule),
+            event_shape=(2,),
         )
         # event_shape has len 1, event_ndim is 2 -> Mismatch
 
@@ -175,7 +243,12 @@ class TestDiffusionProcesses:
         solver = Heun()
 
         diffusion = Diffusion(
-            model, schedule, solver, parameterization="eps", event_shape=(), t1=1e-3
+            model,
+            schedule,
+            solver,
+            parameterization=epsilon_prediction(schedule),
+            event_shape=(),
+            t1=1e-3,
         )
         process = diffusion()
 
@@ -192,7 +265,12 @@ class TestDiffusionProcesses:
         solver = EulerMaruyama()
 
         diffusion = Diffusion(
-            model, schedule, solver, parameterization="eps", event_shape=(), t1=1e-3
+            model,
+            schedule,
+            solver,
+            parameterization=epsilon_prediction(schedule),
+            event_shape=(),
+            t1=1e-3,
         )
         process = diffusion()
 
@@ -210,7 +288,12 @@ class TestDiffusionProcesses:
         solver = Heun(steps=1)
 
         diffusion = Diffusion(
-            model, schedule, solver, parameterization="eps", event_shape=(), t1=1e-3
+            model,
+            schedule,
+            solver,
+            parameterization=epsilon_prediction(schedule),
+            event_shape=(),
+            t1=1e-3,
         )
         process = diffusion()
 
@@ -226,13 +309,18 @@ class TestDiffusionProcesses:
         solver = Heun()
 
         diffusion = Diffusion(
-            model, schedule, solver, parameterization="eps", event_shape=(), t1=1e-3
+            model,
+            schedule,
+            solver,
+            parameterization=epsilon_prediction(schedule),
+            event_shape=(),
+            t1=1e-3,
         )
         process = diffusion()
 
         calls = []
 
-        def guidance(x, t, eps):
+        def guidance(x, t, eps):  # noqa: ARG001
             calls.append(1)
             return eps
 
@@ -247,13 +335,18 @@ class TestDiffusionProcesses:
         solver = EulerMaruyama()
 
         diffusion = Diffusion(
-            model, schedule, solver, parameterization="eps", event_shape=(), t1=1e-3
+            model,
+            schedule,
+            solver,
+            parameterization=epsilon_prediction(schedule),
+            event_shape=(),
+            t1=1e-3,
         )
         process = diffusion()
 
         calls = []
 
-        def guidance(x, t, eps):
+        def guidance(x, t, eps):  # noqa: ARG001
             calls.append(1)
             return eps
 
@@ -268,13 +361,18 @@ class TestDiffusionProcesses:
         solver = DPMSolverPP(steps=5)
 
         diffusion = Diffusion(
-            model, schedule, solver, parameterization="eps", event_shape=(), t1=1e-3
+            model,
+            schedule,
+            solver,
+            parameterization=epsilon_prediction(schedule),
+            event_shape=(),
+            t1=1e-3,
         )
         process = diffusion()
 
         calls = []
 
-        def guidance(x, t, eps):
+        def guidance(x, t, eps):  # noqa: ARG001
             calls.append(1)
             return eps
 
@@ -291,7 +389,12 @@ class TestDiffusionProcesses:
         solver = DPMSolverPP(steps=5)
 
         diffusion = Diffusion(
-            model, schedule, solver, parameterization="eps", event_shape=(), t1=1e-3
+            model,
+            schedule,
+            solver,
+            parameterization=epsilon_prediction(schedule),
+            event_shape=(),
+            t1=1e-3,
         )
         process = diffusion()
 
@@ -305,13 +408,18 @@ class TestDiffusionProcesses:
         solver = Heun()
 
         diffusion = Diffusion(
-            model, schedule, solver, parameterization="eps", event_shape=(), t1=1e-3
+            model,
+            schedule,
+            solver,
+            parameterization=epsilon_prediction(schedule),
+            event_shape=(),
+            t1=1e-3,
         )
         process = diffusion()
 
         calls = []
 
-        def guidance(x, t, eps):
+        def guidance(x, t, eps):  # noqa: ARG001
             calls.append(1)
             return eps
 
@@ -328,7 +436,7 @@ class TestDiffusionProcesses:
             requires_steps = True
             steps = 5
 
-            def integrate(self, f, x0, *, t0, t1, **kw):
+            def integrate(self, f, x0, *, t0, t1, **kw):  # noqa: ARG002
                 return x0
 
         model = UnconditionalField(zero_field)
@@ -336,11 +444,18 @@ class TestDiffusionProcesses:
         solver = _NoRsampleSolver()
 
         diffusion = Diffusion(
-            model, schedule, solver, parameterization="eps", event_shape=(), t1=1e-3
+            model,
+            schedule,
+            solver,
+            parameterization=epsilon_prediction(schedule),
+            event_shape=(),
+            t1=1e-3,
         )
         process = diffusion()
 
-        with pytest.raises(NotImplementedError, match="solver does not support rsample"):
+        with pytest.raises(
+            NotImplementedError, match="solver does not support rsample"
+        ):
             process.rsample(sample_shape=(3, 2))
 
     def test_rsample_no_rsample_base_fails(self):
@@ -364,7 +479,7 @@ class TestDiffusionProcesses:
             model,
             schedule,
             solver,
-            parameterization="eps",
+            parameterization=epsilon_prediction(schedule),
             base=base,
             t1=1e-3,
             validate_args=False,
@@ -383,7 +498,7 @@ class TestDiffusionProcesses:
             is_sde = False
             requires_steps = True
 
-            def integrate(self, f, x0, *, t0, t1, **kw):
+            def integrate(self, f, x0, *, t0, t1, **kw):  # noqa: ARG002
                 return x0
 
         model = UnconditionalField(zero_field)
@@ -391,7 +506,12 @@ class TestDiffusionProcesses:
         solver = _SteplessSolver()
 
         diffusion = Diffusion(
-            model, schedule, solver, parameterization="eps", event_shape=(), t1=1e-3
+            model,
+            schedule,
+            solver,
+            parameterization=epsilon_prediction(schedule),
+            event_shape=(),
+            t1=1e-3,
         )
         process = diffusion()
 
@@ -405,7 +525,7 @@ class TestDiffusionProcesses:
             is_sde = True
             requires_steps = False
 
-            def integrate(self, drift, diffusion, x0, *, t0, t1, steps):
+            def integrate(self, drift, diffusion, x0, *, t0, t1, steps):  # noqa: ARG002
                 return x0
 
         model = UnconditionalField(zero_field)
@@ -413,7 +533,12 @@ class TestDiffusionProcesses:
         solver = _SteplessSDE()
 
         diffusion = Diffusion(
-            model, schedule, solver, parameterization="eps", event_shape=(), t1=1e-3
+            model,
+            schedule,
+            solver,
+            parameterization=epsilon_prediction(schedule),
+            event_shape=(),
+            t1=1e-3,
         )
         process = diffusion()
 
@@ -428,7 +553,12 @@ class TestDiffusionProcesses:
         base = torch.distributions.Normal(torch.zeros(3), torch.ones(3))
 
         diffusion = Diffusion(
-            model, schedule, solver, parameterization="eps", base=base, t1=1e-3
+            model,
+            schedule,
+            solver,
+            parameterization=epsilon_prediction(schedule),
+            base=base,
+            t1=1e-3,
         )
         context = torch.randn(3, 2)
         process = diffusion(context)
@@ -452,10 +582,88 @@ class TestDiffusionProcesses:
         solver = Heun()
 
         diffusion = Diffusion(
-            model, schedule, solver, parameterization="eps", event_shape=(), t1=1e-3
+            model,
+            schedule,
+            solver,
+            parameterization=epsilon_prediction(schedule),
+            event_shape=(),
+            t1=1e-3,
         )
         process = diffusion()
 
         sample = process.sample(sample_shape=(4, 2))
         assert sample.shape == (4, 2)
         assert torch.isfinite(sample).all()
+
+    # ---------------------------------------------------------
+    # Headline equivalence test for the stage-1c refactor.
+    #
+    # The string-flag dispatch was deleted; the new dispatch is a sum-type
+    # match on parameterization.target.  This test pins that all three
+    # target choices produce identical sample trajectories when the field
+    # is constructed to emit the parameterisation-correct value for the
+    # *same underlying eps prediction*.  If the algebraic identities behind
+    # score_to_eps / x0_to_eps drift, this test fails by sample-divergence
+    # rather than by a downstream training regression.
+    def test_three_target_choices_produce_identical_samples(self):
+        schedule = VPSchedule()
+        solver = Heun(steps=20)
+
+        # The "true" eps predicted by all three networks (in their native
+        # parameterisations).  Constant across (x, t) so we can express
+        # each field's output as a closed-form transform.
+        torch.manual_seed(0)
+        y_eps_value = 0.3 * torch.randn(1)  # broadcast scalar
+        y_eps = float(y_eps_value)
+
+        def eps_field(x, _t, _c=None):
+            return torch.full_like(x, y_eps)
+
+        def score_field(x, t, _c=None):
+            sigma = expand_like(schedule.sigma(t), x)
+            return torch.full_like(x, y_eps).neg().div_(sigma)
+
+        def x0_field(x, t, _c=None):
+            alpha = expand_like(schedule.alpha(t), x)
+            sigma = expand_like(schedule.sigma(t), x)
+            return (x - sigma * y_eps) / alpha
+
+        common = {
+            "schedule": schedule,
+            "solver": solver,
+            "event_shape": (),
+            "t1": 1e-3,
+        }
+
+        torch.manual_seed(42)
+        s_eps = Diffusion(
+            UnconditionalField(eps_field),
+            parameterization=epsilon_prediction(schedule),
+            **common,
+        )().sample(sample_shape=(8, 3))
+
+        torch.manual_seed(42)
+        s_score = Diffusion(
+            UnconditionalField(score_field),
+            parameterization=score_prediction(schedule),
+            **common,
+        )().sample(sample_shape=(8, 3))
+
+        torch.manual_seed(42)
+        s_x0 = Diffusion(
+            UnconditionalField(x0_field),
+            parameterization=x0_prediction(schedule),
+            **common,
+        )().sample(sample_shape=(8, 3))
+
+        # The three trajectories share the same eps prediction at every
+        # integration step, so with the same RNG seed they must produce
+        # the same final samples up to floating-point reordering.
+        assert torch.allclose(s_eps, s_score, atol=1e-5, rtol=1e-5), (
+            "Score parameterisation diverged from Epsilon — score_to_eps "
+            "or the dispatch broke"
+        )
+        assert torch.allclose(s_eps, s_x0, atol=1e-5, rtol=1e-5), (
+            "X0 parameterisation diverged from Epsilon — x0_to_eps "
+            "or the dispatch broke"
+        )

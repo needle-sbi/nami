@@ -4,10 +4,10 @@ import pytest
 import torch
 from torch import nn
 
+from nami.interpolants import LinearInterpolant, velocity_prediction
 from nami.interpolants.gamma import BrownianGamma, ZeroGamma
-from nami.losses.fm import fm_loss
+from nami.losses.regression import regression_loss
 from nami.losses.stochastic_fm import stochastic_fm_loss
-from nami.paths.linear import LinearPath
 
 
 class ZeroField(nn.Module):
@@ -21,24 +21,36 @@ class ZeroField(nn.Module):
 
 
 class TestStochasticFmLoss:
-    def test_zero_gamma_matches_fm_loss(self):
+    def test_zero_gamma_matches_deterministic_linear_fm(self):
+        """Stochastic FM with gamma=0 reduces to deterministic linear-path FM.
+
+        ``StochasticLinearInterpolant(gamma=ZeroGamma())`` should
+        produce the same loss as ``LinearInterpolant`` with Velocity
+        target, because the gamma*z and gamma*z terms both vanish.  Pinned
+        by exact equality.
+        """
         torch.manual_seed(0)
         field = ZeroField()
         x_target = torch.randn(6, 4)
         x_source = torch.randn(6, 4)
         t = torch.rand(6)
         z = torch.randn_like(x_target)
-        path = LinearPath()
 
-        deterministic = fm_loss(
-            field, x_target, x_source, t=t, path=path, reduction="none"
+        deterministic = regression_loss(
+            field,
+            x_target,
+            x_source,
+            t=t,
+            interpolant=LinearInterpolant(),
+            parameterization=velocity_prediction(),
+            eps_t=0.0,
+            reduction="none",
         )
         stochastic = stochastic_fm_loss(
             field,
             x_target,
             x_source,
             t=t,
-            path=path,
             gamma=ZeroGamma(),
             z=z,
             reduction="none",
@@ -89,13 +101,17 @@ class TestStochasticFmLoss:
         assert torch.isclose(loss_mean, loss_none.mean())
 
     def test_invalid_noise_shape_raises(self):
+        """A wrong-shaped z fails inside the interpolant's sample step,
+        which broadcasts ``gamma(t) * z`` against the deterministic mean —
+        a shape mismatch surfaces as a torch RuntimeError.
+        """
         field = ZeroField()
         x_target = torch.randn(4, 3)
         x_source = torch.randn(4, 3)
         t = torch.rand(4)
-        z = torch.randn(4, 2)
+        z = torch.randn(4, 2)  # wrong last dim
 
-        with pytest.raises(ValueError, match="z must match the shape"):
+        with pytest.raises((ValueError, RuntimeError)):
             stochastic_fm_loss(
                 field,
                 x_target,

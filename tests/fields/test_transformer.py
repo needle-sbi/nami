@@ -3,7 +3,15 @@ from __future__ import annotations
 import pytest
 import torch
 
-from nami import RK4, FlowMatching, StandardNormal, TransformerVelocityField, fm_loss
+from nami import (
+    RK4,
+    FlowMatching,
+    LinearInterpolant,
+    StandardNormal,
+    TransformerVelocityField,
+    regression_loss,
+    velocity_prediction,
+)
 
 
 def test_transformer_velocity_field_supports_tuple_event_shape():
@@ -77,10 +85,13 @@ def test_transformer_velocity_field_supports_valid_context():
 
 def test_transformer_velocity_field_supports_flow_matching_process():
     field = TransformerVelocityField(8, model_dim=16, depth=2, num_heads=4)
-    loss = fm_loss(
+    loss = regression_loss(
         field,
         x_target=torch.randn(16, 8),
         x_source=torch.randn(16, 8),
+        interpolant=LinearInterpolant(),
+        parameterization=velocity_prediction(),
+        eps_t=0.0,
     )
 
     process = FlowMatching(field, StandardNormal(8), RK4(steps=4))()
