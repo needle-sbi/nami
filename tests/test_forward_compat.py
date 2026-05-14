@@ -51,23 +51,23 @@ from nami.schedules.vp import VPSchedule
 def test_v_target_gaussian_matches_alpha_eps_minus_sigma_x0() -> None:
     """``v = alpha(t) eps - sigma(t) x0`` per Salimans & Ho's convention.
 
-    With nami's ``eps = x_source`` / ``x0 = x_target`` mapping, the
-    closed form is ``v = alpha(t) x_source - sigma(t) x_target`` — pinned
+    With nami's ``eps = x_noise`` / ``x0 = x_data`` mapping, the
+    closed form is ``v = alpha(t) x_noise - sigma(t) x_data`` — pinned
     here against the schedule's ``alpha`` / ``sigma`` functions.
     """
     torch.manual_seed(0)
     schedule = VPSchedule()
     interpolant = GaussianInterpolant(schedule=schedule)
-    x_target = torch.randn(8, 3, dtype=torch.float64)
-    x_source = torch.randn(8, 3, dtype=torch.float64)
+    x_data = torch.randn(8, 3, dtype=torch.float64)
+    x_noise = torch.randn(8, 3, dtype=torch.float64)
     t = 0.05 + 0.9 * torch.rand(8, dtype=torch.float64)
 
-    state = interpolant.sample(x_target, x_source, t)
+    state = interpolant.sample(x_data, x_noise, t)
     v_actual = interpolant.target(VPrediction(), state)
 
     a = schedule.alpha(t).unsqueeze(-1)
     s = schedule.sigma(t).unsqueeze(-1)
-    v_expected = a * x_source - s * x_target
+    v_expected = a * x_noise - s * x_data
     assert torch.allclose(v_actual, v_expected, atol=1e-12, rtol=1e-12)
 
 
@@ -205,10 +205,10 @@ def test_two_head_field_rejects_non_conformer() -> None:
 
 
 def _state_for(interpolant) -> object:
-    x_target = torch.randn(4, 3)
-    x_source = torch.randn(4, 3)
+    x_data = torch.randn(4, 3)
+    x_noise = torch.randn(4, 3)
     t = 0.05 + 0.9 * torch.rand(4)
-    return interpolant.sample(x_target, x_source, t)
+    return interpolant.sample(x_data, x_noise, t)
 
 
 @pytest.mark.parametrize(

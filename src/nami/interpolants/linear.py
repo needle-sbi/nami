@@ -1,13 +1,13 @@
 r"""Linear interpolants - deterministic and stochastic variants.
 
 ``LinearInterpolant``:
-    ``x_t = (1 - t) \cdot x_target + t \cdot x_source`` - the deterministic
+    ``x_t = (1 - t) \cdot x_data + t \cdot x_noise`` - the deterministic
     linear path between data (``t=0``) and source/noise (``t=1``).
-    Supports :class:`Velocity` (constant ``u_t = x_source - x_target``)
+    Supports :class:`Velocity` (constant ``u_t = x_noise - x_data``)
     and :class:`GeneratorParams` for an Ito operator.
 
 ``StochasticLinearInterpolant``:
-    ``x_t = (1 - t) \cdot x_target + t \cdot x_source + \gamma(t) \cdot z`` - the
+    ``x_t = (1 - t) \cdot x_data + t \cdot x_noise + \gamma(t) \cdot z`` - the
     Albergo-Vanden-Eijnden stochastic interpolant variant.  Adds a
     gamma-scaled Gaussian noise term to the deterministic linear path so
     the conditional density has a well-defined score.  Supports
@@ -47,7 +47,7 @@ from nami.parameterizations import (
 
 @dataclass(frozen=True)
 class LinearInterpolant:
-    r"""Deterministic linear interpolant ``x_t = (1-t) x_target + t x_source``.
+    r"""Deterministic linear interpolant ``x_t = (1-t) x_data + t x_noise``.
 
     Implements the :class:`~nami.interpolants.protocol.Interpolant`
     protocol.  Supports only :class:`~nami.parameterizations.Velocity`;
@@ -57,8 +57,8 @@ class LinearInterpolant:
 
     def sample(
         self,
-        x_target: torch.Tensor,
-        x_source: torch.Tensor,
+        x_data: torch.Tensor,
+        x_noise: torch.Tensor,
         t: torch.Tensor,
         *,
         noise: torch.Tensor | None = None,
@@ -69,12 +69,12 @@ class LinearInterpolant:
                 "effect.  Use GaussianInterpolant for stochastic paths."
             )
             raise ValueError(msg)
-        tt = _broadcast_t(t, x_target)
-        xt = (1.0 - tt) * x_target + tt * x_source
+        tt = _broadcast_t(t, x_data)
+        xt = (1.0 - tt) * x_data + tt * x_noise
         return InterpolantState(
             xt=xt,
-            x_target=x_target,
-            x_source=x_source,
+            x_data=x_data,
+            x_noise=x_noise,
             t=t,
             noise=None,
         )
@@ -82,7 +82,7 @@ class LinearInterpolant:
     def target(self, target: Target, state: InterpolantState) -> TensorLike:
         match target:
             case Velocity():
-                return state.x_source - state.x_target
+                return state.x_noise - state.x_data
             case Score() | Epsilon() | X0() | VPrediction():
                 msg = (
                     f"LinearInterpolant does not support {type(target).__name__}: "
@@ -95,17 +95,17 @@ class LinearInterpolant:
                 # Action regresses ``\nabla_x s(x, t)`` against the conditional
                 # velocity; for the deterministic linear path that velocity
                 # is identical to the Velocity target arm.
-                return state.x_source - state.x_target
+                return state.x_noise - state.x_data
             case GeneratorParams(operator=op):
                 # Drift is identical to the Velocity target — the linear
                 # path's velocity *is* the conditional generator drift
                 # for an Ito operator.  Diffusion is zero because the
                 # path itself is deterministic.  Replaces the legacy
                 # ``LinearGeneratorPath.target_params`` body verbatim.
-                drift = state.x_source - state.x_target
+                drift = state.x_noise - state.x_data
                 if getattr(op, "diffusion_mode", "none") == "none":
                     return op.pack_params(drift=drift)
-                diffusion = torch.zeros_like(state.x_target)
+                diffusion = torch.zeros_like(state.x_data)
                 return op.pack_params(drift=drift, diffusion=diffusion)
         # ``assert_never`` gives both halves of the discipline:
         # a static checker (mypy/pyright) flags a missing match arm
@@ -130,7 +130,7 @@ def velocity_prediction() -> Parameterization:
 class StochasticLinearInterpolant:
     r"""Albergo-Vanden-Eijnden stochastic-linear interpolant.
 
-    ``x_t = (1 - t) x_target + t x_source + \gamma(t) z`` with ``z \sim N(0, I)``.
+    ``x_t = (1 - t) x_data + t x_noise + \gamma(t) z`` with ``z \sim N(0, I)``.
 
     Adds a ``\gamma``-scaled Gaussian noise term on top of the deterministic
     linear interpolation so the conditional density at intermediate
@@ -143,7 +143,7 @@ class StochasticLinearInterpolant:
 
     * :class:`~nami.parameterizations.Velocity` — conditional velocity
       with the ``\dot{\gamma}\cdot z`` correction:
-      ``u_t = (x_source - x_target) + \dot{\gamma}(t) z``.
+      ``u_t = (x_noise - x_data) + \dot{\gamma}(t) z``.
 
     Score / Epsilon / X0 raise ``NotImplementedError`` — the noise
     variable here is ``z`` (the bridge increment), not a standardised ``\epsilon``
@@ -158,22 +158,22 @@ class StochasticLinearInterpolant:
 
     def sample(
         self,
-        x_target: torch.Tensor,
-        x_source: torch.Tensor,
+        x_data: torch.Tensor,
+        x_noise: torch.Tensor,
         t: torch.Tensor,
         *,
         noise: torch.Tensor | None = None,
     ) -> InterpolantState:
-        tt = _broadcast_t(t, x_target)
-        mu = (1.0 - tt) * x_target + tt * x_source
+        tt = _broadcast_t(t, x_data)
+        mu = (1.0 - tt) * x_data + tt * x_noise
         if noise is None:
             noise = torch.randn_like(mu)
         gamma_t = _broadcast_t(self.gamma.gamma(t), mu)
         xt = mu + gamma_t * noise
         return InterpolantState(
             xt=xt,
-            x_target=x_target,
-            x_source=x_source,
+            x_data=x_data,
+            x_noise=x_noise,
             t=t,
             noise=noise,
         )
@@ -181,8 +181,8 @@ class StochasticLinearInterpolant:
     def target(self, target: Target, state: InterpolantState) -> TensorLike:
         match target:
             case Velocity():
-                # ``u_t = (x_source - x_target) + \dot{\gamma}(t) \cdot z``
-                gamma_dot = _broadcast_t(self.gamma.gamma_dot(state.t), state.x_target)
+                # ``u_t = (x_noise - x_data) + \dot{\gamma}(t) \cdot z``
+                gamma_dot = _broadcast_t(self.gamma.gamma_dot(state.t), state.x_data)
                 if state.noise is None:
                     msg = (
                         "StochasticLinearInterpolant.target(Velocity) requires "
@@ -190,12 +190,12 @@ class StochasticLinearInterpolant:
                         "the conditional velocity well-defined."
                     )
                     raise ValueError(msg)
-                return (state.x_source - state.x_target) + gamma_dot * state.noise
+                return (state.x_noise - state.x_data) + gamma_dot * state.noise
             case Action():
                 # Same conditional velocity as the Velocity arm: the
                 # action-matching loss regresses ``\nabla_x s`` against ``u_t`` and
                 # ``u_t`` carries the ``\dot{\gamma}\cdot z`` correction term.
-                gamma_dot = _broadcast_t(self.gamma.gamma_dot(state.t), state.x_target)
+                gamma_dot = _broadcast_t(self.gamma.gamma_dot(state.t), state.x_data)
                 if state.noise is None:
                     msg = (
                         "StochasticLinearInterpolant.target(Action) requires "
@@ -204,7 +204,7 @@ class StochasticLinearInterpolant:
                         "target) is well-defined."
                     )
                     raise ValueError(msg)
-                return (state.x_source - state.x_target) + gamma_dot * state.noise
+                return (state.x_noise - state.x_data) + gamma_dot * state.noise
             case Score() | Epsilon() | X0() | VPrediction():
                 msg = (
                     f"StochasticLinearInterpolant does not support {type(target).__name__}: "

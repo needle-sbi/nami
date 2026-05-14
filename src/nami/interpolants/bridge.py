@@ -49,7 +49,7 @@ from nami.parameterizations import (
 class BrownianBridgeInterpolant:
     r"""Stochastic Brownian-bridge interpolant.
 
-    ``x_t = (1-t) x_target + t x_source + \sigma \sqrt{t (1-t)} z``
+    ``x_t = (1-t) x_data + t x_noise + \sigma \sqrt{t (1-t)} z``
 
     where ``z ~ N(0, I)`` is supplied via ``noise=`` to keep sampling
     deterministic across calls (e.g. for the equivalence tests against
@@ -94,22 +94,22 @@ class BrownianBridgeInterpolant:
 
     def sample(
         self,
-        x_target: torch.Tensor,
-        x_source: torch.Tensor,
+        x_data: torch.Tensor,
+        x_noise: torch.Tensor,
         t: torch.Tensor,
         *,
         noise: torch.Tensor | None = None,
     ) -> InterpolantState:
-        tt = _broadcast_t(t, x_target)
-        mu = (1.0 - tt) * x_target + tt * x_source
+        tt = _broadcast_t(t, x_data)
+        mu = (1.0 - tt) * x_data + tt * x_noise
         if noise is None:
             noise = torch.randn_like(mu)
         std = self.sigma * torch.sqrt(tt * (1.0 - tt))
         xt = mu + std * noise
         return InterpolantState(
             xt=xt,
-            x_target=x_target,
-            x_source=x_source,
+            x_data=x_data,
+            x_noise=x_noise,
             t=t,
             noise=noise,
         )
@@ -129,7 +129,7 @@ class BrownianBridgeInterpolant:
                 drift = self._velocity(state)
                 if getattr(op, "diffusion_mode", "none") == "none":
                     return op.pack_params(drift=drift)
-                diffusion = torch.full_like(state.x_target, self.sigma)
+                diffusion = torch.full_like(state.x_data, self.sigma)
                 return op.pack_params(drift=drift, diffusion=diffusion)
             case Epsilon() | X0() | VPrediction():
                 msg = (
@@ -147,16 +147,16 @@ class BrownianBridgeInterpolant:
     # ------------------------------------------------------------------
 
     def _velocity(self, state: InterpolantState) -> torch.Tensor:
-        x_target, x_source = state.x_target, state.x_source
-        tt = _broadcast_t(state.t, x_target)
-        mu = (1.0 - tt) * x_target + tt * x_source
+        x_data, x_noise = state.x_data, state.x_noise
+        tt = _broadcast_t(state.t, x_data)
+        mu = (1.0 - tt) * x_data + tt * x_noise
         denom = 2.0 * torch.clamp(tt * (1.0 - tt), min=self.eps)
         coeff = (1.0 - 2.0 * tt) / denom
-        return (x_source - x_target) + coeff * (state.xt - mu)
+        return (x_noise - x_data) + coeff * (state.xt - mu)
 
     def _score(self, state: InterpolantState) -> torch.Tensor:
-        x_target, x_source = state.x_target, state.x_source
-        tt = _broadcast_t(state.t, x_target)
-        mu = (1.0 - tt) * x_target + tt * x_source
+        x_data, x_noise = state.x_data, state.x_noise
+        tt = _broadcast_t(state.t, x_data)
+        mu = (1.0 - tt) * x_data + tt * x_noise
         var = self.sigma**2 * torch.clamp(tt * (1.0 - tt), min=self.eps)
         return (mu - state.xt) / var

@@ -31,15 +31,15 @@ class TestStochasticFmLoss:
         """
         torch.manual_seed(0)
         field = ZeroField()
-        x_target = torch.randn(6, 4)
-        x_source = torch.randn(6, 4)
+        x_data = torch.randn(6, 4)
+        x_noise = torch.randn(6, 4)
         t = torch.rand(6)
-        z = torch.randn_like(x_target)
+        z = torch.randn_like(x_data)
 
         deterministic = regression_loss(
             field,
-            x_target,
-            x_source,
+            x_data,
+            x_noise,
             t=t,
             interpolant=LinearInterpolant(),
             parameterization=velocity_prediction(),
@@ -48,8 +48,8 @@ class TestStochasticFmLoss:
         )
         stochastic = stochastic_fm_loss(
             field,
-            x_target,
-            x_source,
+            x_data,
+            x_noise,
             t=t,
             gamma=ZeroGamma(),
             z=z,
@@ -61,15 +61,15 @@ class TestStochasticFmLoss:
     def test_reductions(self):
         torch.manual_seed(0)
         field = ZeroField()
-        x_target = torch.randn(5, 3)
-        x_source = torch.randn(5, 3)
+        x_data = torch.randn(5, 3)
+        x_noise = torch.randn(5, 3)
         t = torch.rand(5)
-        z = torch.randn_like(x_target)
+        z = torch.randn_like(x_data)
 
         loss_none = stochastic_fm_loss(
             field,
-            x_target,
-            x_source,
+            x_data,
+            x_noise,
             t=t,
             gamma=BrownianGamma(),
             z=z,
@@ -77,8 +77,8 @@ class TestStochasticFmLoss:
         )
         loss_sum = stochastic_fm_loss(
             field,
-            x_target,
-            x_source,
+            x_data,
+            x_noise,
             t=t,
             gamma=BrownianGamma(),
             z=z,
@@ -86,8 +86,8 @@ class TestStochasticFmLoss:
         )
         loss_mean = stochastic_fm_loss(
             field,
-            x_target,
-            x_source,
+            x_data,
+            x_noise,
             t=t,
             gamma=BrownianGamma(),
             z=z,
@@ -106,16 +106,16 @@ class TestStochasticFmLoss:
         a shape mismatch surfaces as a torch RuntimeError.
         """
         field = ZeroField()
-        x_target = torch.randn(4, 3)
-        x_source = torch.randn(4, 3)
+        x_data = torch.randn(4, 3)
+        x_noise = torch.randn(4, 3)
         t = torch.rand(4)
         z = torch.randn(4, 2)  # wrong last dim
 
         with pytest.raises((ValueError, RuntimeError)):
             stochastic_fm_loss(
                 field,
-                x_target,
-                x_source,
+                x_data,
+                x_noise,
                 t=t,
                 gamma=BrownianGamma(),
                 z=z,

@@ -5,9 +5,9 @@ against the legacy ``fm_loss``.  ``fm_loss`` was deleted in stage 2d;
 the baseline is now computed analytically from the linear-path
 velocity formula::
 
-    x_t = (1 - t) * x_target + t * x_source
-    u_t = x_source - x_target  (constant)
-    L_per_sample(x_target, x_source, t)
+    x_t = (1 - t) * x_data + t * x_noise
+    u_t = x_noise - x_data  (constant)
+    L_per_sample(x_data, x_noise, t)
         = mean_over_event_dims( (field(x_t, t) - u_t) ** 2 )
 
 If ``regression_loss`` ever drifts from this formula, the abstraction
@@ -43,10 +43,10 @@ def interpolant() -> LinearInterpolant:
 @pytest.fixture
 def batch() -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     torch.manual_seed(0)
-    x_target = torch.randn(8, 3)
-    x_source = torch.randn(8, 3)
+    x_data = torch.randn(8, 3)
+    x_noise = torch.randn(8, 3)
     t = torch.rand(8)
-    return x_target, x_source, t
+    return x_data, x_noise, t
 
 
 # ---------------------------------------------------------------------------
@@ -58,27 +58,27 @@ def test_sample_matches_linear_formula(
     interpolant: LinearInterpolant,
     batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor],
 ) -> None:
-    x_target, x_source, t = batch
-    state = interpolant.sample(x_target, x_source, t)
-    expected = (1.0 - t.unsqueeze(-1)) * x_target + t.unsqueeze(-1) * x_source
+    x_data, x_noise, t = batch
+    state = interpolant.sample(x_data, x_noise, t)
+    expected = (1.0 - t.unsqueeze(-1)) * x_data + t.unsqueeze(-1) * x_noise
     assert torch.allclose(state.xt, expected, atol=1e-6)
 
 
 def test_sample_endpoints(interpolant: LinearInterpolant) -> None:
-    x_target = torch.randn(4, 2)
-    x_source = torch.randn(4, 2)
-    state0 = interpolant.sample(x_target, x_source, torch.zeros(4))
-    state1 = interpolant.sample(x_target, x_source, torch.ones(4))
-    assert torch.allclose(state0.xt, x_target, atol=1e-6)
-    assert torch.allclose(state1.xt, x_source, atol=1e-6)
+    x_data = torch.randn(4, 2)
+    x_noise = torch.randn(4, 2)
+    state0 = interpolant.sample(x_data, x_noise, torch.zeros(4))
+    state1 = interpolant.sample(x_data, x_noise, torch.ones(4))
+    assert torch.allclose(state0.xt, x_data, atol=1e-6)
+    assert torch.allclose(state1.xt, x_noise, atol=1e-6)
 
 
 def test_sample_state_has_no_noise(
     interpolant: LinearInterpolant,
     batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor],
 ) -> None:
-    x_target, x_source, t = batch
-    state = interpolant.sample(x_target, x_source, t)
+    x_data, x_noise, t = batch
+    state = interpolant.sample(x_data, x_noise, t)
     assert state.noise is None
     assert isinstance(state, InterpolantState)
 
@@ -87,9 +87,9 @@ def test_sample_rejects_external_noise(
     interpolant: LinearInterpolant,
     batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor],
 ) -> None:
-    x_target, x_source, t = batch
+    x_data, x_noise, t = batch
     with pytest.raises(ValueError, match="deterministic"):
-        interpolant.sample(x_target, x_source, t, noise=torch.randn_like(x_source))
+        interpolant.sample(x_data, x_noise, t, noise=torch.randn_like(x_noise))
 
 
 # ---------------------------------------------------------------------------
@@ -101,11 +101,11 @@ def test_target_velocity_is_constant_difference(
     interpolant: LinearInterpolant,
     batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor],
 ) -> None:
-    """u_t = x_source - x_target — independent of x_t and t."""
-    x_target, x_source, t = batch
-    state = interpolant.sample(x_target, x_source, t)
+    """u_t = x_noise - x_data — independent of x_t and t."""
+    x_data, x_noise, t = batch
+    state = interpolant.sample(x_data, x_noise, t)
     velocity = interpolant.target(Velocity(), state)
-    assert torch.equal(velocity, x_source - x_target)
+    assert torch.equal(velocity, x_noise - x_data)
 
 
 @pytest.mark.parametrize(
@@ -125,8 +125,8 @@ def test_stochastic_targets_are_unsupported(
     decision is explicit and a future "convenience" implementation
     can't sneak in.
     """
-    x_target, x_source, t = batch
-    state = interpolant.sample(x_target, x_source, t)
+    x_data, x_noise, t = batch
+    state = interpolant.sample(x_data, x_noise, t)
     with pytest.raises(NotImplementedError, match="deterministic"):
         interpolant.target(target_cls(), state)
 
@@ -145,8 +145,8 @@ def test_velocity_prediction_factory_uses_unit_weighting() -> None:
 
 def _analytic_linear_velocity_loss(
     field: nn.Module,
-    x_target: torch.Tensor,
-    x_source: torch.Tensor,
+    x_data: torch.Tensor,
+    x_noise: torch.Tensor,
     t: torch.Tensor,
     *,
     reduction: str = "none",
@@ -154,15 +154,15 @@ def _analytic_linear_velocity_loss(
     """Reference implementation of linear-path FM loss.
 
     Computed from first principles: the conditional velocity for the
-    linear path ``x_t = (1-t) x_target + t x_source`` is the constant
-    ``u_t = x_source - x_target``, the FM weighting is ω(t)=1, and
+    linear path ``x_t = (1-t) x_data + t x_noise`` is the constant
+    ``u_t = x_noise - x_data``, the FM weighting is ω(t)=1, and
     per-sample MSE is the mean over event dimensions.  This is the
     formula the deleted ``fm_loss`` encoded; ``regression_loss`` with
     ``LinearInterpolant + Velocity`` must reproduce it.
     """
-    tt = t.reshape(t.shape + (1,) * (x_target.ndim - t.ndim))
-    xt = (1.0 - tt) * x_target + tt * x_source
-    ut = x_source - x_target
+    tt = t.reshape(t.shape + (1,) * (x_data.ndim - t.ndim))
+    xt = (1.0 - tt) * x_data + tt * x_noise
+    ut = x_noise - x_data
     vt = field(xt, t)
     per_sample = (vt - ut).pow(2).reshape(*t.shape, -1).mean(dim=-1)
     if reduction == "none":
@@ -197,18 +197,18 @@ def test_regression_loss_matches_analytic_linear_path_formula(
             return 0.5 * x + t.unsqueeze(-1) * 0.1
 
     torch.manual_seed(0)
-    x_target = torch.randn(32, 4, dtype=torch.float64)
-    x_source = torch.randn(32, 4, dtype=torch.float64)
+    x_data = torch.randn(32, 4, dtype=torch.float64)
+    x_noise = torch.randn(32, 4, dtype=torch.float64)
     t = torch.rand(32, dtype=torch.float64)
     field = _Field().to(dtype=torch.float64)
 
     expected = _analytic_linear_velocity_loss(
-        field, x_target, x_source, t, reduction="none"
+        field, x_data, x_noise, t, reduction="none"
     )
     actual = regression_loss(
         field,
-        x_target,
-        x_source,
+        x_data,
+        x_noise,
         t=t,
         interpolant=interpolant,
         parameterization=velocity_prediction(),
@@ -232,19 +232,19 @@ def test_regression_loss_matches_analytic_formula_under_reductions(
             return 0.5 * x + t.unsqueeze(-1) * 0.1
 
     torch.manual_seed(1)
-    x_target = torch.randn(16, 3, dtype=torch.float64)
-    x_source = torch.randn(16, 3, dtype=torch.float64)
+    x_data = torch.randn(16, 3, dtype=torch.float64)
+    x_noise = torch.randn(16, 3, dtype=torch.float64)
     t = torch.rand(16, dtype=torch.float64)
     field = _Field().to(dtype=torch.float64)
 
     for reduction in ("mean", "sum"):
         expected = _analytic_linear_velocity_loss(
-            field, x_target, x_source, t, reduction=reduction
+            field, x_data, x_noise, t, reduction=reduction
         )
         actual = regression_loss(
             field,
-            x_target,
-            x_source,
+            x_data,
+            x_noise,
             t=t,
             interpolant=interpolant,
             parameterization=velocity_prediction(),
@@ -273,15 +273,15 @@ def test_bare_parameterization_works_too(
             return torch.zeros_like(x)
 
     torch.manual_seed(2)
-    x_target = torch.randn(8, 2)
-    x_source = torch.randn(8, 2)
+    x_data = torch.randn(8, 2)
+    x_noise = torch.randn(8, 2)
     t = torch.rand(8)
     field = _Field()
 
     factory = regression_loss(
         field,
-        x_target,
-        x_source,
+        x_data,
+        x_noise,
         t=t,
         interpolant=interpolant,
         parameterization=velocity_prediction(),
@@ -289,8 +289,8 @@ def test_bare_parameterization_works_too(
     )
     bare = regression_loss(
         field,
-        x_target,
-        x_source,
+        x_data,
+        x_noise,
         t=t,
         interpolant=interpolant,
         parameterization=Parameterization(target=Velocity()),

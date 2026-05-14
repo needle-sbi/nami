@@ -43,21 +43,21 @@ def test_perfect_linear_generator_field_gives_zero_loss():
     """
     op = ItoGeneratorOperator((4,))
     interpolant = LinearInterpolant()
-    x_target = torch.randn(6, 4, dtype=torch.float64)
-    x_source = torch.randn(6, 4, dtype=torch.float64)
+    x_data = torch.randn(6, 4, dtype=torch.float64)
+    x_noise = torch.randn(6, 4, dtype=torch.float64)
     t = torch.rand(6, dtype=torch.float64)
 
     # Use the interpolant's own target to construct the perfect field —
     # this is what a perfectly-trained model would emit.
     def perfect(x, _t, _c):  # noqa: ARG001
-        state = interpolant.sample(x_target, x_source, t)
+        state = interpolant.sample(x_data, x_noise, t)
         return interpolant.target(GeneratorParams(operator=op), state)
 
     field = _Field(perfect).to(dtype=torch.float64)
     loss = regression_loss(
         field,
-        x_target,
-        x_source,
+        x_data,
+        x_noise,
         t=t,
         interpolant=interpolant,
         parameterization=generator_prediction(op),
@@ -82,20 +82,20 @@ def test_perfect_brownian_generator_field_gives_zero_loss():
     sigma = 0.5
     eps = 1e-4
     interpolant = BrownianBridgeInterpolant(sigma=sigma, eps=eps)
-    x_target = torch.randn(8, 3, dtype=torch.float64)
-    x_source = torch.randn(8, 3, dtype=torch.float64)
+    x_data = torch.randn(8, 3, dtype=torch.float64)
+    x_noise = torch.randn(8, 3, dtype=torch.float64)
     t = 0.05 + 0.9 * torch.rand(8, dtype=torch.float64)
     z = torch.randn(8, 3, dtype=torch.float64)
 
     def perfect(x, _t, _c):  # noqa: ARG001
-        state = interpolant.sample(x_target, x_source, t, noise=z)
+        state = interpolant.sample(x_data, x_noise, t, noise=z)
         return interpolant.target(GeneratorParams(operator=op), state)
 
     field = _Field(perfect).to(dtype=torch.float64)
     loss = regression_loss(
         field,
-        x_target,
-        x_source,
+        x_data,
+        x_noise,
         t=t,
         interpolant=interpolant,
         parameterization=generator_prediction(op),
@@ -114,8 +114,8 @@ def test_generator_prediction_matches_explicit_parameterization():
     op = ItoGeneratorOperator((3,), diffusion="diagonal")
     interpolant = LinearInterpolant()
     field = _Field(lambda x, t, c: torch.stack((x, torch.zeros_like(x)), dim=-2))  # noqa: ARG005
-    x_target = torch.randn(8, 3, dtype=torch.float64)
-    x_source = torch.randn(8, 3, dtype=torch.float64)
+    x_data = torch.randn(8, 3, dtype=torch.float64)
+    x_noise = torch.randn(8, 3, dtype=torch.float64)
     t = torch.rand(8, dtype=torch.float64)
     field = field.to(dtype=torch.float64)
 
@@ -127,8 +127,8 @@ def test_generator_prediction_matches_explicit_parameterization():
 
     loss_factory = regression_loss(
         field,
-        x_target,
-        x_source,
+        x_data,
+        x_noise,
         t=t,
         interpolant=interpolant,
         parameterization=factory,
@@ -137,8 +137,8 @@ def test_generator_prediction_matches_explicit_parameterization():
     )
     loss_explicit = regression_loss(
         field,
-        x_target,
-        x_source,
+        x_data,
+        x_noise,
         t=t,
         interpolant=interpolant,
         parameterization=explicit,

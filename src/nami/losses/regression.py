@@ -43,8 +43,8 @@ from nami.parameterizations import Parameterization
 
 def regression_loss(
     field,
-    x_target: torch.Tensor,
-    x_source: torch.Tensor,
+    x_data: torch.Tensor,
+    x_noise: torch.Tensor,
     t: torch.Tensor | None = None,
     c: torch.Tensor | None = None,
     *,
@@ -69,12 +69,12 @@ def regression_loss(
     ----------
     field
         Network emitting raw parameters.  Must expose ``event_ndim``.
-    x_target, x_source
+    x_data, x_noise
         Endpoints of the conditional path (data at ``t=0``, source / noise
         at ``t=1`` per nami's convention).
     t
         Optional pre-sampled times of shape matching the leading dims of
-        ``x_target``.  When ``None``, drawn from ``U[eps_t, 1 - eps_t]``.
+        ``x_data``.  When ``None``, drawn from ``U[eps_t, 1 - eps_t]``.
     c
         Optional context.
     interpolant
@@ -95,10 +95,10 @@ def regression_loss(
         ``"mean"`` | ``"sum"`` | ``"none"``.
     """
     event_ndim = require_event_ndim(field)
-    lead = leading_shape(x_target, event_ndim)
-    t = sample_t(x_target, lead, t, eps_t)
+    lead = leading_shape(x_data, event_ndim)
+    t = sample_t(x_data, lead, t, eps_t)
 
-    state = interpolant.sample(x_target, x_source, t, noise=z)
+    state = interpolant.sample(x_data, x_noise, t, noise=z)
     target_value = interpolant.target(parameterization.target, state)
 
     raw = field(state.xt, t, c)

@@ -130,17 +130,17 @@ def test_cfm_invert_round_trip_with_identity_field():
 
 
 class _LinearField(torch.nn.Module):
-    """Predicts the true conditional velocity u_t = x_source - x_target.
+    """Predicts the true conditional velocity u_t = x_noise - x_data.
 
     For round-trip testing: if v is exact, then f(g(x)) = x and g(f(z)) = z.
-    This field stores (x_target, x_source) so it can return the exact velocity.
+    This field stores (x_data, x_noise) so it can return the exact velocity.
     """
 
     event_ndim = 1
 
-    def __init__(self, x_target, x_source):
+    def __init__(self, x_data, x_noise):
         super().__init__()
-        self._v = x_source - x_target
+        self._v = x_noise - x_data
 
     def forward(self, x, t, c=None):
         _ = t, c
@@ -154,9 +154,9 @@ def test_cfm_invert_round_trip_with_linear_field():
     sample: x = z + (t1 - t0) * v = z + (0 - 1) * v = z - v
     invert: z' = x + (t0 - t1) * v = x + (1 - 0) * v = x + v = z
     """
-    x_target = torch.randn(6, 4)
-    x_source = torch.randn(6, 4)
-    field = _LinearField(x_target, x_source)
+    x_data = torch.randn(6, 4)
+    x_noise = torch.randn(6, 4)
+    field = _LinearField(x_data, x_noise)
 
     process = ConsistencyFlowMatching(
         field,

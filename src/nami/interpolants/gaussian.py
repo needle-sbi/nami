@@ -1,6 +1,6 @@
 r"""Gaussian-noise interpolant for diffusion-style transport.
 
-Implements ``x_t = \alpha(t) \cdot x_target + \sigma(t) \cdot x_source`` against any
+Implements ``x_t = \alpha(t) \cdot x_data + \sigma(t) \cdot x_noise`` against any
 :class:`~nami.schedules.base.NoiseSchedule`, plus the canonical
 :class:`~nami.parameterizations.Parameterization` factories that bind a
 target choice to its conventional weighting ``\omega(t)``.
@@ -41,7 +41,7 @@ from nami.schedules.base import NoiseSchedule
 
 @dataclass(frozen=True)
 class GaussianInterpolant:
-    r"""Gaussian interpolant ``x_t = \alpha(t) x_target + \sigma(t) x_source``.
+    r"""Gaussian interpolant ``x_t = \alpha(t) x_data + \sigma(t) x_noise``.
 
     The source endpoint plays the role of the latent noise ``\epsilon``; the
     ``noise`` slot on :class:`InterpolantState` is therefore left ``None``.
@@ -74,26 +74,26 @@ class GaussianInterpolant:
 
     def sample(
         self,
-        x_target: torch.Tensor,
-        x_source: torch.Tensor,
+        x_data: torch.Tensor,
+        x_noise: torch.Tensor,
         t: torch.Tensor,
         *,
         noise: torch.Tensor | None = None,
     ) -> InterpolantState:
         if noise is not None:
             msg = (
-                "GaussianInterpolant uses x_source as the noise variable; "
-                "pass the noise sample as x_source rather than via the "
+                "GaussianInterpolant uses x_noise as the noise variable; "
+                "pass the noise sample as x_noise rather than via the "
                 "noise= keyword."
             )
             raise ValueError(msg)
-        a = expand_like(self.schedule.alpha(t), x_target)
-        s = expand_like(self.schedule.sigma(t), x_target)
-        xt = a * x_target + s * x_source
+        a = expand_like(self.schedule.alpha(t), x_data)
+        s = expand_like(self.schedule.sigma(t), x_data)
+        xt = a * x_data + s * x_noise
         return InterpolantState(
             xt=xt,
-            x_target=x_target,
-            x_source=x_source,
+            x_data=x_data,
+            x_noise=x_noise,
             t=t,
             noise=None,
         )
@@ -101,12 +101,12 @@ class GaussianInterpolant:
     def target(self, target: Target, state: InterpolantState) -> TensorLike:
         match target:
             case Epsilon():
-                return state.x_source
+                return state.x_noise
             case X0():
-                return state.x_target
+                return state.x_data
             case Score():
-                s = expand_like(self.schedule.sigma(state.t), state.x_source)
-                return -state.x_source / s
+                s = expand_like(self.schedule.sigma(state.t), state.x_noise)
+                return -state.x_noise / s
             case Velocity():
                 msg = (
                     "GaussianInterpolant does not implement Velocity — "
@@ -115,11 +115,11 @@ class GaussianInterpolant:
                 raise NotImplementedError(msg)
             case VPrediction():
                 # Salimans-Ho v-target: ``v = \alpha(t) \epsilon - \sigma(t) x_0``.
-                # Here ``\epsilon = state.x_source`` (the noise variable) and
-                # ``x_0 = state.x_target`` by nami's convention.
-                a = expand_like(self.schedule.alpha(state.t), state.x_source)
-                s = expand_like(self.schedule.sigma(state.t), state.x_target)
-                return a * state.x_source - s * state.x_target
+                # Here ``\epsilon = state.x_noise`` (the noise variable) and
+                # ``x_0 = state.x_data`` by nami's convention.
+                a = expand_like(self.schedule.alpha(state.t), state.x_noise)
+                s = expand_like(self.schedule.sigma(state.t), state.x_data)
+                return a * state.x_noise - s * state.x_data
             case Action():
                 # Action's target is the conditional velocity (against
                 # which ``\nabla_x s`` is regressed). GaussianInterpolant cannot

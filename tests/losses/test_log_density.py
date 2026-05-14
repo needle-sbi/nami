@@ -56,11 +56,11 @@ def test_log_density_consistency_loss_runs():
     """Smoke test: loss is finite and has correct shape."""
     field = _differentiable_zero_field()
     h_head = _ScalarHead(lambda x, t, c: torch.zeros(x.shape[0]))  # noqa: ARG005
-    x_target = torch.randn(5, 3)
-    x_source = torch.randn(5, 3)
+    x_data = torch.randn(5, 3)
+    x_noise = torch.randn(5, 3)
     t = torch.rand(5)
 
-    loss = log_density_consistency_loss(field, h_head, x_target, x_source, t=t)
+    loss = log_density_consistency_loss(field, h_head, x_data, x_noise, t=t)
 
     assert loss.shape == ()
     assert torch.isfinite(loss)
@@ -69,18 +69,18 @@ def test_log_density_consistency_loss_runs():
 def test_log_density_consistency_loss_reductions():
     field = _differentiable_zero_field()
     h_head = _ScalarHead(lambda x, t, c: torch.zeros(x.shape[0]))  # noqa: ARG005
-    x_target = torch.randn(5, 3)
-    x_source = torch.randn(5, 3)
+    x_data = torch.randn(5, 3)
+    x_noise = torch.randn(5, 3)
     t = torch.rand(5)
 
     loss_none = log_density_consistency_loss(
-        field, h_head, x_target, x_source, t=t, reduction="none"
+        field, h_head, x_data, x_noise, t=t, reduction="none"
     )
     loss_sum = log_density_consistency_loss(
-        field, h_head, x_target, x_source, t=t, reduction="sum"
+        field, h_head, x_data, x_noise, t=t, reduction="sum"
     )
     loss_mean = log_density_consistency_loss(
-        field, h_head, x_target, x_source, t=t, reduction="mean"
+        field, h_head, x_data, x_noise, t=t, reduction="mean"
     )
 
     assert loss_none.shape == (5,)
@@ -97,11 +97,11 @@ def test_log_density_consistency_loss_boundary_anchors_at_noise():
         return -0.5 * (dim * math.log(2.0 * math.pi) + x.pow(2).sum(dim=-1))
 
     h_head = _ScalarHead(log_p_base)
-    x_target = torch.randn(8, dim)
-    x_source = torch.randn(8, dim)
+    x_data = torch.randn(8, dim)
+    x_noise = torch.randn(8, dim)
 
     loss = log_density_consistency_loss(
-        field, h_head, x_target, x_source, lambda_boundary=1.0
+        field, h_head, x_data, x_noise, lambda_boundary=1.0
     )
 
     assert torch.isfinite(loss)
@@ -121,14 +121,14 @@ def test_log_density_consistency_loss_with_target_h_head():
     field = _differentiable_zero_field()
     h_head = _ScalarHead(online_fn)
     target_h_head = _ScalarHead(target_fn)
-    x_target = torch.randn(4, 3)
-    x_source = torch.randn(4, 3)
+    x_data = torch.randn(4, 3)
+    x_noise = torch.randn(4, 3)
 
     log_density_consistency_loss(
         field,
         h_head,
-        x_target,
-        x_source,
+        x_data,
+        x_noise,
         target_h_head=target_h_head,
     )
 
@@ -144,10 +144,10 @@ def test_log_density_consistency_loss_gradients_flow_to_h_head():
         return torch.zeros(x.shape[0]) + param
 
     h_head = _ScalarHead(h_fn)
-    x_target = torch.randn(4, 3)
-    x_source = torch.randn(4, 3)
+    x_data = torch.randn(4, 3)
+    x_noise = torch.randn(4, 3)
 
-    loss = log_density_consistency_loss(field, h_head, x_target, x_source)
+    loss = log_density_consistency_loss(field, h_head, x_data, x_noise)
     loss.backward()
 
     assert param.grad is not None
@@ -157,14 +157,14 @@ def test_log_density_consistency_loss_euler_step_runs():
     """Smoke test: euler_step=True works for the log-prob loss."""
     field = _differentiable_zero_field()
     h_head = _ScalarHead(lambda x, t, c: torch.zeros(x.shape[0]))  # noqa: ARG005
-    x_target = torch.randn(5, 3)
-    x_source = torch.randn(5, 3)
+    x_data = torch.randn(5, 3)
+    x_noise = torch.randn(5, 3)
 
     loss = log_density_consistency_loss(
         field,
         h_head,
-        x_target,
-        x_source,
+        x_data,
+        x_noise,
         euler_step=True,
     )
 
@@ -189,16 +189,16 @@ def test_z_argument_shares_noise_across_trajectory_pair():
     interp = BrownianBridgeInterpolant(sigma=0.5, eps=1e-4)
     field = _differentiable_zero_field()
     h_head = _ScalarHead(lambda x, t, c: torch.zeros(x.shape[0]))  # noqa: ARG005
-    x_target = torch.randn(8, 3, dtype=torch.float64)
-    x_source = torch.randn(8, 3, dtype=torch.float64)
+    x_data = torch.randn(8, 3, dtype=torch.float64)
+    x_noise = torch.randn(8, 3, dtype=torch.float64)
     t = 0.05 + 0.9 * torch.rand(8, dtype=torch.float64)
     z = torch.randn(8, 3, dtype=torch.float64)
 
     common = {
         "field": field,
         "h_head": h_head,
-        "x_target": x_target,
-        "x_source": x_source,
+        "x_data": x_data,
+        "x_noise": x_noise,
         "t": t,
         "interpolant": interp,
         "delta": 0.05,
@@ -208,7 +208,7 @@ def test_z_argument_shares_noise_across_trajectory_pair():
     # Two calls with the same explicit z give bit-identical loss values
     # (the boundary x_at_one is sampled with noise=None and would draw
     # fresh noise per call, but the boundary loss is computed on the
-    # noise-distribution endpoint where x_t = x_source for the bridge,
+    # noise-distribution endpoint where x_t = x_noise for the bridge,
     # so the boundary-z draw cancels out in the deterministic-h_head
     # case used by this test).
     a = log_density_consistency_loss(z=z, **common)
@@ -227,15 +227,15 @@ def test_negative_or_zero_delta_rejected():
     """
     field = _differentiable_zero_field()
     h_head = _ScalarHead(lambda x, t, c: torch.zeros(x.shape[0]))  # noqa: ARG005
-    x_target = torch.randn(4, 3)
-    x_source = torch.randn(4, 3)
+    x_data = torch.randn(4, 3)
+    x_noise = torch.randn(4, 3)
 
     for bad in (0.0, -0.01, -0.5):
         with pytest.raises(ValueError, match="delta"):
             log_density_consistency_loss(
                 field,
                 h_head,
-                x_target,
-                x_source,
+                x_data,
+                x_noise,
                 delta=bad,
             )

@@ -4,8 +4,8 @@ Trains a velocity field on a stochastic linear interpolant (Albergo &
 Vanden-Eijnden, *Building Normalizing Flows with Stochastic
 Interpolants*, 2023; Albergo, Boffi & Vanden-Eijnden, *Stochastic
 Interpolants: A Unifying Framework*, 2023, arXiv:2303.08797):
-``x_t = (1-t) x_target + t x_source + gamma(t) z`` with conditional
-velocity ``u_t = (x_source - x_target) + \dot{\gamma}(t) z``.
+``x_t = (1-t) x_data + t x_noise + gamma(t) z`` with conditional
+velocity ``u_t = (x_noise - x_data) + \dot{\gamma}(t) z``.
 
 Implementation is now a thin shim around
 :func:`~nami.losses.regression.regression_loss` with a
@@ -30,8 +30,8 @@ from nami.losses.regression import regression_loss
 
 def stochastic_fm_loss(
     field,
-    x_target: torch.Tensor,
-    x_source: torch.Tensor,
+    x_data: torch.Tensor,
+    x_noise: torch.Tensor,
     t: torch.Tensor | None = None,
     c: torch.Tensor | None = None,
     *,
@@ -70,8 +70,8 @@ def stochastic_fm_loss(
 
     return regression_loss(
         field,
-        x_target,
-        x_source,
+        x_data,
+        x_noise,
         t=t,
         c=c,
         interpolant=interpolant,

@@ -1,9 +1,9 @@
 r"""Cosine-scheduled deterministic interpolant.
 
-``x_t = \alpha(t) x_target + \sigma(t) x_source`` with ``\alpha(t) = \cos(\pi t/2)`` and
+``x_t = \alpha(t) x_data + \sigma(t) x_noise`` with ``\alpha(t) = \cos(\pi t/2)`` and
 ``\sigma(t) = \sin(\pi t/2)``. The conditional velocity is
 
-    ``u_t = \alpha'(t) x_target + \sigma'(t) x_source``
+    ``u_t = \alpha'(t) x_data + \sigma'(t) x_noise``
 
 with ``\alpha'(t) = -\pi/2 \cdot \sin(\pi t/2)`` and ``\sigma'(t) = \pi/2 \cdot \cos(\pi t/2)``,
 so unlike :class:`~nami.interpolants.linear.LinearInterpolant` the
@@ -49,8 +49,8 @@ class CosineInterpolant:
 
     def sample(
         self,
-        x_target: torch.Tensor,
-        x_source: torch.Tensor,
+        x_data: torch.Tensor,
+        x_noise: torch.Tensor,
         t: torch.Tensor,
         *,
         noise: torch.Tensor | None = None,
@@ -61,13 +61,13 @@ class CosineInterpolant:
                 "effect.  Use GaussianInterpolant for stochastic paths."
             )
             raise ValueError(msg)
-        a = _broadcast_t(self._alpha(t), x_target)
-        s = _broadcast_t(self._sigma(t), x_target)
-        xt = a * x_target + s * x_source
+        a = _broadcast_t(self._alpha(t), x_data)
+        s = _broadcast_t(self._sigma(t), x_data)
+        xt = a * x_data + s * x_noise
         return InterpolantState(
             xt=xt,
-            x_target=x_target,
-            x_source=x_source,
+            x_data=x_data,
+            x_noise=x_noise,
             t=t,
             noise=None,
         )
@@ -75,9 +75,9 @@ class CosineInterpolant:
     def target(self, target: Target, state: InterpolantState) -> TensorLike:
         match target:
             case Velocity():
-                ap = _broadcast_t(self._alpha_prime(state.t), state.x_target)
-                sp = _broadcast_t(self._sigma_prime(state.t), state.x_target)
-                return ap * state.x_target + sp * state.x_source
+                ap = _broadcast_t(self._alpha_prime(state.t), state.x_data)
+                sp = _broadcast_t(self._sigma_prime(state.t), state.x_data)
+                return ap * state.x_data + sp * state.x_noise
             case Score() | Epsilon() | X0() | VPrediction():
                 msg = (
                     f"CosineInterpolant does not support {type(target).__name__}: "
@@ -87,9 +87,9 @@ class CosineInterpolant:
             case Action():
                 # \nabla_x s`` regresses against the conditional velocity, which
                 # is the same closed-form expression as the Velocity arm.
-                ap = _broadcast_t(self._alpha_prime(state.t), state.x_target)
-                sp = _broadcast_t(self._sigma_prime(state.t), state.x_target)
-                return ap * state.x_target + sp * state.x_source
+                ap = _broadcast_t(self._alpha_prime(state.t), state.x_data)
+                sp = _broadcast_t(self._sigma_prime(state.t), state.x_data)
+                return ap * state.x_data + sp * state.x_noise
             case GeneratorParams():
                 msg = (
                     "CosineInterpolant does not support GeneratorParams; "

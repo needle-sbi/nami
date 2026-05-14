@@ -87,8 +87,8 @@ def test_transformer_velocity_field_supports_flow_matching_process():
     field = TransformerVelocityField(8, model_dim=16, depth=2, num_heads=4)
     loss = regression_loss(
         field,
-        x_target=torch.randn(16, 8),
-        x_source=torch.randn(16, 8),
+        x_data=torch.randn(16, 8),
+        x_noise=torch.randn(16, 8),
         interpolant=LinearInterpolant(),
         parameterization=velocity_prediction(),
         eps_t=0.0,

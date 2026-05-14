@@ -89,8 +89,8 @@ def test_interpolant_state_carries_endpoints_and_noise() -> None:
     xt = torch.zeros(2, 3)
     state = InterpolantState(
         xt=xt,
-        x_target=torch.ones(2, 3),
-        x_source=torch.full((2, 3), -1.0),
+        x_data=torch.ones(2, 3),
+        x_noise=torch.full((2, 3), -1.0),
         t=torch.tensor([0.25, 0.75]),
         noise=None,
     )

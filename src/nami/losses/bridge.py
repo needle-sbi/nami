@@ -32,8 +32,8 @@ from nami.parameterizations import Parameterization, Score, Velocity
 def bridge_matching_loss(
     flow_field,
     score_field,
-    x_target: torch.Tensor,
-    x_source: torch.Tensor,
+    x_data: torch.Tensor,
+    x_noise: torch.Tensor,
     t: torch.Tensor | None = None,
     c: torch.Tensor | None = None,
     *,
@@ -51,8 +51,8 @@ def bridge_matching_loss(
     simulation-free SB objective of Tong et al., *Simulation-free
     Schrödinger Bridges via Score and Flow Matching*, AISTATS 2024.
 
-    ``x_target`` should be posterior-side samples (paired with context
-    ``c`` if used), and ``x_source`` should be independent prior-side
+    ``x_data`` should be posterior-side samples (paired with context
+    ``c`` if used), and ``x_noise`` should be independent prior-side
     samples.
 
     Times are auto-sampled from ``[interpolant.eps, 1 - interpolant.eps]``
@@ -71,14 +71,14 @@ def bridge_matching_loss(
     if interpolant is None:
         interpolant = BrownianBridgeInterpolant()
 
-    lead = leading_shape(x_target, event_ndim)
+    lead = leading_shape(x_data, event_ndim)
     # Sample t once; both heads share it (matches legacy behaviour and
     # ensures the same bridge point is used for the velocity and
     # score regressions).
-    t = sample_t(x_target, lead, t, eps_t=interpolant.eps)
+    t = sample_t(x_data, lead, t, eps_t=interpolant.eps)
 
-    if z is not None and tuple(z.shape) != tuple(x_target.shape):
-        msg = "z must match the shape of x_target"
+    if z is not None and tuple(z.shape) != tuple(x_data.shape):
+        msg = "z must match the shape of x_data"
         raise ValueError(msg)
 
     # Draw shared noise once when not supplied — without this, the two
@@ -86,12 +86,12 @@ def bridge_matching_loss(
     # to ``interpolant.sample``, which draws independent z, and the
     # flow / score regressions would land on different bridge points.
     if z is None:
-        z = torch.randn_like(x_target)
+        z = torch.randn_like(x_data)
 
     flow_loss = regression_loss(
         flow_field,
-        x_target,
-        x_source,
+        x_data,
+        x_noise,
         t=t,
         c=c,
         interpolant=interpolant,
@@ -102,8 +102,8 @@ def bridge_matching_loss(
     )
     score_loss = regression_loss(
         score_field,
-        x_target,
-        x_source,
+        x_data,
+        x_noise,
         t=t,
         c=c,
         interpolant=interpolant,

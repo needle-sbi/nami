@@ -97,12 +97,12 @@ def interpolant(schedule: VPSchedule) -> GaussianInterpolant:
 def fixed_batch() -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     """Float64 batch with explicit t in (0.05, 0.95) for numerical stability."""
     torch.manual_seed(0)
-    x_target = torch.randn(64, 3, dtype=torch.float64)
-    x_source = torch.randn(64, 3, dtype=torch.float64)
+    x_data = torch.randn(64, 3, dtype=torch.float64)
+    x_noise = torch.randn(64, 3, dtype=torch.float64)
     # Avoid endpoints — see GaussianInterpolant docstring.
     t = 0.05 + 0.9 * torch.rand(64, dtype=torch.float64)
-    y_eps = x_source + 0.7 * torch.randn(64, 3, dtype=torch.float64)
-    return x_target, x_source, t, y_eps
+    y_eps = x_noise + 0.7 * torch.randn(64, 3, dtype=torch.float64)
+    return x_data, x_noise, t, y_eps
 
 
 # ---------------------------------------------------------------------------
@@ -123,15 +123,15 @@ def test_three_parameterizations_produce_equal_weighted_losses(
     silent re-weighting bugs become impossible because changing target
     *is* changing the Parameterization, not toggling a flag.
     """
-    x_target, x_source, t, y_eps = fixed_batch
+    x_data, x_noise, t, y_eps = fixed_batch
 
     eps_field = _ConsistentEpsField(y_eps).to(dtype=torch.float64)
     score_field = _ConsistentScoreField(y_eps, schedule).to(dtype=torch.float64)
     x0_field = _ConsistentX0Field(y_eps, schedule).to(dtype=torch.float64)
 
     common = {
-        "x_target": x_target,
-        "x_source": x_source,
+        "x_data": x_data,
+        "x_noise": x_noise,
         "t": t,
         "interpolant": interpolant,
         "reduction": "none",
@@ -170,14 +170,14 @@ def test_breaking_weighting_target_binding_breaks_equivalence(
     the Arruda Eq. 57-61 bug.  The factories close that gap; this test
     proves the gap was real.
     """
-    x_target, x_source, t, y_eps = fixed_batch
+    x_data, x_noise, t, y_eps = fixed_batch
 
     eps_field = _ConsistentEpsField(y_eps).to(dtype=torch.float64)
     score_field = _ConsistentScoreField(y_eps, schedule).to(dtype=torch.float64)
 
     common = {
-        "x_target": x_target,
-        "x_source": x_source,
+        "x_data": x_data,
+        "x_noise": x_noise,
         "t": t,
         "interpolant": interpolant,
         "reduction": "none",
@@ -210,10 +210,10 @@ def test_default_eps_t_keeps_auto_sampled_t_off_endpoints(
 ) -> None:
     """The loss owns endpoint discipline; the interpolant stays pure."""
     torch.manual_seed(0)
-    x_target = torch.randn(2048, 3)
-    x_source = torch.randn(2048, 3)
+    x_data = torch.randn(2048, 3)
+    x_noise = torch.randn(2048, 3)
 
-    field = _ConsistentEpsField(torch.zeros_like(x_target))
+    field = _ConsistentEpsField(torch.zeros_like(x_data))
     captured_t: list[torch.Tensor] = []
 
     def capture(xt, t, c=None):  # noqa: ARG001
@@ -224,8 +224,8 @@ def test_default_eps_t_keeps_auto_sampled_t_off_endpoints(
 
     regression_loss(
         field,
-        x_target,
-        x_source,
+        x_data,
+        x_noise,
         interpolant=interpolant,
         parameterization=epsilon_prediction(schedule),
         eps_t=1e-3,
@@ -244,19 +244,19 @@ def test_explicit_t_is_not_silently_clamped(
     rescale — that would hide bugs in the caller's sampling logic.
     """
     torch.manual_seed(0)
-    x_target = torch.randn(8, 3)
-    x_source = torch.randn(8, 3)
+    x_data = torch.randn(8, 3)
+    x_noise = torch.randn(8, 3)
     t_at_zero = torch.zeros(8)  # deliberately at the singularity
 
-    field = _ConsistentEpsField(torch.zeros_like(x_target))
+    field = _ConsistentEpsField(torch.zeros_like(x_data))
 
     # Loss should *run* (eps-prediction has no singularity) and use t=0
     # without clamping.  The score-prediction analogue would NaN; that
     # divergence is the user's responsibility to avoid.
     loss = regression_loss(
         field,
-        x_target,
-        x_source,
+        x_data,
+        x_noise,
         t=t_at_zero,
         interpolant=interpolant,
         parameterization=epsilon_prediction(schedule),
@@ -268,15 +268,15 @@ def test_invalid_eps_t_raises(
     interpolant: GaussianInterpolant,
     schedule: VPSchedule,
 ) -> None:
-    x_target = torch.randn(4, 3)
-    x_source = torch.randn(4, 3)
-    field = _ConsistentEpsField(torch.zeros_like(x_target))
+    x_data = torch.randn(4, 3)
+    x_noise = torch.randn(4, 3)
+    field = _ConsistentEpsField(torch.zeros_like(x_data))
     for bad in (-0.1, 0.5, 1.0):
         with pytest.raises(ValueError, match="eps_t"):
             regression_loss(
                 field,
-                x_target,
-                x_source,
+                x_data,
+                x_noise,
                 interpolant=interpolant,
                 parameterization=epsilon_prediction(schedule),
                 eps_t=bad,
@@ -293,14 +293,14 @@ def test_reduction_modes(
     schedule: VPSchedule,
 ) -> None:
     torch.manual_seed(0)
-    x_target = torch.randn(16, 3)
-    x_source = torch.randn(16, 3)
-    field = _ConsistentEpsField(torch.zeros_like(x_target))
+    x_data = torch.randn(16, 3)
+    x_noise = torch.randn(16, 3)
+    field = _ConsistentEpsField(torch.zeros_like(x_data))
     p = epsilon_prediction(schedule)
 
     common = {
-        "x_target": x_target,
-        "x_source": x_source,
+        "x_data": x_data,
+        "x_noise": x_noise,
         "interpolant": interpolant,
         "parameterization": p,
         "t": 0.05 + 0.9 * torch.rand(16),  # fix t for determinism across calls
@@ -324,10 +324,10 @@ def test_output_transform_is_applied(
     short-circuited.
     """
     torch.manual_seed(0)
-    x_target = torch.randn(32, 3, dtype=torch.float64)
-    x_source = torch.randn(32, 3, dtype=torch.float64)
+    x_data = torch.randn(32, 3, dtype=torch.float64)
+    x_noise = torch.randn(32, 3, dtype=torch.float64)
     t = 0.05 + 0.9 * torch.rand(32, dtype=torch.float64)
-    field = _ConsistentEpsField(torch.zeros_like(x_target)).to(dtype=torch.float64)
+    field = _ConsistentEpsField(torch.zeros_like(x_data)).to(dtype=torch.float64)
 
     p_id = epsilon_prediction(schedule)
     p_neg = Parameterization(
@@ -337,8 +337,8 @@ def test_output_transform_is_applied(
     )
 
     common = {
-        "x_target": x_target,
-        "x_source": x_source,
+        "x_data": x_data,
+        "x_noise": x_noise,
         "t": t,
         "interpolant": interpolant,
         "reduction": "none",
@@ -348,7 +348,7 @@ def test_output_transform_is_applied(
 
     # field emits 0 → p_id has prediction=0; p_neg has prediction=-0=0 too.
     # That's degenerate.  Use a non-zero field to make the test load-bearing:
-    nz_field = _ConsistentEpsField(torch.ones_like(x_target)).to(dtype=torch.float64)
+    nz_field = _ConsistentEpsField(torch.ones_like(x_data)).to(dtype=torch.float64)
     loss_id_nz = regression_loss(nz_field, parameterization=p_id, **common)
     loss_neg_nz = regression_loss(nz_field, parameterization=p_neg, **common)
     # prediction = 1 vs prediction = -1 against the same target should differ

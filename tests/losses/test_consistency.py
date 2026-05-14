@@ -7,10 +7,10 @@ reverse, target_field EMA, euler_step, and reduction modes); they
 were deleted in stage 4 alongside the legacy losses they validated
 against.  The semantic claims they preserved are pinned here directly:
 
-* A perfect velocity field (``v = x_source - x_target`` for the
+* A perfect velocity field (``v = x_noise - x_data`` for the
   linear interpolant) yields zero loss because the consistency
   function ``f(x_t, t, v) = x_t + (T - t) v`` evaluates to
-  ``(1-T) x_target + T x_source`` independent of ``t`` — both
+  ``(1-T) x_data + T x_noise`` independent of ``t`` — both
   trajectory points map to the same value.
 * The anchor side (``f_t`` for ``target_time < 0.5``, ``f_tt``
   otherwise) is detached when ``target_field`` is omitted; gradient
@@ -38,15 +38,15 @@ from nami.parameterizations import Parameterization, Score
 
 
 class _PerfectLinearVelocityField(nn.Module):
-    """Emits ``x_source - x_target`` exactly — the conditional velocity
+    """Emits ``x_noise - x_data`` exactly — the conditional velocity
     of the linear interpolant.
     """
 
     event_ndim = 1
 
-    def __init__(self, x_target: torch.Tensor, x_source: torch.Tensor):
+    def __init__(self, x_data: torch.Tensor, x_noise: torch.Tensor):
         super().__init__()
-        self.register_buffer("v", x_source - x_target)
+        self.register_buffer("v", x_noise - x_data)
 
     def forward(self, x, t, c=None):  # noqa: ARG002
         return self.v
@@ -68,21 +68,21 @@ class _LinearField(nn.Module):
 
 @pytest.mark.parametrize("target_time", [0.0, 1.0])
 def test_perfect_velocity_gives_zero_loss(target_time: float) -> None:
-    """For the linear interpolant, ``v = x_source - x_target`` is the
+    """For the linear interpolant, ``v = x_noise - x_data`` is the
     true conditional velocity, so ``f(x_t, t, v)`` is independent of
     ``t`` and the consistency MSE collapses to zero — both for forward
     (``T=0``) and reverse (``T=1``) consistency.
     """
     torch.manual_seed(0)
-    x_target = torch.randn(32, 4, dtype=torch.float64)
-    x_source = torch.randn(32, 4, dtype=torch.float64)
+    x_data = torch.randn(32, 4, dtype=torch.float64)
+    x_noise = torch.randn(32, 4, dtype=torch.float64)
     t = torch.rand(32, dtype=torch.float64).clamp(max=0.95)
-    field = _PerfectLinearVelocityField(x_target, x_source).to(dtype=torch.float64)
+    field = _PerfectLinearVelocityField(x_data, x_noise).to(dtype=torch.float64)
 
     loss = consistency_loss(
         field,
-        x_target,
-        x_source,
+        x_data,
+        x_noise,
         t=t,
         interpolant=LinearInterpolant(),
         parameterization=velocity_prediction(),
@@ -124,14 +124,14 @@ def test_anchor_target_field_receives_no_gradient() -> None:
     torch.manual_seed(0)
     online = _ScaledField(init=1.0)
     target = _ScaledField(init=0.95)  # different params from online
-    x_target = torch.randn(8, 3, dtype=torch.float64)
-    x_source = torch.randn(8, 3, dtype=torch.float64)
+    x_data = torch.randn(8, 3, dtype=torch.float64)
+    x_noise = torch.randn(8, 3, dtype=torch.float64)
     t = torch.rand(8, dtype=torch.float64).clamp(max=0.95)
 
     loss = consistency_loss(
         online,
-        x_target,
-        x_source,
+        x_data,
+        x_noise,
         t=t,
         interpolant=LinearInterpolant(),
         parameterization=velocity_prediction(),
@@ -177,14 +177,14 @@ def test_forward_anchor_detach_path_blocks_gradient() -> None:
             return self.scalar * (-0.5 * x + 0.1 * t.unsqueeze(-1))
 
     field = _OnlyOnlineField()
-    x_target = torch.randn(8, 3, dtype=torch.float64)
-    x_source = torch.randn(8, 3, dtype=torch.float64)
+    x_data = torch.randn(8, 3, dtype=torch.float64)
+    x_noise = torch.randn(8, 3, dtype=torch.float64)
     t = torch.rand(8, dtype=torch.float64).clamp(max=0.95)
 
     loss = consistency_loss(
         field,
-        x_target,
-        x_source,
+        x_data,
+        x_noise,
         t=t,
         interpolant=LinearInterpolant(),
         parameterization=velocity_prediction(),
@@ -214,8 +214,8 @@ def test_target_field_changes_anchor_value() -> None:
     differ.
     """
     torch.manual_seed(0)
-    x_target = torch.randn(16, 3, dtype=torch.float64)
-    x_source = torch.randn(16, 3, dtype=torch.float64)
+    x_data = torch.randn(16, 3, dtype=torch.float64)
+    x_noise = torch.randn(16, 3, dtype=torch.float64)
     t = torch.rand(16, dtype=torch.float64).clamp(max=0.95)
     field = _LinearField().to(dtype=torch.float64)
 
@@ -229,8 +229,8 @@ def test_target_field_changes_anchor_value() -> None:
 
     loss_no_target = consistency_loss(
         field,
-        x_target,
-        x_source,
+        x_data,
+        x_noise,
         t=t,
         interpolant=LinearInterpolant(),
         parameterization=velocity_prediction(),
@@ -240,8 +240,8 @@ def test_target_field_changes_anchor_value() -> None:
     )
     loss_with_target = consistency_loss(
         field,
-        x_target,
-        x_source,
+        x_data,
+        x_noise,
         t=t,
         interpolant=LinearInterpolant(),
         parameterization=velocity_prediction(),
@@ -265,15 +265,15 @@ def test_euler_step_runs_and_finite() -> None:
     that the resulting loss is finite and well-formed.
     """
     torch.manual_seed(0)
-    x_target = torch.randn(8, 3)
-    x_source = torch.randn(8, 3)
+    x_data = torch.randn(8, 3)
+    x_noise = torch.randn(8, 3)
     t = torch.rand(8).clamp(max=0.95)
     field = _LinearField()
 
     loss = consistency_loss(
         field,
-        x_target,
-        x_source,
+        x_data,
+        x_noise,
         t=t,
         interpolant=LinearInterpolant(),
         parameterization=velocity_prediction(),
@@ -288,20 +288,20 @@ def test_euler_step_runs_and_finite() -> None:
 def test_euler_step_perfect_field_still_zero_loss() -> None:
     """Under the perfect velocity field, the Euler step produces
     ``x_{t+δ} = x_t + δ v`` which lies exactly on the linear path
-    (because ``v = x_source - x_target`` is the analytic velocity).
+    (because ``v = x_noise - x_data`` is the analytic velocity).
     So both consistency-function evaluations agree and the loss is
     zero.
     """
     torch.manual_seed(0)
-    x_target = torch.randn(16, 3, dtype=torch.float64)
-    x_source = torch.randn(16, 3, dtype=torch.float64)
+    x_data = torch.randn(16, 3, dtype=torch.float64)
+    x_noise = torch.randn(16, 3, dtype=torch.float64)
     t = torch.rand(16, dtype=torch.float64).clamp(max=0.95)
-    field = _PerfectLinearVelocityField(x_target, x_source).to(dtype=torch.float64)
+    field = _PerfectLinearVelocityField(x_data, x_noise).to(dtype=torch.float64)
 
     loss = consistency_loss(
         field,
-        x_target,
-        x_source,
+        x_data,
+        x_noise,
         t=t,
         interpolant=LinearInterpolant(),
         parameterization=velocity_prediction(),
@@ -323,14 +323,14 @@ def test_delta_clamp_at_t_equals_one() -> None:
     the result must remain finite even at the boundary.
     """
     field = _LinearField()
-    x_target = torch.randn(8, 3)
-    x_source = torch.randn(8, 3)
+    x_data = torch.randn(8, 3)
+    x_noise = torch.randn(8, 3)
     t = torch.full((8,), 0.99)  # δ=0.05 → tt clamped to 1.0
 
     loss = consistency_loss(
         field,
-        x_target,
-        x_source,
+        x_data,
+        x_noise,
         t=t,
         interpolant=LinearInterpolant(),
         parameterization=velocity_prediction(),
@@ -413,15 +413,15 @@ def test_z_argument_shares_noise_across_trajectory_pair() -> None:
     """
     interp = BrownianBridgeInterpolant(sigma=0.5, eps=1e-4)
     field = _LinearField().to(dtype=torch.float64)
-    x_target = torch.randn(8, 3, dtype=torch.float64)
-    x_source = torch.randn(8, 3, dtype=torch.float64)
+    x_data = torch.randn(8, 3, dtype=torch.float64)
+    x_noise = torch.randn(8, 3, dtype=torch.float64)
     t = 0.05 + 0.9 * torch.rand(8, dtype=torch.float64)
     z = torch.randn(8, 3, dtype=torch.float64)
 
     # With explicit z, two calls produce identical loss values.
     common = {
-        "x_target": x_target,
-        "x_source": x_source,
+        "x_data": x_data,
+        "x_noise": x_noise,
         "t": t,
         "interpolant": interp,
         "parameterization": velocity_prediction(),
@@ -442,8 +442,8 @@ def test_z_argument_shares_noise_across_trajectory_pair() -> None:
     torch.manual_seed(0)
     loss_no_z = consistency_loss(
         field,
-        x_target=x_target,
-        x_source=x_source,
+        x_data=x_data,
+        x_noise=x_noise,
         t=t,
         interpolant=interp,
         parameterization=velocity_prediction(),

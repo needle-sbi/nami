@@ -20,7 +20,7 @@ def leading_shape(x: torch.Tensor, event_ndim: int) -> tuple[int, ...]:
 
 
 def sample_t(
-    x_target: torch.Tensor,
+    x_data: torch.Tensor,
     lead: tuple[int, ...],
     t: torch.Tensor | None,
     eps_t: float,
@@ -44,8 +44,8 @@ def sample_t(
             return t.expand(lead)
         return t
 
-    dtype = x_target.dtype if x_target.dtype.is_floating_point else torch.float32
-    u = torch.rand(lead, device=x_target.device, dtype=dtype)
+    dtype = x_data.dtype if x_data.dtype.is_floating_point else torch.float32
+    u = torch.rand(lead, device=x_data.device, dtype=dtype)
     if eps_t == 0.0:
         return u
     if not 0.0 < eps_t < 0.5:

@@ -88,8 +88,8 @@ def _grad_x_s(
 
 def action_matching_loss(
     field,
-    x_target: torch.Tensor,
-    x_source: torch.Tensor,
+    x_data: torch.Tensor,
+    x_noise: torch.Tensor,
     t: torch.Tensor | None = None,
     c: torch.Tensor | None = None,
     *,
@@ -123,7 +123,7 @@ def action_matching_loss(
         Must expose ``event_ndim``.  Use
         :class:`~nami.fields.action.ActionHead` for the canonical
         implementation.
-    x_target, x_source
+    x_data, x_noise
         Endpoints of the conditional path (data at ``t=0``, source /
         noise at ``t=1`` per nami's convention).
     t
@@ -167,10 +167,10 @@ def action_matching_loss(
         raise TypeError(msg)
 
     event_ndim = require_event_ndim(field)
-    lead = leading_shape(x_target, event_ndim)
-    t = sample_t(x_target, lead, t, eps_t)
+    lead = leading_shape(x_data, event_ndim)
+    t = sample_t(x_data, lead, t, eps_t)
 
-    state = interpolant.sample(x_target, x_source, t, noise=z)
+    state = interpolant.sample(x_data, x_noise, t, noise=z)
     u_t = interpolant.target(parameterization.target, state)
 
     grad_s = _grad_x_s(field, state.xt, t, c, create_graph=create_graph)
@@ -181,7 +181,7 @@ def action_matching_loss(
             f"interpolant velocity has shape {tuple(u_t.shape)}.  The "
             "field's scalar output (shape (*lead,)) must broadcast to the "
             "event shape under \\nabla_x — check the head's event_ndim against "
-            "x_target.ndim."
+            "x_data.ndim."
         )
         raise ValueError(msg)
 

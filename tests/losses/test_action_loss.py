@@ -33,7 +33,7 @@ class _PerfectLinearAction(nn.Module):
     """Closed-form scalar potential whose gradient is the linear velocity.
 
     For ``LinearInterpolant`` the conditional velocity is the constant
-    ``v = x_source - x_target``.  The scalar potential ``s(x, t) = v * x``
+    ``v = x_noise - x_data``.  The scalar potential ``s(x, t) = v * x``
     has ``∇_x s = v`` everywhere, so ``action_matching_loss`` should
     return exactly zero.
 
@@ -71,22 +71,22 @@ def test_perfect_scalar_field_gives_zero_loss() -> None:
     pin that the autograd plumbing returns the right gradient.
     """
     torch.manual_seed(0)
-    x_target = torch.randn(16, 3, dtype=torch.float64)
-    x_source = torch.randn(16, 3, dtype=torch.float64)
+    x_data = torch.randn(16, 3, dtype=torch.float64)
+    x_noise = torch.randn(16, 3, dtype=torch.float64)
     # Broadcast: the linear velocity is per-sample but the perfect
     # potential is linear in x with a per-sample coefficient.  To keep
     # the test honest we use one shared v across the batch (test against
     # the *mean* velocity) — and verify it gives zero loss only when
-    # x_target / x_source are constant across the batch.
-    x_target = x_target[:1].expand_as(x_target).contiguous()
-    x_source = x_source[:1].expand_as(x_source).contiguous()
-    v = (x_source - x_target)[0]
+    # x_data / x_noise are constant across the batch.
+    x_data = x_data[:1].expand_as(x_data).contiguous()
+    x_noise = x_noise[:1].expand_as(x_noise).contiguous()
+    v = (x_noise - x_data)[0]
     field = _PerfectLinearAction(v).to(torch.float64)
 
     loss = action_matching_loss(
         field,
-        x_target,
-        x_source,
+        x_data,
+        x_noise,
         interpolant=LinearInterpolant(),
         parameterization=action_prediction(),
     )
@@ -100,12 +100,12 @@ def test_action_loss_is_differentiable() -> None:
     """
     torch.manual_seed(0)
     head = ActionHead(dim=3, hidden=16, layers=1)
-    x_target = torch.randn(8, 3)
-    x_source = torch.randn(8, 3)
+    x_data = torch.randn(8, 3)
+    x_noise = torch.randn(8, 3)
     loss = action_matching_loss(
         head,
-        x_target,
-        x_source,
+        x_data,
+        x_noise,
         interpolant=LinearInterpolant(),
     )
     loss.backward()
@@ -117,13 +117,13 @@ def test_action_loss_is_differentiable() -> None:
 
 def test_action_loss_rejects_non_action_parameterization() -> None:
     head = ActionHead(dim=3, hidden=8, layers=1)
-    x_target = torch.randn(4, 3)
-    x_source = torch.randn(4, 3)
+    x_data = torch.randn(4, 3)
+    x_noise = torch.randn(4, 3)
     with pytest.raises(TypeError, match="Action"):
         action_matching_loss(
             head,
-            x_target,
-            x_source,
+            x_data,
+            x_noise,
             interpolant=LinearInterpolant(),
             parameterization=Parameterization(target=Velocity()),
         )
@@ -136,23 +136,23 @@ def test_action_loss_handles_stochastic_linear_interpolant_with_explicit_z() -> 
     """
     torch.manual_seed(0)
     head = ActionHead(dim=3, hidden=8, layers=1)
-    x_target = torch.randn(8, 3)
-    x_source = torch.randn(8, 3)
+    x_data = torch.randn(8, 3)
+    x_noise = torch.randn(8, 3)
     z = torch.randn(8, 3)
     t = 0.05 + 0.9 * torch.rand(8)
 
     loss1 = action_matching_loss(
         head,
-        x_target,
-        x_source,
+        x_data,
+        x_noise,
         t=t,
         interpolant=StochasticLinearInterpolant(),
         z=z,
     )
     loss2 = action_matching_loss(
         head,
-        x_target,
-        x_source,
+        x_data,
+        x_noise,
         t=t,
         interpolant=StochasticLinearInterpolant(),
         z=z,

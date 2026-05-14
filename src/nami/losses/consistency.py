@@ -45,8 +45,8 @@ from nami.parameterizations import Parameterization, Velocity
 
 def consistency_loss(
     field,
-    x_target: torch.Tensor,
-    x_source: torch.Tensor,
+    x_data: torch.Tensor,
+    x_noise: torch.Tensor,
     t: torch.Tensor | None = None,
     c: torch.Tensor | None = None,
     *,
@@ -75,11 +75,11 @@ def consistency_loss(
     ----------
     field
         Network emitting velocity values (after ``output_transform``).
-    x_target, x_source
+    x_data, x_noise
         Endpoints of the conditional path.
     t
         Optional pre-sampled times of shape matching the leading dims of
-        ``x_target``.  When ``None``, drawn from ``U[eps_t, 1 - eps_t]``.
+        ``x_data``.  When ``None``, drawn from ``U[eps_t, 1 - eps_t]``.
     c
         Optional context.
     interpolant
@@ -159,15 +159,15 @@ def consistency_loss(
         raise ValueError(msg)
 
     event_ndim = require_event_ndim(field)
-    lead = leading_shape(x_target, event_ndim)
-    t = sample_t(x_target, lead, t, eps_t)
+    lead = leading_shape(x_data, event_ndim)
+    t = sample_t(x_data, lead, t, eps_t)
     tt = (t + delta).clamp(max=1.0)
 
     # Sample ``(x_t, x_{t+\delta})``. Both calls forward the same ``noise=z``
     # so a stochastic interpolant places both trajectory points on the
     # same realisation — without this, BrownianBridgeInterpolant draws
     # independent z at each time and the consistency claim breaks.
-    state_t = interpolant.sample(x_target, x_source, t, noise=z)
+    state_t = interpolant.sample(x_data, x_noise, t, noise=z)
     xt = state_t.xt
     vt = parameterization.output_transform(field(xt, t, c))
 
@@ -175,7 +175,7 @@ def consistency_loss(
         delta_broad = (tt - t).reshape(t.shape + (1,) * event_ndim)
         xtt = (xt + delta_broad * vt).detach()
     else:
-        state_tt = interpolant.sample(x_target, x_source, tt, noise=z)
+        state_tt = interpolant.sample(x_data, x_noise, tt, noise=z)
         xtt = state_tt.xt
 
     vtt = parameterization.output_transform(field(xtt, tt, c))

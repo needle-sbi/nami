@@ -32,30 +32,30 @@ def interpolant() -> BrownianBridgeInterpolant:
     return BrownianBridgeInterpolant(sigma=SIGMA, eps=EPS)
 
 
-def _bridge_xt(x_target, x_source, t, z, *, sigma):
-    """Closed-form bridge sample: (1-t) x_target + t x_source + sigma sqrt(t(1-t)) z."""
-    tt = t.reshape(t.shape + (1,) * (x_target.ndim - t.ndim))
-    mu = (1.0 - tt) * x_target + tt * x_source
+def _bridge_xt(x_data, x_noise, t, z, *, sigma):
+    """Closed-form bridge sample: (1-t) x_data + t x_noise + sigma sqrt(t(1-t)) z."""
+    tt = t.reshape(t.shape + (1,) * (x_data.ndim - t.ndim))
+    mu = (1.0 - tt) * x_data + tt * x_noise
     std = sigma * torch.sqrt(tt * (1.0 - tt))
     return mu + std * z
 
 
-def _bridge_velocity(x_target, x_source, t, xt, *, eps):
+def _bridge_velocity(x_data, x_noise, t, xt, *, eps):
     """Closed-form bridge conditional velocity at xt.
 
-    u_t(x_t) = (x_source - x_target) + (1-2t)/(2 t(1-t)) * (x_t - mu_t)
+    u_t(x_t) = (x_noise - x_data) + (1-2t)/(2 t(1-t)) * (x_t - mu_t)
     """
-    tt = t.reshape(t.shape + (1,) * (x_target.ndim - t.ndim))
-    mu = (1.0 - tt) * x_target + tt * x_source
+    tt = t.reshape(t.shape + (1,) * (x_data.ndim - t.ndim))
+    mu = (1.0 - tt) * x_data + tt * x_noise
     denom = 2.0 * torch.clamp(tt * (1.0 - tt), min=eps)
     coeff = (1.0 - 2.0 * tt) / denom
-    return (x_source - x_target) + coeff * (xt - mu)
+    return (x_noise - x_data) + coeff * (xt - mu)
 
 
-def _bridge_score(x_target, x_source, t, xt, *, sigma, eps):
+def _bridge_score(x_data, x_noise, t, xt, *, sigma, eps):
     """Closed-form bridge conditional score: ∇ log p_t(x_t)."""
-    tt = t.reshape(t.shape + (1,) * (x_target.ndim - t.ndim))
-    mu = (1.0 - tt) * x_target + tt * x_source
+    tt = t.reshape(t.shape + (1,) * (x_data.ndim - t.ndim))
+    mu = (1.0 - tt) * x_data + tt * x_noise
     var = sigma**2 * torch.clamp(tt * (1.0 - tt), min=eps)
     return (mu - xt) / var
 
@@ -64,12 +64,12 @@ def _bridge_score(x_target, x_source, t, xt, *, sigma, eps):
 def batch() -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     """Float64 batch with explicit noise so sample is deterministic."""
     torch.manual_seed(0)
-    x_target = torch.randn(16, 4, dtype=torch.float64)
-    x_source = torch.randn(16, 4, dtype=torch.float64)
+    x_data = torch.randn(16, 4, dtype=torch.float64)
+    x_noise = torch.randn(16, 4, dtype=torch.float64)
     # Avoid endpoints — both Velocity and Score divide by t(1-t).
     t = 0.05 + 0.9 * torch.rand(16, dtype=torch.float64)
     z = torch.randn(16, 4, dtype=torch.float64)
-    return x_target, x_source, t, z
+    return x_data, x_noise, t, z
 
 
 # ---------------------------------------------------------------------------
@@ -81,9 +81,9 @@ def test_sample_matches_analytic_bridge_formula(
     interpolant: BrownianBridgeInterpolant,
     batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
 ) -> None:
-    x_target, x_source, t, z = batch
-    state = interpolant.sample(x_target, x_source, t, noise=z)
-    expected = _bridge_xt(x_target, x_source, t, z, sigma=SIGMA)
+    x_data, x_noise, t, z = batch
+    state = interpolant.sample(x_data, x_noise, t, noise=z)
+    expected = _bridge_xt(x_data, x_noise, t, z, sigma=SIGMA)
     assert torch.allclose(state.xt, expected, atol=1e-12, rtol=1e-12)
 
 
@@ -91,8 +91,8 @@ def test_sample_state_carries_noise(
     interpolant: BrownianBridgeInterpolant,
     batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
 ) -> None:
-    x_target, x_source, t, z = batch
-    state = interpolant.sample(x_target, x_source, t, noise=z)
+    x_data, x_noise, t, z = batch
+    state = interpolant.sample(x_data, x_noise, t, noise=z)
     # Unlike LinearInterpolant, the bridge needs the noise z to define
     # x_t — so it lives on the state for downstream consumers.
     assert state.noise is not None
@@ -107,12 +107,12 @@ def test_sample_with_no_noise_draws_internally(
     unsupplied.
     """
     torch.manual_seed(0)
-    x_target = torch.randn(8, 3)
-    x_source = torch.randn(8, 3)
+    x_data = torch.randn(8, 3)
+    x_noise = torch.randn(8, 3)
     t = 0.05 + 0.9 * torch.rand(8)
 
-    state_a = interpolant.sample(x_target, x_source, t)
-    state_b = interpolant.sample(x_target, x_source, t)
+    state_a = interpolant.sample(x_data, x_noise, t)
+    state_b = interpolant.sample(x_data, x_noise, t)
     # Different draws → different xt.
     assert not torch.allclose(state_a.xt, state_b.xt)
 
@@ -126,10 +126,10 @@ def test_velocity_matches_analytic_bridge_velocity(
     interpolant: BrownianBridgeInterpolant,
     batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
 ) -> None:
-    """Pins: Velocity target = ``(x_source - x_target) + (1-2t)/(2 t(1-t))*(x_t - mu_t)``."""
-    x_target, x_source, t, z = batch
-    state = interpolant.sample(x_target, x_source, t, noise=z)
-    expected = _bridge_velocity(x_target, x_source, t, state.xt, eps=EPS)
+    """Pins: Velocity target = ``(x_noise - x_data) + (1-2t)/(2 t(1-t))*(x_t - mu_t)``."""
+    x_data, x_noise, t, z = batch
+    state = interpolant.sample(x_data, x_noise, t, noise=z)
+    expected = _bridge_velocity(x_data, x_noise, t, state.xt, eps=EPS)
     actual = interpolant.target(Velocity(), state)
     assert torch.allclose(actual, expected, atol=1e-12, rtol=1e-12)
 
@@ -139,9 +139,9 @@ def test_score_matches_analytic_bridge_score(
     batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
 ) -> None:
     """Pins: Score target = ``(mu_t - x_t) / (sigma2 * t(1-t))``."""
-    x_target, x_source, t, z = batch
-    state = interpolant.sample(x_target, x_source, t, noise=z)
-    expected = _bridge_score(x_target, x_source, t, state.xt, sigma=SIGMA, eps=EPS)
+    x_data, x_noise, t, z = batch
+    state = interpolant.sample(x_data, x_noise, t, noise=z)
+    expected = _bridge_score(x_data, x_noise, t, state.xt, sigma=SIGMA, eps=EPS)
     actual = interpolant.target(Score(), state)
     assert torch.allclose(actual, expected, atol=1e-12, rtol=1e-12)
 
@@ -162,19 +162,19 @@ def test_generator_params_drift_equals_velocity_target(
     closed-form bridge velocity formula, decoupled from the
     interpolant body.
     """
-    x_target, x_source, t, z = batch
+    x_data, x_noise, t, z = batch
     operator = ItoGeneratorOperator(
-        event_shape=x_target.shape[-1:], diffusion=diffusion_mode
+        event_shape=x_data.shape[-1:], diffusion=diffusion_mode
     )
-    state = interpolant.sample(x_target, x_source, t, noise=z)
-    expected_drift = _bridge_velocity(x_target, x_source, t, state.xt, eps=EPS)
+    state = interpolant.sample(x_data, x_noise, t, noise=z)
+    expected_drift = _bridge_velocity(x_data, x_noise, t, state.xt, eps=EPS)
 
     if diffusion_mode == "none":
         expected = operator.pack_params(drift=expected_drift)
     else:
         expected = operator.pack_params(
             drift=expected_drift,
-            diffusion=torch.full_like(x_target, SIGMA),
+            diffusion=torch.full_like(x_data, SIGMA),
         )
 
     actual = interpolant.target(GeneratorParams(operator=operator), state)
@@ -192,8 +192,8 @@ def test_unsupported_targets_raise(
     batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
     target_cls: type,
 ) -> None:
-    x_target, x_source, t, z = batch
-    state = interpolant.sample(x_target, x_source, t, noise=z)
+    x_data, x_noise, t, z = batch
+    state = interpolant.sample(x_data, x_noise, t, noise=z)
     with pytest.raises(NotImplementedError, match="Brownian-bridge increment"):
         interpolant.target(target_cls(), state)
 
@@ -213,21 +213,21 @@ def test_invalid_sigma_or_eps_rejected() -> None:
 
 
 def test_linear_interpolant_generator_params_drift_equals_velocity() -> None:
-    """Sibling check: linear-path drift target is just ``x_source - x_target``,
+    """Sibling check: linear-path drift target is just ``x_noise - x_data``,
     packed via the operator (with zero diffusion for the diagonal mode).
 
     The legacy ``LinearGeneratorPath`` was deleted in stage 3d; this
     test pins the analytic claim directly without that reference.
     """
     torch.manual_seed(0)
-    x_target = torch.randn(16, 3, dtype=torch.float64)
-    x_source = torch.randn(16, 3, dtype=torch.float64)
+    x_data = torch.randn(16, 3, dtype=torch.float64)
+    x_noise = torch.randn(16, 3, dtype=torch.float64)
     t = torch.rand(16, dtype=torch.float64)
 
     interpolant = LinearInterpolant()
-    state = interpolant.sample(x_target, x_source, t)
+    state = interpolant.sample(x_data, x_noise, t)
 
-    expected_drift = x_source - x_target
+    expected_drift = x_noise - x_data
 
     for diffusion_mode in ("none", "diagonal"):
         op = ItoGeneratorOperator(event_shape=(3,), diffusion=diffusion_mode)
@@ -236,7 +236,7 @@ def test_linear_interpolant_generator_params_drift_equals_velocity() -> None:
         else:
             expected = op.pack_params(
                 drift=expected_drift,
-                diffusion=torch.zeros_like(x_target),
+                diffusion=torch.zeros_like(x_data),
             )
         actual = interpolant.target(GeneratorParams(operator=op), state)
         assert torch.allclose(actual, expected, atol=1e-12, rtol=1e-12), (
