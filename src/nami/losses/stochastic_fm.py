@@ -1,17 +1,33 @@
 from __future__ import annotations
 
+"""Stochastic flow-matching loss on the unified vocabulary.
+
+Trains a velocity field on a stochastic linear interpolant (Albergo &
+Vanden-Eijnden, *Building Normalizing Flows with Stochastic
+Interpolants*, 2023; Albergo, Boffi & Vanden-Eijnden, *Stochastic
+Interpolants: A Unifying Framework*, 2023, arXiv:2303.08797):
+``x_t = (1-t) x_target + t x_source + γ(t) z`` with conditional
+velocity ``u_t = (x_source - x_target) + \dot{\gamma}(t) z``.
+
+Implementation is now a thin shim around
+:func:`~nami.losses.regression.regression_loss` with a
+:class:`~nami.interpolants.linear.StochasticLinearInterpolant` —
+preserved as a separate function name for callers used to the
+legacy import path (``nami.losses.stochastic_fm.stochastic_fm_loss``)
+and because the stochastic-linear case is the most common
+γ-scheduled use that benefits from a one-liner factory.
+"""
+
+
+
 import torch
 
-from ..interpolants.gamma import BrownianGamma, GammaSchedule
-from ..paths.linear import LinearPath
-from ._common import (
-    expand_like_time,
-    leading_shape,
-    per_sample_mse,
-    prepare_time,
-    reduce_loss,
-    require_event_ndim,
+from nami.interpolants.gamma import GammaSchedule
+from nami.interpolants.linear import (
+    StochasticLinearInterpolant,
+    velocity_prediction,
 )
+from nami.losses.regression import regression_loss
 
 
 def stochastic_fm_loss(
@@ -21,37 +37,48 @@ def stochastic_fm_loss(
     t: torch.Tensor | None = None,
     c: torch.Tensor | None = None,
     *,
-    path=None,
+    interpolant: StochasticLinearInterpolant | None = None,
     gamma: GammaSchedule | None = None,
     z: torch.Tensor | None = None,
     reduction: str = "mean",
 ) -> torch.Tensor:
-    """Flow matching loss for stochastic interpolants with additive Gaussian noise."""
-    event_ndim = require_event_ndim(field)
+    """Flow-matching loss for the stochastic linear interpolant.
 
-    if path is None:
-        path = LinearPath()
-    if gamma is None:
-        gamma = BrownianGamma()
+    Mathematical object: velocity regression against the conditional
+    velocity of the γ-scheduled stochastic linear interpolant of
+    Albergo, Boffi & Vanden-Eijnden, *Stochastic Interpolants: A
+    Unifying Framework*, 2023 (arXiv:2303.08797).  Thin shim around
+    :func:`~nami.losses.regression.regression_loss` that wires up the
+    interpolant and the velocity parameterization.
 
-    lead = leading_shape(x_target, event_ndim)
-    t = prepare_time(x_target, lead, t)
+    Either pass an ``interpolant`` (a fully-configured
+    ``StochasticLinearInterpolant``) or a bare ``gamma`` schedule to
+    construct one with default settings.  Passing both raises
+    ``ValueError`` — the API is unambiguous.
 
-    xt_det = path.sample_xt(x_target, x_source, t)
-    ut_det = path.target_ut(x_target, x_source, t)
-
-    if z is None:
-        z = torch.randn_like(xt_det)
-    if tuple(z.shape) != tuple(xt_det.shape):
-        msg = "z must match the shape of path samples"
+    ``z`` is the latent noise; when ``None``, fresh noise is sampled
+    internally and the same draw is used inside ``regression_loss``
+    (since ``regression_loss`` forwards ``noise=z`` to
+    ``interpolant.sample``).
+    """
+    if interpolant is not None and gamma is not None:
+        msg = "pass either `interpolant` or `gamma`, not both"
         raise ValueError(msg)
+    if interpolant is None:
+        if gamma is None:
+            interpolant = StochasticLinearInterpolant()
+        else:
+            interpolant = StochasticLinearInterpolant(gamma=gamma)
 
-    gamma_t = expand_like_time(gamma.gamma(t), xt_det, event_ndim=event_ndim)
-    gamma_dot_t = expand_like_time(gamma.gamma_dot(t), xt_det, event_ndim=event_ndim)
-
-    xt = xt_det + gamma_t * z
-    ut = ut_det + gamma_dot_t * z
-    vt = field(xt, t, c)
-
-    mse = per_sample_mse(vt, ut, lead)
-    return reduce_loss(mse, reduction)
+    return regression_loss(
+        field,
+        x_target,
+        x_source,
+        t=t,
+        c=c,
+        interpolant=interpolant,
+        parameterization=velocity_prediction(),
+        z=z,
+        eps_t=0.0,
+        reduction=reduction,
+    )
