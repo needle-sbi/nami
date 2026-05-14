@@ -1,0 +1,131 @@
+from __future__ import annotations
+
+"""Shared helpers used across :class:`FlowMatchingProcess`,
+:class:`DiffusionProcess`, :class:`GeneratorMatchingProcess`, and
+:class:`ConsistencyFlowMatchingProcess`.
+
+These were duplicated as private methods on every Process before stage
+4's review pass; centralising them here makes each Process body
+shorter and the shared semantics easier to spot at a glance.
+
+Pure functions hold the standalone mechanics; :class:`ProcessRuntimeMixin`
+absorbs the tiny concrete-process delegators once those mechanics became
+stable across all Process classes.
+"""
+
+
+
+import torch
+
+
+def cast_time(t: float | torch.Tensor, like: torch.Tensor) -> torch.Tensor:
+    """Cast scalar / tensor ``t`` to the device + dtype of ``like``."""
+    return torch.as_tensor(t, device=like.device, dtype=like.dtype)
+
+
+def expand_context(
+    c: torch.Tensor | None,
+    target: torch.Tensor,
+    event_ndim: int,
+) -> torch.Tensor | None:
+    """Broadcast a context tensor over a target's leading sample dims.
+
+    ``c`` has shape ``batch_shape + (context_dim,)``.  ``target`` has
+    shape ``sample_shape + batch_shape + event_shape``.  This returns
+    ``c`` reshaped to ``sample_shape + batch_shape + (context_dim,)``
+    so it can be passed alongside ``target`` to a field that expects
+    matching leading dims.
+    """
+    if c is None:
+        return None
+    n_expand = target.ndim - event_ndim - c.ndim + 1
+    if n_expand > 0:
+        for _ in range(n_expand):
+            c = c.unsqueeze(0)
+        c = c.expand(*target.shape[: target.ndim - event_ndim], c.shape[-1])
+    return c
+
+
+def model_device_dtype(
+    model,
+) -> tuple[torch.device | None, torch.dtype | None]:
+    """Probe a model's first parameter for its (device, dtype).
+
+    Returns ``(None, None)`` if the model has no parameters or doesn't
+    expose ``parameters()`` — used by Processes that auto-construct a
+    base distribution and need it on the same device as the model.
+    """
+    if not hasattr(model, "parameters"):
+        return None, None
+    for p in model.parameters():
+        return p.device, p.dtype
+    return None, None
+
+
+def resolve_event_ndim(field, fallback: int | None = None) -> int:
+    """Read ``field.event_ndim`` with an optional explicit fallback."""
+    event_ndim = getattr(field, "event_ndim", None)
+    if event_ndim is None:
+        event_ndim = fallback
+    if event_ndim is None:
+        msg = "event_ndim must be provided or exposed by field"
+        raise ValueError(msg)
+    return int(event_ndim)
+
+
+def validate_base_event_ndim(
+    base: torch.distributions.Distribution,
+    event_ndim: int,
+    *,
+    message: str = "field.event_ndim does not match base.event_shape",
+) -> None:
+    """Validate that a base distribution's event rank matches a field."""
+    if len(base.event_shape) != event_ndim:
+        raise ValueError(message)
+
+
+class TransformedField:
+    """Adapter that composes a field with ``output_transform``.
+
+    Exposed to divergence estimators so they differentiate the
+    transformed velocity (the one the integrator follows), not the raw
+    field output.  Plain class — estimators only need ``event_ndim``
+    and ``__call__``.
+
+    See :func:`~nami.processes.fm.FlowMatchingProcess._call_and_divergence`
+    for the bug this prevents: a non-identity ``output_transform`` would
+    have made the integrated drift and the divergence used by ``log_prob``
+    describe different dynamics.
+    """
+
+    def __init__(self, field, transform):
+        self._field = field
+        self._transform = transform
+
+    @property
+    def event_ndim(self):
+        return getattr(self._field, "event_ndim", None)
+
+    def __call__(self, x, t, c=None):
+        return self._transform(self._field(x, t, c))
+
+
+class ProcessRuntimeMixin:
+    """Shared concrete-Process runtime helpers.
+
+    Subclasses must expose ``event_shape``.  The mixin deliberately stays
+    small: construction and validation still differ enough across process
+    families that forcing them through inheritance would add more coupling
+    than it removes.
+    """
+
+    @property
+    def event_shape(self) -> tuple[int, ...]:  # pragma: no cover - abstract shape
+        raise NotImplementedError
+
+    def _expand_context(
+        self,
+        c: torch.Tensor | None,
+        target: torch.Tensor,
+    ) -> torch.Tensor | None:
+        return expand_context(c, target, len(self.event_shape))

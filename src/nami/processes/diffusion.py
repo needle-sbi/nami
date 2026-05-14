@@ -1,26 +1,77 @@
+"""Diffusion process: schedule-driven sampling from Score / Epsilon / X0 / V targets.
+
+Probability-flow ODE and reverse-time SDE samplers built on top of a
+:class:`NoiseSchedule` and a :class:`Parameterization`. Target
+dispatch is exhaustive over the diffusion target sum-type.
+
+References
+----------
+- Song et al., *Score-Based Generative Modeling through SDEs*, 2020
+  (arXiv:2011.13456).
+- Ho et al., *Denoising Diffusion Probabilistic Models*, 2020
+  (arXiv:2006.11239).
+- Salimans & Ho, *Progressive Distillation for Fast Sampling of
+  Diffusion Models*, 2022 (arXiv:2202.00512) — v-prediction.
+"""
+
 from __future__ import annotations
+
+
 
 import torch
 
-from ..distributions.base import expand_distribution, has_rsample
-from ..distributions.normal import StandardNormal
-from ..fields.diffusion import _expand_like, eps_to_score, score_to_eps
-from ..lazy import (
+from nami.distributions.base import expand_distribution, has_rsample
+from nami.distributions.normal import StandardNormal
+from nami.diffusion import (
+    eps_to_score,
+    expand_like,
+    score_to_eps,
+    v_to_eps,
+    x0_to_eps,
+)
+from nami.lazy import (
     LazyDistribution,
     LazyField,
+    LazyProcess,
     UnconditionalDistribution,
     UnconditionalField,
 )
+from nami.parameterizations import Epsilon, Parameterization, Score, VPrediction, X0
+from nami.processes._common import (
+    ProcessRuntimeMixin,
+    cast_time,
+    model_device_dtype,
+    validate_base_event_ndim,
+)
 
 
-class Diffusion(LazyDistribution):
+class Diffusion(LazyProcess):
+    """Diffusion process driven by a :class:`Parameterization`.
+
+    The ``parameterization`` kwarg replaces the legacy
+    ``parameterization="eps"|"score"|"x0"`` string flag.  The
+    :class:`~nami.parameterizations.Parameterization` carries the
+    :class:`~nami.parameterizations.Target` choice (``Epsilon`` /
+    ``Score`` / ``X0`` / ``VPrediction`` for diffusion) plus its weighting and
+    any ``output_transform``; the process pattern-matches on the
+    target to convert the field's emission into ``\epsilon`` for the
+    integrator.
+
+    The conversion math reuses the helpers in
+    :mod:`nami.diffusion` — see :func:`score_to_eps`,
+    :func:`x0_to_eps`, :func:`v_to_eps`.  Adding a new diffusion
+    target means adding one ``case`` arm in
+    :meth:`DiffusionProcess._predict_eps`; static checkers flag the
+    missing arm.
+    """
+
     def __init__(
         self,
         model,
         schedule,
         solver,
         *,
-        parameterization: str,
+        parameterization: Parameterization,
         t0: float = 1.0,
         t1: float = 0.0,
         base: LazyDistribution | torch.distributions.Distribution | None = None,
@@ -52,7 +103,7 @@ class Diffusion(LazyDistribution):
             if self.event_shape is None:
                 msg = "event_shape is required when base is None"
                 raise ValueError(msg)
-            device, dtype = _model_device_dtype(model)
+            device, dtype = model_device_dtype(model)
             batch_shape = tuple(c.shape[:-1]) if c is not None else ()
             base = StandardNormal(
                 self.event_shape, batch_shape=batch_shape, device=device, dtype=dtype
@@ -65,15 +116,28 @@ class Diffusion(LazyDistribution):
                 base = expand_distribution(base, tuple(c.shape[:-1]))
             base_scale = None
 
-        event_shape = tuple(base.event_shape)
         event_ndim = getattr(model, "event_ndim", None)
         if self.validate_args:
-            if self.parameterization not in {"eps", "score", "x0"}:
-                msg = "parameterization must be 'eps', 'score', or 'x0'"
-                raise ValueError(msg)
-            if event_ndim is not None and len(event_shape) != event_ndim:
-                msg = "model.event_ndim does not match base.event_shape"
-                raise ValueError(msg)
+            if not isinstance(self.parameterization, Parameterization):
+                msg = (
+                    "parameterization must be a nami.parameterizations.Parameterization "
+                    "instance — the legacy string flag (\"eps\"|\"score\"|\"x0\") was "
+                    "removed; use epsilon_prediction(schedule), score_prediction(schedule), "
+                    "or x0_prediction(schedule)"
+                )
+                raise TypeError(msg)
+            if not isinstance(self.parameterization.target, (Epsilon, Score, X0, VPrediction)):
+                msg = (
+                    "Diffusion supports targets Epsilon, Score, X0, VPrediction; got "
+                    f"{type(self.parameterization.target).__name__}"
+                )
+                raise TypeError(msg)
+            if event_ndim is not None:
+                validate_base_event_ndim(
+                    base,
+                    int(event_ndim),
+                    message="model.event_ndim does not match base.event_shape",
+                )
 
         return DiffusionProcess(
             model=model,
@@ -89,14 +153,14 @@ class Diffusion(LazyDistribution):
         )
 
 
-class DiffusionProcess:
+class DiffusionProcess(ProcessRuntimeMixin):
     def __init__(
         self,
         model,
         schedule,
         solver,
         *,
-        parameterization: str,
+        parameterization: Parameterization,
         t0: float = 1.0,
         t1: float = 0.0,
         base: torch.distributions.Distribution,
@@ -123,31 +187,6 @@ class DiffusionProcess:
     def batch_shape(self) -> tuple[int, ...]:
         return tuple(self._base.batch_shape)
 
-    def _cast_time(self, t: float | torch.Tensor, like: torch.Tensor) -> torch.Tensor:
-        return torch.as_tensor(t, device=like.device, dtype=like.dtype)
-
-    def _expand_context(
-        self, c: torch.Tensor | None, target: torch.Tensor
-    ) -> torch.Tensor | None:
-        """Expand context to match target's sample dimensions."""
-        if c is None:
-            return None
-        # c has shape: batch_shape + (context_dim,)
-        # target has shape: sample_shape + batch_shape + event_shape
-        # We need c to have shape: sample_shape + batch_shape + (context_dim,)
-        event_ndim = len(self.event_shape)
-        # Number of leading sample dims to prepend:
-        #   target.ndim = len(sample) + len(batch) + event_ndim
-        #   c.ndim      = len(batch) + 1  (the +1 is context_dim)
-        #   n_expand    = len(sample) = target.ndim - event_ndim - c.ndim + 1
-        n_expand = target.ndim - event_ndim - c.ndim + 1
-        if n_expand > 0:
-            for _ in range(n_expand):
-                c = c.unsqueeze(0)
-            # target.shape[:target.ndim - event_ndim] == sample_shape + batch_shape
-            c = c.expand(*target.shape[: target.ndim - event_ndim], c.shape[-1])
-        return c
-
     def _is_ode(self) -> bool:
         # Explicit check: SDE solvers must declare is_sde=True
         # This avoids conflating "can reparameterize" with "is ODE vs SDE"
@@ -166,17 +205,28 @@ class DiffusionProcess:
         alpha = self._schedule.alpha(tt)
         sigma = self._schedule.sigma(tt)
 
-        out = self._model(x, tt, context)
-        if self._parameterization == "eps":
-            eps = out
-        elif self._parameterization == "score":
-            eps = score_to_eps(out, sigma)
-        elif self._parameterization == "x0":
-            # Expand alpha/sigma for broadcasting with x
-            eps = (x - _expand_like(alpha, x) * out) / _expand_like(sigma, x)
-        else:  # pragma: no cover — factory validates
-            msg = "unknown parameterization"
-            raise ValueError(msg)
+        raw = self._model(x, tt, context)
+        out = self._parameterization.output_transform(raw)
+
+        # Pattern-match dispatch on the typed Target.  Replaces the
+        # legacy string-flag if/elif chain with sum-type exhaustiveness:
+        # adding a new diffusion target means adding one case arm here
+        # and pyright/mypy flag a missing arm at any other consumer.
+        match self._parameterization.target:
+            case Epsilon():
+                eps = out
+            case Score():
+                eps = score_to_eps(out, sigma)
+            case X0():
+                eps = x0_to_eps(x, out, alpha, sigma)
+            case VPrediction():
+                eps = v_to_eps(x, out, alpha, sigma)
+            case _:  # pragma: no cover — Diffusion.forward validates
+                msg = (
+                    f"Diffusion supports targets Epsilon, Score, X0, VPrediction; got "
+                    f"{type(self._parameterization.target).__name__}"
+                )
+                raise TypeError(msg)
 
         return eps, alpha, sigma
 
@@ -203,7 +253,7 @@ class DiffusionProcess:
         if hasattr(self._solver, "integrate_diffusion"):
 
             def predict_eps(x, t):
-                tt = self._cast_time(t, x)
+                tt = cast_time(t, x)
                 eps, _, _ = self._predict_eps(x, tt, context)
                 if guidance_fn is not None:
                     eps = guidance_fn(x, tt, eps)
@@ -219,12 +269,12 @@ class DiffusionProcess:
             )
 
         def drift(x, t):
-            tt = self._cast_time(t, x)
+            tt = cast_time(t, x)
             eps, _, sigma = self._predict_eps(x, tt, context)
             if guidance_fn is not None:
                 eps = guidance_fn(x, tt, eps)
             score = eps_to_score(eps, sigma)
-            g = _expand_like(self._schedule.diffusion(tt), x)
+            g = expand_like(self._schedule.diffusion(tt), x)
             f = self._schedule.drift(x, tt)
             return f - 0.5 * (g**2) * score
 
@@ -239,17 +289,17 @@ class DiffusionProcess:
             return self._integrate_ode(x0, context=context, guidance_fn=guidance_fn)
 
         def drift(x, t):
-            tt = self._cast_time(t, x)
+            tt = cast_time(t, x)
             eps, _, sigma = self._predict_eps(x, tt, context)
             if guidance_fn is not None:
                 eps = guidance_fn(x, tt, eps)
             score = eps_to_score(eps, sigma)
-            g = _expand_like(self._schedule.diffusion(tt), x)
+            g = expand_like(self._schedule.diffusion(tt), x)
             f = self._schedule.drift(x, tt)
             return f - (g**2) * score
 
         def diffusion(t):
-            return _expand_like(self._schedule.diffusion(self._cast_time(t, x0)), x0)
+            return expand_like(self._schedule.diffusion(cast_time(t, x0)), x0)
 
         steps = self._steps()
         if steps is None:
@@ -274,11 +324,3 @@ class DiffusionProcess:
         x0 = self._apply_base_scale(x0)
         context = self._expand_context(self._context, x0)
         return self._integrate_ode(x0, context=context, guidance_fn=guidance_fn)
-
-
-def _model_device_dtype(model) -> tuple[torch.device | None, torch.dtype | None]:
-    if not hasattr(model, "parameters"):
-        return None, None
-    for p in model.parameters():
-        return p.device, p.dtype
-    return None, None
