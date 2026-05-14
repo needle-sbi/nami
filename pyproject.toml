@@ -6,6 +6,10 @@ build-backend = "hatchling.build"
 name = "nami"
 authors = [
   { name = "Levi Evans", email = "levi.samuel.evans@cern.ch" },
+  { name = "Stephen Jiggins"},
+  { name = "Kylian Schmidt"},
+  { name = "Nino Kovacic"},
+
 ]
 description = "A library for composable transport maps"
 readme = "README.md"
