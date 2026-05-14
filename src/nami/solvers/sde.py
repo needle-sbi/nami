@@ -6,7 +6,6 @@ Standard first-order scheme for Ito SDEs ``dx = b(x,t) dt + g(x,t) dW``.
 from __future__ import annotations
 
 
-
 import inspect
 import math
 

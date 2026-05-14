@@ -5,11 +5,12 @@ embedded once per sample via :class:`SinusoidalTimeEmbedding` and
 broadcast across tokens. Optional context enters as a single
 cross-attention token.
 """
+
 from __future__ import annotations
 
 # --------------------------------------------------------------------
 # TODO: fields currently mixes role-named files
-# (velocity.py, generator.py, action.py) with arch-named variants of the 
+# (velocity.py, generator.py, action.py) with arch-named variants of the
 # velocity role (adaln.py, this file). We should decide whether to group by role
 # (one velocity.py with multiple classes) or keep split, and whether a
 # small shared abstraction would clean up the repeated event/time/

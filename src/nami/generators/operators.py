@@ -14,8 +14,6 @@ References
 from __future__ import annotations
 
 
-
-
 import torch
 import torch.nn.functional as F
 
@@ -37,7 +35,6 @@ class ItoGeneratorOperator(GeneratorOperator):
     min_scale : float
         Floor added to the softplus diffusion for numerical stability.
     """
-
 
     def __init__(
         self,
@@ -68,7 +65,9 @@ class ItoGeneratorOperator(GeneratorOperator):
             return self.event_shape
         return (2, *self.event_shape)
 
-    def _split_params(self, params: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor | None]:
+    def _split_params(
+        self, params: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor | None]:
         self.validate_params(params)
         if self.diffusion_mode == "none":
             return params, None

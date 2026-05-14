@@ -7,7 +7,6 @@ solvers. Not on the import-time hot path.
 from __future__ import annotations
 
 
-
 import torch
 
 from nami.core.broadcast import broadcast

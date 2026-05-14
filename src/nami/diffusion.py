@@ -26,7 +26,6 @@ schedules either, since they don't define ``\alpha(t), \sigma(t)``; they
 """
 
 
-
 import torch
 
 

@@ -15,7 +15,6 @@ References
 from __future__ import annotations
 
 
-
 import torch
 
 from nami.diffusion import expand_like
@@ -46,15 +45,15 @@ class DPMSolverPP:
         if steps <= 0:
             msg = f"steps must be positive, got {steps}"
             raise ValueError(msg)
-        
+
         if order not in {1, 2}:
             msg = f"order must be 1 or 2, got {order}"
             raise ValueError(msg)
-        
+
         if skip_type not in {"time_uniform", "logsnr"}:
             msg = "skip_type must be 'time_uniform' or 'logsnr'"
             raise ValueError(msg)
-        
+
         if sigma_min <= 0:
             msg = f"sigma_min must be positive, got {sigma_min}"
             raise ValueError(msg)

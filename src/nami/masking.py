@@ -15,7 +15,6 @@ field directly.
 """
 
 
-
 import torch
 
 from nami.interpolants.linear import LinearInterpolant

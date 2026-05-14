@@ -17,7 +17,6 @@ References
 from __future__ import annotations
 
 
-
 import torch
 
 from nami.distributions.base import expand_distribution, has_rsample
@@ -121,12 +120,14 @@ class Diffusion(LazyProcess):
             if not isinstance(self.parameterization, Parameterization):
                 msg = (
                     "parameterization must be a nami.parameterizations.Parameterization "
-                    "instance — the legacy string flag (\"eps\"|\"score\"|\"x0\") was "
+                    'instance — the legacy string flag ("eps"|"score"|"x0") was '
                     "removed; use epsilon_prediction(schedule), score_prediction(schedule), "
                     "or x0_prediction(schedule)"
                 )
                 raise TypeError(msg)
-            if not isinstance(self.parameterization.target, (Epsilon, Score, X0, VPrediction)):
+            if not isinstance(
+                self.parameterization.target, (Epsilon, Score, X0, VPrediction)
+            ):
                 msg = (
                     "Diffusion supports targets Epsilon, Score, X0, VPrediction; got "
                     f"{type(self.parameterization.target).__name__}"

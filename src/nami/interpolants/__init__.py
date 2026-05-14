@@ -18,10 +18,14 @@ References
 from __future__ import annotations
 
 
-
 from nami.interpolants.bridge import BrownianBridgeInterpolant
 from nami.interpolants.cosine import CosineInterpolant
-from nami.interpolants.gamma import BrownianGamma, GammaSchedule, ScaledBrownianGamma, ZeroGamma
+from nami.interpolants.gamma import (
+    BrownianGamma,
+    GammaSchedule,
+    ScaledBrownianGamma,
+    ZeroGamma,
+)
 from nami.interpolants.gaussian import (
     GaussianInterpolant,
     epsilon_prediction,

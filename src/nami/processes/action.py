@@ -22,7 +22,6 @@ References
 """
 
 
-
 import torch
 
 from nami.distributions.base import expand_distribution, has_rsample

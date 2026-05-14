@@ -31,7 +31,6 @@ convert score / ``\epsilon`` / ``x_0``.
 """
 
 
-
 import torch
 
 from nami.interpolants.protocol import Interpolant

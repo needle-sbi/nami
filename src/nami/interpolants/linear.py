@@ -24,7 +24,6 @@ targets.
 """
 
 
-
 from dataclasses import dataclass, field
 from typing import assert_never
 
@@ -184,9 +183,7 @@ class StochasticLinearInterpolant:
         match target:
             case Velocity():
                 # ``u_t = (x_source - x_target) + \dot{\gamma}(t) \cdot z``
-                gamma_dot = _broadcast_t(
-                    self.gamma.gamma_dot(state.t), state.x_target
-                )
+                gamma_dot = _broadcast_t(self.gamma.gamma_dot(state.t), state.x_target)
                 if state.noise is None:
                     msg = (
                         "StochasticLinearInterpolant.target(Velocity) requires "
@@ -199,9 +196,7 @@ class StochasticLinearInterpolant:
                 # Same conditional velocity as the Velocity arm: the
                 # action-matching loss regresses ``\nabla_x s`` against ``u_t`` and
                 # ``u_t`` carries the ``\dot{\gamma}\cdot z`` correction term.
-                gamma_dot = _broadcast_t(
-                    self.gamma.gamma_dot(state.t), state.x_target
-                )
+                gamma_dot = _broadcast_t(self.gamma.gamma_dot(state.t), state.x_target)
                 if state.noise is None:
                     msg = (
                         "StochasticLinearInterpolant.target(Action) requires "

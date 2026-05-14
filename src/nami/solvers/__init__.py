@@ -16,7 +16,6 @@ References
 from __future__ import annotations
 
 
-
 from nami.solvers.dpm import DPMSolverPP
 from nami.solvers.heun import Heun
 from nami.solvers.ode import RK4

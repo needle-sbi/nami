@@ -26,7 +26,6 @@ import from here, never the reverse.
 """
 
 
-
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Callable, Union
 
@@ -214,9 +213,7 @@ class Parameterization:
     """
 
     target: Target
-    weighting: Callable[[torch.Tensor], torch.Tensor] = field(
-        default=_ones_weighting
-    )
+    weighting: Callable[[torch.Tensor], torch.Tensor] = field(default=_ones_weighting)
     output_transform: Callable[[TensorLike], TensorLike] = field(
         default=_identity_transform
     )

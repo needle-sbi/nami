@@ -20,7 +20,6 @@ schedule, and the composite emits the runtime drift a Process needs.
 """
 
 
-
 from collections.abc import Callable
 from typing import Protocol, runtime_checkable
 

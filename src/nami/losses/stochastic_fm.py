@@ -19,7 +19,6 @@ and because the stochastic-linear case is the most common
 """
 
 
-
 import torch
 
 from nami.interpolants.gamma import GammaSchedule

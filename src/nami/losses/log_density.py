@@ -22,7 +22,6 @@ deleted ``ProbabilityPath``.
 """
 
 
-
 import math
 
 import torch

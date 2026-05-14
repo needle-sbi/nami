@@ -20,7 +20,6 @@ References
 from __future__ import annotations
 
 
-
 import torch
 
 from nami.distributions.base import expand_distribution, has_rsample
@@ -315,9 +314,7 @@ class FlowMatchingProcess(ProcessRuntimeMixin):
 
         def f_aug(xi, t):
             tt = cast_time(t, xi)
-            v, div = self._call_and_divergence(
-                xi, tt, context, estimator=estimator
-            )
+            v, div = self._call_and_divergence(xi, tt, context, estimator=estimator)
             return v, -div
 
         return self._integrate_augmented(f_aug, z, logp0, t0=self._t0, t1=self._t1)
@@ -367,11 +364,10 @@ class FlowMatchingProcess(ProcessRuntimeMixin):
         lead = x.shape[:-event_ndim] if event_ndim else x.shape
         logp0 = torch.zeros(lead, device=x.device, dtype=x.dtype)
         context = self._expand_context(self._context, x)
+
         def f_aug(xi, t):
             tt = cast_time(t, xi)
-            v, div = self._call_and_divergence(
-                xi, tt, context, estimator=estimator
-            )
+            v, div = self._call_and_divergence(xi, tt, context, estimator=estimator)
             return v, -div
 
         z, delta = self._integrate_augmented(f_aug, x, logp0, t0=self._t1, t1=self._t0)

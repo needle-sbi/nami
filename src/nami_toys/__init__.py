@@ -8,7 +8,6 @@ fast, visualisable benchmarks for transport methods.
 from __future__ import annotations
 
 
-
 from .checkerboard import Checkerboard
 from .dataset import ToyDataset
 from .gaussian import GaussianMixture

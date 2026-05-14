@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 
-
 import torch
 
 from nami.core.specs import as_tuple

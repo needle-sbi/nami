@@ -12,7 +12,6 @@ References
 from __future__ import annotations
 
 
-
 import torch
 
 from nami.distributions.base import expand_distribution, has_rsample
@@ -235,7 +234,7 @@ class GeneratorMatchingProcess(ProcessRuntimeMixin):
         # onto a constrained manifold — without touching the Process.
         raw = self._field(x, t, context)
         params = self._parameterization.output_transform(raw)
-        lead = x.shape[:-len(self.event_shape)] if self.event_shape else x.shape
+        lead = x.shape[: -len(self.event_shape)] if self.event_shape else x.shape
         self._operator.validate_params(params, leading_shape=lead)
         return params
 

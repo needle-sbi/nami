@@ -18,7 +18,6 @@ are required.
 """
 
 
-
 import math
 from dataclasses import dataclass
 from typing import assert_never
@@ -67,7 +66,11 @@ class CosineInterpolant:
         s = _broadcast_t(self._sigma(t), x_target)
         xt = a * x_target + s * x_source
         return InterpolantState(
-            xt=xt, x_target=x_target, x_source=x_source, t=t, noise=None,
+            xt=xt,
+            x_target=x_target,
+            x_source=x_source,
+            t=t,
+            noise=None,
         )
 
     def target(self, target: Target, state: InterpolantState) -> TensorLike:

@@ -17,7 +17,6 @@ Mixture Transports*, 2023.
 """
 
 
-
 import torch
 
 from nami.interpolants.bridge import BrownianBridgeInterpolant

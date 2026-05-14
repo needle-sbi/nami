@@ -18,7 +18,6 @@ impossible because changing target without changing ``\omega`` is changing the
 """
 
 
-
 from dataclasses import dataclass
 from typing import assert_never
 

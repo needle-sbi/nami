@@ -14,7 +14,6 @@ References
 from __future__ import annotations
 
 
-
 import torch
 
 from nami.distributions.base import expand_distribution, has_rsample

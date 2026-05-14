@@ -15,7 +15,6 @@ will live in its own factory rather than overloading this one.
 """
 
 
-
 from nami.parameterizations import GeneratorParams, Parameterization
 from nami.generators.base import GeneratorOperator
 

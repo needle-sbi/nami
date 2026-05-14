@@ -10,7 +10,6 @@ log-density heads (consistency models), and operator-parameter heads
 from __future__ import annotations
 
 
-
 from nami.fields.action import ActionHead
 from nami.fields.adaln import AdaLNVelocityField
 from nami.fields.composite import (

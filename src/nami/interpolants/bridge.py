@@ -26,7 +26,6 @@ exactly.
 """
 
 
-
 from dataclasses import dataclass
 from typing import assert_never
 

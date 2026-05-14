@@ -29,7 +29,6 @@ parameterization factories stay mathematically pure (no silent clamps).
 """
 
 
-
 import torch
 
 from nami.interpolants.protocol import Interpolant

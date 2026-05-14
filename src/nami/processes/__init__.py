@@ -11,9 +11,11 @@ Process subpackage entry points are also re-exported at top-level
 """
 
 
-
 from nami.processes.action import ActionMatching, ActionMatchingProcess
-from nami.processes.consistency import ConsistencyFlowMatching, ConsistencyFlowMatchingProcess
+from nami.processes.consistency import (
+    ConsistencyFlowMatching,
+    ConsistencyFlowMatchingProcess,
+)
 from nami.processes.diffusion import Diffusion, DiffusionProcess
 from nami.processes.fm import FlowMatching, FlowMatchingProcess
 from nami.processes.gm import GeneratorMatching, GeneratorMatchingProcess

@@ -13,7 +13,6 @@ References
 from __future__ import annotations
 
 
-
 from nami.generators.base import GeneratorOperator
 from nami.generators.operators import ItoGeneratorOperator
 from nami.generators.parameterizations import generator_prediction

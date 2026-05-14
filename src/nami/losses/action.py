@@ -28,7 +28,6 @@ loss reuses the same shape (sum-the-scalar + ``create_graph=True``).
 """
 
 
-
 import torch
 
 from nami.interpolants.protocol import Interpolant
@@ -51,6 +50,8 @@ def action_prediction() -> Parameterization:
     deliberate choice the factory was designed to make explicit.
     """
     return Parameterization(target=Action())
+
+
 from nami.losses._common import (
     leading_shape,
     per_sample_mse,
