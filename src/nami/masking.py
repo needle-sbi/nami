@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """
 Masked flow matching for variable-cardinality inputs.
 
@@ -14,6 +12,7 @@ per-object squared error before averaging.  The runtime
 field directly.
 """
 
+from __future__ import annotations
 
 import torch
 

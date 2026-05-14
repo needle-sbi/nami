@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Log-density consistency loss.
 
 This module formerly housed ``cfm_loss`` (forward consistency) and
@@ -21,6 +19,7 @@ Models*, 2018, arXiv:1810.01367).  It consumes
 deleted ``ProbabilityPath``.
 """
 
+from __future__ import annotations
 
 import math
 
@@ -63,7 +62,7 @@ def log_density_consistency_loss(
     z: torch.Tensor | None = None,
     reduction: str = "mean",
 ) -> torch.Tensor:
-    """Log-prob consistency loss for the scalar head :math:`h_\\theta`.
+    r"""Log-prob consistency loss for the scalar head :math:`h_\theta`.
 
     Mathematical object: a trajectory-pair consistency objective for a
     log-density head, derived from the instantaneous change-of-variables
@@ -168,7 +167,9 @@ def log_density_consistency_loss(
 
     if euler_step:
         vt = field(xt, t, c)
-        _reshape = lambda s: s.reshape(s.shape + (1,) * event_ndim)
+        def _reshape(s: torch.Tensor) -> torch.Tensor:
+            return s.reshape(s.shape + (1,) * event_ndim)
+
         delta_broad = _reshape(tt - t)
         xtt = (xt + delta_broad * vt).detach()
     else:

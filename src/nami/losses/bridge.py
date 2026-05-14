@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Schrödinger-bridge matching loss on the unified vocabulary.
 
 Trains a flow head (Velocity target) and a score head (Score target)
@@ -16,11 +14,11 @@ Schrödinger Bridge Matching*, 2023; Peluchetti, *Diffusion Bridge
 Mixture Transports*, 2023.
 """
 
+from __future__ import annotations
 
 import torch
 
 from nami.interpolants.bridge import BrownianBridgeInterpolant
-from nami.parameterizations import Parameterization, Score, Velocity
 from nami.losses._common import (
     leading_shape,
     reduce_loss,
@@ -28,6 +26,7 @@ from nami.losses._common import (
     sample_t,
 )
 from nami.losses.regression import regression_loss
+from nami.parameterizations import Parameterization, Score, Velocity
 
 
 def bridge_matching_loss(

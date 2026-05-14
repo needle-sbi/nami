@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 import torch
 
 from nami.fields._common import require_event_ndim

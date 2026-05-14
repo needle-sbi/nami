@@ -10,7 +10,7 @@
 ![Development](https://img.shields.io/badge/status-development-orange?style=for-the-badge)
 
 
-Nami is a small PyTorch research toolkit for flow-style generative models, with a focus on composable transport-map workflows and SBI applications.
+Nami is a library for flow-style generative models, with a focus on composable transport-map workflows and SBI applications.
 
 The full guide, examples, tutorials, and API reference live in the [documentation](https://levisamuelevans.github.io/nami/).
 

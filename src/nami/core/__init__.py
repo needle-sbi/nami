@@ -7,7 +7,6 @@ library. No dependencies on ML papers — pure plumbing.
 
 from __future__ import annotations
 
-
 from nami.core.specs import (
     TensorSpec,
     as_tuple,

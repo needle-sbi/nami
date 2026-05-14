@@ -19,7 +19,6 @@ References
 
 from __future__ import annotations
 
-
 import torch
 
 from nami.distributions.base import expand_distribution, has_rsample
@@ -43,7 +42,7 @@ from nami.processes._common import (
 
 
 class FlowMatching(LazyProcess):
-    """Flow-matching process driven by a :class:`Parameterization`.
+    r"""Flow-matching process driven by a :class:`Parameterization`.
 
     Unlike :class:`~nami.processes.diffusion.Diffusion`, FM has no
     algebraic dispatch over multiple targets — it only supports
@@ -222,7 +221,7 @@ class FlowMatchingProcess(ProcessRuntimeMixin):
         return self._parameterization.output_transform(self._field(x, t, context))
 
     def _transformed_field(self):
-        """Adapter exposing the transformed velocity to divergence estimators.
+        r"""Adapter exposing the transformed velocity to divergence estimators.
 
         Estimators read ``field.event_ndim`` and call ``field(x, t, c)``;
         without this adapter they would differentiate the *raw* field

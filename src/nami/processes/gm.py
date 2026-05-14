@@ -11,11 +11,11 @@ References
 
 from __future__ import annotations
 
-
 import torch
 
 from nami.distributions.base import expand_distribution, has_rsample
 from nami.distributions.normal import StandardNormal
+from nami.fields._common import require_event_ndim
 from nami.lazy import (
     LazyDistribution,
     LazyField,
@@ -23,7 +23,6 @@ from nami.lazy import (
     UnconditionalDistribution,
     UnconditionalField,
 )
-from nami.fields._common import require_event_ndim
 from nami.parameterizations import GeneratorParams, Parameterization
 from nami.processes._common import (
     ProcessRuntimeMixin,

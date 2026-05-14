@@ -7,7 +7,6 @@ mean and scale (e.g. learned base distributions, posterior priors).
 
 from __future__ import annotations
 
-
 from typing import ClassVar
 
 import torch

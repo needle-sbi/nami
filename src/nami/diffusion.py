@@ -1,9 +1,7 @@
-from __future__ import annotations
+r"""Algebraic conversions between diffusion prediction targets.
 
-"""Algebraic conversions between diffusion prediction targets.
-
-Given a Gaussian conditional path ``x_t = \alpha(t) x_0 + \sigma(t) \epsilon`` and its
-named target objects (``\epsilon``, score ``\nabla \log p_t``, clean ``x_0``,
+Given a Gaussian conditional path ``x_t = \alpha(t) x_0 + \\sigma(t) \epsilon`` and its
+named target objects (``\\epsilon``, \\score ``\nabla \log p_t``, clean ``x_0``,
 v-prediction ``v = \alpha \epsilon - \sigma x_0``), these helpers convert one target
 into another using only ``(x_t, \alpha, \sigma)``.  Used by:
 
@@ -25,12 +23,13 @@ schedules either, since they don't define ``\alpha(t), \sigma(t)``; they
 *consume* them.
 """
 
+from __future__ import annotations
 
 import torch
 
 
 def expand_like(scale: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-    """Broadcast ``scale`` to match ``target``'s rank by appending
+    r"""Broadcast ``scale`` to match ``target``'s rank by appending
     trailing singleton dims.
 
     Used to broadcast schedule scalars ``\alpha(t), \sigma(t)`` (shape ``lead``)
@@ -43,33 +42,33 @@ def expand_like(scale: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
 
 
 def eps_to_score(eps: torch.Tensor, sigma: torch.Tensor) -> torch.Tensor:
-    """``score = -\epsilon / \sigma(t)``."""
+    r"""``score = -\epsilon / \sigma(t)``."""
     return -eps / expand_like(sigma, eps)
 
 
 def score_to_eps(score: torch.Tensor, sigma: torch.Tensor) -> torch.Tensor:
-    """``\epsilon = -\sigma(t) \cdot score``."""
+    r"""``\epsilon = -\sigma(t) \cdot score``."""
     return -score * expand_like(sigma, score)
 
 
 def eps_to_x0(
     x: torch.Tensor, eps: torch.Tensor, alpha: torch.Tensor, sigma: torch.Tensor
 ) -> torch.Tensor:
-    """``x_0 = (x_t - \sigma(t) \epsilon) / \alpha(t)``."""
+    r"""``x_0 = (x_t - \sigma(t) \epsilon) / \alpha(t)``."""
     return (x - expand_like(sigma, x) * eps) / expand_like(alpha, x)
 
 
 def x0_to_eps(
     x: torch.Tensor, x0: torch.Tensor, alpha: torch.Tensor, sigma: torch.Tensor
 ) -> torch.Tensor:
-    """``\epsilon = (x_t - \alpha(t) x_0) / \sigma(t)``."""
+    r"""``\epsilon = (x_t - \alpha(t) x_0) / \sigma(t)``."""
     return (x - expand_like(alpha, x) * x0) / expand_like(sigma, x)
 
 
 def score_to_x0(
     x: torch.Tensor, score: torch.Tensor, alpha: torch.Tensor, sigma: torch.Tensor
 ) -> torch.Tensor:
-    """``x_0 = (x_t + \sigma^2(t) \cdot score) / \alpha(t)``."""
+    r"""``x_0 = (x_t + \sigma^2(t) \cdot score) / \alpha(t)``."""
     sigma_exp = expand_like(sigma, x)
     return (x + (sigma_exp**2) * score) / expand_like(alpha, x)
 
@@ -77,7 +76,7 @@ def score_to_x0(
 def x0_to_score(
     x: torch.Tensor, x0: torch.Tensor, alpha: torch.Tensor, sigma: torch.Tensor
 ) -> torch.Tensor:
-    """``score = (\alpha(t) x_0 - x_t) / \sigma^2(t)``."""
+    r"""``score = (\alpha(t) x_0 - x_t) / \sigma^2(t)``."""
     sigma_exp = expand_like(sigma, x)
     return (expand_like(alpha, x) * x0 - x) / (sigma_exp**2)
 
@@ -88,7 +87,7 @@ def v_to_eps(
     alpha: torch.Tensor,
     sigma: torch.Tensor,
 ) -> torch.Tensor:
-    """Salimans-Ho v-prediction to ``\epsilon`` conversion.
+    r"""Salimans-Ho v-prediction to ``\epsilon`` conversion.
 
     From the system ``v = \alpha \epsilon - \sigma x_0`` and ``x_t = \alpha x_0 + \sigma \epsilon``,
     Cramer's rule gives::

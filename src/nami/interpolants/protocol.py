@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
 
@@ -12,7 +11,7 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class InterpolantState:
-    """Snapshot of an interpolation at time ``t``.
+    r"""Snapshot of an interpolation at time ``t``.
 
     Carries enough information for any :class:`~nami.parameterizations.Target`
     to be derived without re-sampling.  ``xt`` is the interpolated point;
@@ -30,7 +29,7 @@ class InterpolantState:
 
 
 class Interpolant(Protocol):
-    """Marginal path between two endpoint distributions.
+    r"""Marginal path between two endpoint distributions.
 
     Replaces the ``ProbabilityPath`` / ``GeneratorPath`` split.  An
     ``Interpolant`` describes *where* the path goes; what the network learns
@@ -56,6 +55,6 @@ class Interpolant(Protocol):
 
     def target(
         self,
-        target: "Target",
+        target: Target,
         state: InterpolantState,
-    ) -> "TensorLike": ...
+    ) -> TensorLike: ...

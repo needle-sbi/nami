@@ -12,7 +12,6 @@ References
 
 from __future__ import annotations
 
-
 import torch
 
 from nami.components import MLPBackbone, ScalarTimeEmbedding

@@ -1,6 +1,4 @@
-from __future__ import annotations
-
-"""Training-time losses on the unified Interpolant + Parameterization vocabulary.
+r"""Training-time losses on the unified Interpolant + Parameterization vocabulary.
 
 Aggregates the regression-style objective
 (:func:`~nami.losses.regression.regression_loss`, specialising to Flow
@@ -16,6 +14,7 @@ et al., 2023), and Schrödinger-bridge matching
 (:func:`~nami.losses.bridge.bridge_matching_loss`; Tong et al., 2024).
 """
 
+from __future__ import annotations
 
 from nami.losses.action import action_matching_loss
 from nami.losses.bridge import bridge_matching_loss

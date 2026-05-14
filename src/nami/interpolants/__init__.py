@@ -17,7 +17,6 @@ References
 
 from __future__ import annotations
 
-
 from nami.interpolants.bridge import BrownianBridgeInterpolant
 from nami.interpolants.cosine import CosineInterpolant
 from nami.interpolants.gamma import (

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Concrete transport processes built on the unified vocabulary.
 
 Each pair is ``(LazyProcess, ConcreteProcess)``; the lazy variant is
@@ -10,6 +8,7 @@ Process subpackage entry points are also re-exported at top-level
 ``nami`` for the curated user API.
 """
 
+from __future__ import annotations
 
 from nami.processes.action import ActionMatching, ActionMatchingProcess
 from nami.processes.consistency import (

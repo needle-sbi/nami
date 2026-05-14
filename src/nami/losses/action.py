@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 r"""Action-matching loss.
 
 The network emits a scalar potential :math:`s_\\theta(x, t)` and is
@@ -27,10 +25,18 @@ already uses ``torch.autograd.grad`` against a scalar-out head; this
 loss reuses the same shape (sum-the-scalar + ``create_graph=True``).
 """
 
+from __future__ import annotations
 
 import torch
 
 from nami.interpolants.protocol import Interpolant
+from nami.losses._common import (
+    leading_shape,
+    per_sample_mse,
+    reduce_loss,
+    require_event_ndim,
+    sample_t,
+)
 from nami.parameterizations import Action, Parameterization
 
 
@@ -50,16 +56,6 @@ def action_prediction() -> Parameterization:
     deliberate choice the factory was designed to make explicit.
     """
     return Parameterization(target=Action())
-
-
-from nami.losses._common import (
-    leading_shape,
-    per_sample_mse,
-    reduce_loss,
-    require_event_ndim,
-    sample_t,
-)
-
 
 def _grad_x_s(
     field,

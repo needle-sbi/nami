@@ -13,7 +13,6 @@ References
 
 from __future__ import annotations
 
-
 import torch
 
 from nami.distributions.base import expand_distribution, has_rsample
@@ -32,6 +31,7 @@ from nami.processes._common import (
     resolve_event_ndim,
     validate_base_event_ndim,
 )
+from nami.processes.fm import FlowMatchingProcess
 
 
 class ConsistencyFlowMatching(LazyProcess):
@@ -285,8 +285,6 @@ class ConsistencyFlowMatchingProcess(ProcessRuntimeMixin):
         if self._solver is None:
             msg = "log_prob requires a solver; pass one to ConsistencyFlowMatching"
             raise ValueError(msg)
-
-        from .fm import FlowMatchingProcess
 
         fm_proc = FlowMatchingProcess(
             field=self._field,

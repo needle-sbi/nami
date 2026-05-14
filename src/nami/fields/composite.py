@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 r"""Composite fields that combine separately trained heads.
 
 The legacy :mod:`nami.interpolants.transforms` module carried two
@@ -19,6 +17,7 @@ trained velocity and score models plus the stochastic-interpolant gamma
 schedule, and the composite emits the runtime drift a Process needs.
 """
 
+from __future__ import annotations
 
 from collections.abc import Callable
 from typing import Protocol, runtime_checkable

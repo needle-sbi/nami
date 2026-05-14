@@ -1,23 +1,22 @@
-from __future__ import annotations
-
-"""Stochastic flow-matching loss on the unified vocabulary.
+r"""Stochastic flow-matching loss on the unified vocabulary.
 
 Trains a velocity field on a stochastic linear interpolant (Albergo &
 Vanden-Eijnden, *Building Normalizing Flows with Stochastic
 Interpolants*, 2023; Albergo, Boffi & Vanden-Eijnden, *Stochastic
 Interpolants: A Unifying Framework*, 2023, arXiv:2303.08797):
-``x_t = (1-t) x_target + t x_source + γ(t) z`` with conditional
+``x_t = (1-t) x_target + t x_source + gamma(t) z`` with conditional
 velocity ``u_t = (x_source - x_target) + \dot{\gamma}(t) z``.
 
 Implementation is now a thin shim around
 :func:`~nami.losses.regression.regression_loss` with a
-:class:`~nami.interpolants.linear.StochasticLinearInterpolant` —
+:class:`~nami.interpolants.linear.StochasticLinearInterpolant` -
 preserved as a separate function name for callers used to the
 legacy import path (``nami.losses.stochastic_fm.stochastic_fm_loss``)
 and because the stochastic-linear case is the most common
-γ-scheduled use that benefits from a one-liner factory.
+gamma-scheduled use that benefits from a one-liner factory.
 """
 
+from __future__ import annotations
 
 import torch
 
@@ -44,7 +43,7 @@ def stochastic_fm_loss(
     """Flow-matching loss for the stochastic linear interpolant.
 
     Mathematical object: velocity regression against the conditional
-    velocity of the γ-scheduled stochastic linear interpolant of
+    velocity of the gamma-scheduled stochastic linear interpolant of
     Albergo, Boffi & Vanden-Eijnden, *Stochastic Interpolants: A
     Unifying Framework*, 2023 (arXiv:2303.08797).  Thin shim around
     :func:`~nami.losses.regression.regression_loss` that wires up the
@@ -53,7 +52,7 @@ def stochastic_fm_loss(
     Either pass an ``interpolant`` (a fully-configured
     ``StochasticLinearInterpolant``) or a bare ``gamma`` schedule to
     construct one with default settings.  Passing both raises
-    ``ValueError`` — the API is unambiguous.
+    ``ValueError`` - the API is unambiguous.
 
     ``z`` is the latent noise; when ``None``, fresh noise is sampled
     internally and the same draw is used inside ``regression_loss``

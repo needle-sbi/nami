@@ -1,6 +1,4 @@
-from __future__ import annotations
-
-"""Unified consistency loss for trajectory-pair self-consistency training.
+r"""Unified consistency loss for trajectory-pair self-consistency training.
 
 Replaces the legacy ``cfm_loss`` (forward consistency, ``target_time=0``)
 and ``cfm_reverse_loss`` (reverse consistency, ``target_time=1``) with
@@ -30,11 +28,11 @@ needs a velocity, and this loss carries no schedule with which to
 convert score / ``\epsilon`` / ``x_0``.
 """
 
+from __future__ import annotations
 
 import torch
 
 from nami.interpolants.protocol import Interpolant
-from nami.parameterizations import Parameterization, Velocity
 from nami.losses._common import (
     leading_shape,
     per_sample_mse,
@@ -42,6 +40,7 @@ from nami.losses._common import (
     require_event_ndim,
     sample_t,
 )
+from nami.parameterizations import Parameterization, Velocity
 
 
 def consistency_loss(
@@ -61,7 +60,7 @@ def consistency_loss(
     eps_t: float = 0.0,
     reduction: str = "mean",
 ) -> torch.Tensor:
-    """Self-consistency MSE between two trajectory points under
+    r"""Self-consistency MSE between two trajectory points under
     ``f(x, t, v) = x + (T - t) v``.
 
     Mathematical object: a consistency-distillation / consistency-

@@ -1,6 +1,4 @@
-from __future__ import annotations
-
-"""Gaussian-noise interpolant for diffusion-style transport.
+r"""Gaussian-noise interpolant for diffusion-style transport.
 
 Implements ``x_t = \alpha(t) \cdot x_target + \sigma(t) \cdot x_source`` against any
 :class:`~nami.schedules.base.NoiseSchedule`, plus the canonical
@@ -11,12 +9,13 @@ The factories (:func:`epsilon_prediction`, :func:`score_prediction`,
 :func:`x0_prediction`) replace the ``parameterization="eps"|"score"|"x0"``
 string flag on the legacy ``Diffusion`` process.  Each factory's default
 weighting is the one that makes its loss numerically equivalent to the
-DDPM-uniform ``\epsilon``-prediction loss under change of variables — silent
-re-weighting bugs (the Arruda Eq. 57–61 case) become structurally
+DDPM-uniform ``\epsilon``-prediction loss under change of variables - silent
+re-weighting bugs (the Arruda Eq. 57-61 case) become structurally
 impossible because changing target without changing ``\omega`` is changing the
 ``Parameterization``, not toggling a flag.
 """
 
+from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import assert_never
@@ -24,7 +23,9 @@ from typing import assert_never
 import torch
 
 from nami.diffusion import expand_like
+from nami.interpolants.protocol import InterpolantState
 from nami.parameterizations import (
+    X0,
     Action,
     Epsilon,
     GeneratorParams,
@@ -32,17 +33,15 @@ from nami.parameterizations import (
     Score,
     Target,
     TensorLike,
-    VPrediction,
     Velocity,
-    X0,
+    VPrediction,
 )
 from nami.schedules.base import NoiseSchedule
-from nami.interpolants.protocol import InterpolantState
 
 
 @dataclass(frozen=True)
 class GaussianInterpolant:
-    """Gaussian interpolant ``x_t = \alpha(t) x_target + \sigma(t) x_source``.
+    r"""Gaussian interpolant ``x_t = \alpha(t) x_target + \sigma(t) x_source``.
 
     The source endpoint plays the role of the latent noise ``\epsilon``; the
     ``noise`` slot on :class:`InterpolantState` is therefore left ``None``.
@@ -157,21 +156,21 @@ class GaussianInterpolant:
 
 
 def epsilon_prediction(schedule: NoiseSchedule) -> Parameterization:
-    """``\epsilon``-prediction with ``\omega(t)=1`` — the DDPM-standard convention.
+    r"""``\epsilon``-prediction with ``\omega(t)=1`` — the DDPM-standard convention.
 
     The network emits the standardised noise directly; the loss is plain
     MSE.  Equivalent (via change of variables) to ``score`` and ``x0``
     prediction with their conventional weightings.
     """
     del schedule  # unused — epsilon-prediction's omega is schedule-independent
-    return Parameterization(
-        target=Epsilon(),
-        weighting=lambda t: torch.ones_like(t),
-    )
+    def weighting(t: torch.Tensor) -> torch.Tensor:
+        return torch.ones_like(t)
+
+    return Parameterization(target=Epsilon(), weighting=weighting)
 
 
 def score_prediction(schedule: NoiseSchedule) -> Parameterization:
-    """Score-matching with ``\omega(t)=\sigma^2(t)``.
+    r"""Score-matching with ``\omega(t)=\sigma^2(t)``.
 
     The ``\sigma^2`` weighting is the maximum-likelihood weighting (Song et al.,
     *Maximum Likelihood Training of Score-Based Diffusion Models*, 2021)
@@ -193,7 +192,7 @@ def score_prediction(schedule: NoiseSchedule) -> Parameterization:
 
 
 def v_prediction(schedule: NoiseSchedule) -> Parameterization:
-    """Salimans-Ho v-prediction with ``\omega(t)=1``.
+    r"""Salimans-Ho v-prediction with ``\omega(t)=1``.
 
     The network emits ``v = \alpha(t) \epsilon - \sigma(t) x_0``. The default uniform
     weighting matches the ``\epsilon``-prediction equivalence path under the
@@ -213,7 +212,7 @@ def v_prediction(schedule: NoiseSchedule) -> Parameterization:
 
 
 def x0_prediction(schedule: NoiseSchedule) -> Parameterization:
-    """``x_0``-prediction with ``\omega(t) = \mathrm{SNR}(t) = \alpha^2(t)/\sigma^2(t)``.
+    r"""``x_0``-prediction with ``\omega(t) = \mathrm{SNR}(t) = \alpha^2(t)/\sigma^2(t)``.
 
     The SNR weighting is the value that makes the ``x_0`` loss equivalent
     to DDPM-uniform ``\epsilon``-prediction. Override with ``\min(\mathrm{SNR}(t), \gamma)``

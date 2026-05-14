@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Action-matching transport process.
 
 The field is a scalar-output head (e.g.
@@ -21,6 +19,7 @@ References
   from Samples*, 2023.
 """
 
+from __future__ import annotations
 
 import torch
 
@@ -273,7 +272,7 @@ class ActionMatchingProcess(ProcessRuntimeMixin):
         context = self._expand_context(self._context, z)
         return self._sample_path(z, context=context, reparameterized=True)
 
-    def log_prob(self, x: torch.Tensor, **_) -> torch.Tensor:  # noqa: ARG002
+    def log_prob(self, x: torch.Tensor, **_) -> torch.Tensor:
         del x
         # log_prob via change-of-variables would need the Laplacian of
         # the scalar potential ``s`` (since the drift is ``\nabla_x s``). That's a

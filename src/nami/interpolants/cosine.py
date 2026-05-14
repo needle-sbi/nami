@@ -1,6 +1,4 @@
-from __future__ import annotations
-
-"""Cosine-scheduled deterministic interpolant.
+r"""Cosine-scheduled deterministic interpolant.
 
 ``x_t = \alpha(t) x_target + \sigma(t) x_source`` with ``\alpha(t) = \cos(\pi t/2)`` and
 ``\sigma(t) = \sin(\pi t/2)``. The conditional velocity is
@@ -17,6 +15,7 @@ The path is deterministic (no noise term), so ``Score``, ``Epsilon``,
 are required.
 """
 
+from __future__ import annotations
 
 import math
 from dataclasses import dataclass
@@ -24,24 +23,24 @@ from typing import assert_never
 
 import torch
 
+from nami.interpolants._common import broadcast_t as _broadcast_t
+from nami.interpolants.protocol import InterpolantState
 from nami.parameterizations import (
+    X0,
     Action,
     Epsilon,
     GeneratorParams,
     Score,
     Target,
     TensorLike,
-    VPrediction,
     Velocity,
-    X0,
+    VPrediction,
 )
-from nami.interpolants._common import broadcast_t as _broadcast_t
-from nami.interpolants.protocol import InterpolantState
 
 
 @dataclass(frozen=True)
 class CosineInterpolant:
-    """Deterministic cosine-scheduled interpolant.
+    r"""Deterministic cosine-scheduled interpolant.
 
     Replaces the legacy :class:`~nami.paths.cosine.CosinePath` on the
     unified vocabulary.  Same closed-form math; supports the
@@ -86,7 +85,7 @@ class CosineInterpolant:
                 )
                 raise NotImplementedError(msg)
             case Action():
-                # ``\nabla_x s`` regresses against the conditional velocity, which
+                # \nabla_x s`` regresses against the conditional velocity, which
                 # is the same closed-form expression as the Velocity arm.
                 ap = _broadcast_t(self._alpha_prime(state.t), state.x_target)
                 sp = _broadcast_t(self._sigma_prime(state.t), state.x_target)

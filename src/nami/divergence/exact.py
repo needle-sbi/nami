@@ -7,7 +7,6 @@ size, so callers cap ``max_dim`` to keep training tractable.
 
 from __future__ import annotations
 
-
 import torch
 
 from nami.core.specs import event_numel, split_event

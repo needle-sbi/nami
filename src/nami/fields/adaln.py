@@ -16,7 +16,6 @@ References
 
 from __future__ import annotations
 
-
 import torch
 from torch import nn
 
@@ -29,7 +28,6 @@ from nami.core.specs import (
 )
 from nami.fields._common import normalise_event_shape, validate_context
 from nami.fields.base import VectorField
-
 
 _ACTIVATIONS = {
     "silu": nn.SiLU,
@@ -195,10 +193,7 @@ class AdaLNVelocityField(VectorField):
             dtype=x.dtype,
         )
 
-        if c is not None:
-            cond = torch.cat([t_emb, c], dim=-1)
-        else:
-            cond = t_emb
+        cond = torch.cat([t_emb, c], dim=-1) if c is not None else t_emb
 
         modulation = self.cond_mlp(cond)
         modulation = modulation.view(*lead_shape, self.layers, 3, self.hidden)

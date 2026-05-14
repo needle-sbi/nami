@@ -14,7 +14,6 @@ References
 
 from __future__ import annotations
 
-
 import torch
 
 from nami.diffusion import expand_like
@@ -254,10 +253,7 @@ class DPMSolverPP:
         for _ in range(64):
             mid = 0.5 * (lo + hi)
             mid_l = self._lambda(schedule, mid)
-            if increasing:
-                go_right = mid_l < target_lambda
-            else:
-                go_right = mid_l > target_lambda
+            go_right = mid_l < target_lambda if increasing else mid_l > target_lambda
             lo = torch.where(go_right, mid, lo)
             hi = torch.where(go_right, hi, mid)
 

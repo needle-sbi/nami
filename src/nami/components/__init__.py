@@ -6,7 +6,6 @@ semantics live here.
 
 from __future__ import annotations
 
-
 from nami.components.activation import get_activation
 from nami.components.mlp import MLPBackbone
 from nami.components.time import ScalarTimeEmbedding, SinusoidalTimeEmbedding

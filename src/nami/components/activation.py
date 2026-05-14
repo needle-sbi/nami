@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-
 from torch import nn
 
 _ACTIVATIONS: dict[str, type[nn.Module]] = {

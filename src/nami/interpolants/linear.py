@@ -1,35 +1,38 @@
-from __future__ import annotations
-
-"""Linear interpolants — deterministic and stochastic variants.
+r"""Linear interpolants - deterministic and stochastic variants.
 
 ``LinearInterpolant``:
-    ``x_t = (1 - t) \cdot x_target + t \cdot x_source`` — the deterministic
+    ``x_t = (1 - t) \cdot x_target + t \cdot x_source`` - the deterministic
     linear path between data (``t=0``) and source/noise (``t=1``).
     Supports :class:`Velocity` (constant ``u_t = x_source - x_target``)
     and :class:`GeneratorParams` for an Ito operator.
 
 ``StochasticLinearInterpolant``:
-    ``x_t = (1 - t) \cdot x_target + t \cdot x_source + \gamma(t) \cdot z`` — the
-    Albergo–Vanden-Eijnden stochastic interpolant variant.  Adds a
-    γ-scaled Gaussian noise term to the deterministic linear path so
+    ``x_t = (1 - t) \cdot x_target + t \cdot x_source + \gamma(t) \cdot z`` - the
+    Albergo-Vanden-Eijnden stochastic interpolant variant.  Adds a
+    gamma-scaled Gaussian noise term to the deterministic linear path so
     the conditional density has a well-defined score.  Supports
     :class:`Velocity` (with the ``\dot{\gamma}\cdot z`` correction term).
 
 Stochastic targets on the deterministic ``LinearInterpolant``
-(``Score``, ``Epsilon``, ``X0``) raise ``NotImplementedError`` —
+(``Score``, ``Epsilon``, ``X0``) raise ``NotImplementedError`` -
 the path has no noise component, so its conditional density is a
 delta function.  Use :class:`StochasticLinearInterpolant` or
 :class:`~nami.interpolants.gaussian.GaussianInterpolant` for those
 targets.
 """
 
+from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import assert_never
 
 import torch
 
+from nami.interpolants._common import broadcast_t as _broadcast_t
+from nami.interpolants.gamma import BrownianGamma, GammaSchedule
+from nami.interpolants.protocol import InterpolantState
 from nami.parameterizations import (
+    X0,
     Action,
     Epsilon,
     GeneratorParams,
@@ -37,18 +40,14 @@ from nami.parameterizations import (
     Score,
     Target,
     TensorLike,
-    VPrediction,
     Velocity,
-    X0,
+    VPrediction,
 )
-from nami.interpolants._common import broadcast_t as _broadcast_t
-from nami.interpolants.gamma import BrownianGamma, GammaSchedule
-from nami.interpolants.protocol import InterpolantState
 
 
 @dataclass(frozen=True)
 class LinearInterpolant:
-    """Deterministic linear interpolant ``x_t = (1-t) x_target + t x_source``.
+    r"""Deterministic linear interpolant ``x_t = (1-t) x_target + t x_source``.
 
     Implements the :class:`~nami.interpolants.protocol.Interpolant`
     protocol.  Supports only :class:`~nami.parameterizations.Velocity`;
@@ -117,7 +116,7 @@ class LinearInterpolant:
 
 
 def velocity_prediction() -> Parameterization:
-    """Velocity-prediction with ``\omega(t) = 1`` — the standard FM convention.
+    r"""Velocity-prediction with ``\omega(t) = 1`` — the standard FM convention.
 
     No schedule argument because deterministic linear paths have none;
     if a future Velocity-supporting interpolant introduces a non-trivial
@@ -129,7 +128,7 @@ def velocity_prediction() -> Parameterization:
 
 @dataclass(frozen=True)
 class StochasticLinearInterpolant:
-    """Albergo–Vanden-Eijnden stochastic-linear interpolant.
+    r"""Albergo-Vanden-Eijnden stochastic-linear interpolant.
 
     ``x_t = (1 - t) x_target + t x_source + \gamma(t) z`` with ``z \sim N(0, I)``.
 

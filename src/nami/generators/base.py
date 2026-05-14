@@ -12,9 +12,7 @@ References
 
 from __future__ import annotations
 
-
 import torch
-
 
 _RUNTIME_KINDS = {"ode", "sde", "jump"}
 

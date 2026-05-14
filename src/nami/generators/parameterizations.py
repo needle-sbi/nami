@@ -1,6 +1,4 @@
-from __future__ import annotations
-
-"""Parameterization factory for generator-matching training.
+r"""Parameterization factory for generator-matching training.
 
 The factory binds the :class:`~nami.parameterizations.GeneratorParams`
 target to the operator's projection (``operator.project``), so the raw
@@ -14,9 +12,10 @@ canonical schedule-dependent weighting analogous to diffusion's
 will live in its own factory rather than overloading this one.
 """
 
+from __future__ import annotations
 
-from nami.parameterizations import GeneratorParams, Parameterization
 from nami.generators.base import GeneratorOperator
+from nami.parameterizations import GeneratorParams, Parameterization
 
 
 def generator_prediction(operator: GeneratorOperator) -> Parameterization:

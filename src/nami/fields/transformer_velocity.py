@@ -15,7 +15,6 @@ from __future__ import annotations
 # (one velocity.py with multiple classes) or keep split, and whether a
 # small shared abstraction would clean up the repeated event/time/
 # context plumbing.
-
 import torch
 from torch import nn
 

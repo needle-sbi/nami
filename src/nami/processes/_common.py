@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Shared helpers used across :class:`FlowMatchingProcess`,
 :class:`DiffusionProcess`, :class:`GeneratorMatchingProcess`, and
 :class:`ConsistencyFlowMatchingProcess`.
@@ -13,6 +11,7 @@ absorbs the tiny concrete-process delegators once those mechanics became
 stable across all Process classes.
 """
 
+from __future__ import annotations
 
 import torch
 

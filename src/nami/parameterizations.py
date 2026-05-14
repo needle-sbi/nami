@@ -1,6 +1,4 @@
-from __future__ import annotations
-
-"""Training-target language for transport processes.
+r"""Training-target language for transport processes.
 
 Three concepts live here:
 
@@ -21,13 +19,15 @@ Three concepts live here:
 This module is the foundational vocabulary layer.  It is dependency-free
 in one direction (it imports nothing from interpolants, fields, losses,
 or processes) so that those layers can depend on it without cycles.
-Concrete consumers — :mod:`nami.interpolants.gaussian` is the first —
+Concrete consumers - :mod:`nami.interpolants.gaussian` is the first -
 import from here, never the reverse.
 """
 
+from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Callable, Union
+from typing import TYPE_CHECKING
 
 import torch
 
@@ -52,22 +52,22 @@ class Velocity:
 
 @dataclass(frozen=True)
 class Score:
-    """Stein score ``\nabla \log p_t(x)`` — diffusion / bridge-matching target."""
+    r"""Stein score ``\nabla \log p_t(x)`` — diffusion / bridge-matching target."""
 
 
 @dataclass(frozen=True)
 class Epsilon:
-    """Standardised noise ``\epsilon`` such that ``x_t = \alpha_t x_0 + \sigma_t \epsilon``."""
+    r"""Standardised noise ``\epsilon`` such that ``x_t = \alpha_t x_0 + \sigma_t \epsilon``."""
 
 
 @dataclass(frozen=True)
 class X0:
-    """Clean data endpoint ``x_0`` — the denoising / x0-prediction target."""
+    r"""Clean data endpoint ``x_0`` — the denoising / x0-prediction target."""
 
 
 @dataclass(frozen=True)
 class GeneratorParams:
-    """Packed generator parameters interpreted by an operator.
+    r"""Packed generator parameters interpreted by an operator.
 
     The structural difference between scalar targets (a single tensor) and
     generator targets (drift + diffusion + jump rate, …) is encoded by the
@@ -77,12 +77,12 @@ class GeneratorParams:
     diffusion)``.
     """
 
-    operator: "GeneratorOperator"
+    operator: GeneratorOperator
 
 
 @dataclass(frozen=True)
 class VPrediction:
-    """Salimans–Ho v-prediction target.
+    r"""Salimans-Ho v-prediction target.
 
     The network emits ``v = \alpha(t) \epsilon - \sigma(t) x_0`` where ``\alpha``, ``\sigma`` come
     from a :class:`~nami.schedules.base.NoiseSchedule`.  v-prediction
@@ -102,7 +102,7 @@ class VPrediction:
 
 @dataclass(frozen=True)
 class Action:
-    """Action-matching target (Neklyudov et al., 2023).
+    r"""Action-matching target (Neklyudov et al., 2023).
 
     The network emits a **scalar potential** ``s(x, t)`` whose gradient
     is the conditional velocity: ``\nabla_x s(x, t) = u_t(x)``.  Structurally
@@ -120,7 +120,7 @@ class Action:
     """
 
 
-Target = Union[Velocity, Score, Epsilon, X0, VPrediction, Action, GeneratorParams]
+Target = Velocity | Score | Epsilon | X0 | VPrediction | Action | GeneratorParams
 """Sum type over named training targets.
 
 Adding a new target family means:
@@ -159,7 +159,7 @@ def _identity_transform(y: TensorLike) -> TensorLike:
 
 @dataclass(frozen=True)
 class Parameterization:
-    """Bundle of (target, weighting, output_transform).
+    r"""Bundle of (target, weighting, output_transform).
 
     ``Parameterization`` is **dual-role**: the same instance is consumed by
     the training loss (``regression_loss``) and by the runtime ``Process``
@@ -220,7 +220,7 @@ class Parameterization:
 
     @property
     def is_identity_transform(self) -> bool:
-        """True when ``output_transform`` is the no-op projection.
+        r"""True when ``output_transform`` is the no-op projection.
 
         Lets ``Process`` layers gate paths that are only valid for the
         identity case (e.g. a field's bundled ``call_and_divergence``,

@@ -1,6 +1,4 @@
-from __future__ import annotations
-
-"""Unified regression loss for the Interpolant + Parameterization vocabulary.
+r"""Unified regression loss for the Interpolant + Parameterization vocabulary.
 
 ``regression_loss`` is the training-time half of the unified design.  It
 consumes any :class:`~nami.interpolants.protocol.Interpolant` and any
@@ -28,11 +26,11 @@ singularities of score / SNR targets.  This is the contract that lets
 parameterization factories stay mathematically pure (no silent clamps).
 """
 
+from __future__ import annotations
 
 import torch
 
 from nami.interpolants.protocol import Interpolant
-from nami.parameterizations import Parameterization
 from nami.losses._common import (
     leading_shape,
     per_sample_mse,
@@ -40,6 +38,7 @@ from nami.losses._common import (
     require_event_ndim,
     sample_t,
 )
+from nami.parameterizations import Parameterization
 
 
 def regression_loss(
@@ -55,7 +54,7 @@ def regression_loss(
     z: torch.Tensor | None = None,
     reduction: str = "mean",
 ) -> torch.Tensor:
-    """Weighted regression of ``output_transform(field(x_t, t, c))`` against the
+    r"""Weighted regression of ``output_transform(field(x_t, t, c))`` against the
     interpolant's target.
 
     Mathematical object: the unified conditional-target MSE that

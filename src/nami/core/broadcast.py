@@ -7,7 +7,6 @@ event dimensions of ``x`` and the feature dimension of ``c``.
 
 from __future__ import annotations
 
-
 import torch
 
 from nami.core.specs import split_event

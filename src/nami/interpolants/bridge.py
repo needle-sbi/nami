@@ -1,6 +1,4 @@
-from __future__ import annotations
-
-r"""Brownian bridge interpolant — the headline duplication collapse.
+r"""Brownian bridge interpolant - the headline duplication collapse.
 
 The legacy code carries this path in *two* parallel hierarchies:
 
@@ -18,32 +16,33 @@ that produces velocity, score, *and* generator parameters from the
 same state.
 
 The conditional-velocity formula and the score formula are inherited
-from Albergo–Vanden-Eijnden's stochastic-interpolant convention with a
+from Albergo-Vanden-Eijnden's stochastic-interpolant convention with a
 ``\sigma``-scaled Brownian-bridge noise term; the generator-parameter formula
 matches the conditional drift used in nami's existing
 ``BrownianGeneratorPath`` so the GM training objective is preserved
 exactly.
 """
 
+from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import assert_never
 
 import torch
 
+from nami.interpolants._common import broadcast_t as _broadcast_t
+from nami.interpolants.protocol import InterpolantState
 from nami.parameterizations import (
+    X0,
     Action,
     Epsilon,
     GeneratorParams,
     Score,
     Target,
     TensorLike,
-    VPrediction,
     Velocity,
-    X0,
+    VPrediction,
 )
-from nami.interpolants._common import broadcast_t as _broadcast_t
-from nami.interpolants.protocol import InterpolantState
 
 
 @dataclass(frozen=True)
@@ -68,7 +67,7 @@ class BrownianBridgeInterpolant:
       for an ``ItoGeneratorOperator``, matching
       ``BrownianGeneratorPath.target_params``.
 
-    :class:`Epsilon` and :class:`X0` raise ``NotImplementedError`` —
+    :class:`Epsilon` and :class:`X0` raise ``NotImplementedError`` -
     the bridge's noise term is bound to ``z`` rather than a
     standardised ``\epsilon`` with a clean ``\sigma``-``\alpha`` decomposition, so those targets
     have no canonical formula here.

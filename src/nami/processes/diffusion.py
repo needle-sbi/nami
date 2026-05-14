@@ -16,11 +16,8 @@ References
 
 from __future__ import annotations
 
-
 import torch
 
-from nami.distributions.base import expand_distribution, has_rsample
-from nami.distributions.normal import StandardNormal
 from nami.diffusion import (
     eps_to_score,
     expand_like,
@@ -28,6 +25,8 @@ from nami.diffusion import (
     v_to_eps,
     x0_to_eps,
 )
+from nami.distributions.base import expand_distribution, has_rsample
+from nami.distributions.normal import StandardNormal
 from nami.lazy import (
     LazyDistribution,
     LazyField,
@@ -35,7 +34,7 @@ from nami.lazy import (
     UnconditionalDistribution,
     UnconditionalField,
 )
-from nami.parameterizations import Epsilon, Parameterization, Score, VPrediction, X0
+from nami.parameterizations import X0, Epsilon, Parameterization, Score, VPrediction
 from nami.processes._common import (
     ProcessRuntimeMixin,
     cast_time,
@@ -45,7 +44,7 @@ from nami.processes._common import (
 
 
 class Diffusion(LazyProcess):
-    """Diffusion process driven by a :class:`Parameterization`.
+    r"""Diffusion process driven by a :class:`Parameterization`.
 
     The ``parameterization`` kwarg replaces the legacy
     ``parameterization="eps"|"score"|"x0"`` string flag.  The
