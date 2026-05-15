@@ -1,26 +1,15 @@
-r"""Brownian bridge interpolant - the headline duplication collapse.
+r"""Brownian-bridge interpolant.
 
-The legacy code carries this path in *two* parallel hierarchies:
+The marginal path is
 
-* :class:`nami.paths.bridge.BrownianBridgePath` (a ``ProbabilityPath``)
-  exposes ``sample_xt`` plus ``target_ut`` (velocity) and
-  ``score_target`` (Stein score).
-* :class:`nami.generators.paths.BrownianGeneratorPath` (a ``GeneratorPath``)
-  exposes the *same* ``sample_xt`` byte-for-byte, plus ``target_params``
-  for an :class:`~nami.generators.operators.ItoGeneratorOperator`.
+.. math::
 
-Both are encodings of the same Brownian bridge, expressed in different
-target dialects.  ``BrownianBridgeInterpolant`` collapses them: one
-interpolant, one ``sample`` method, and a single ``target`` dispatch
-that produces velocity, score, *and* generator parameters from the
-same state.
+   x_t = (1-t)x_{\mathrm{noise}} + t x_{\mathrm{data}}
+         + \sigma\sqrt{t(1-t)}z,
 
-The conditional-velocity formula and the score formula are inherited
-from Albergo-Vanden-Eijnden's stochastic-interpolant convention with a
-``\sigma``-scaled Brownian-bridge noise term; the generator-parameter formula
-matches the conditional drift used in nami's existing
-``BrownianGeneratorPath`` so the GM training objective is preserved
-exactly.
+where ``z`` is standard Gaussian noise.  The interpolant exposes a single
+``sample`` method and a target dispatcher for velocity, score, and generator
+parameter targets.
 """
 
 from __future__ import annotations
@@ -49,23 +38,27 @@ from nami.parameterizations import (
 class BrownianBridgeInterpolant:
     r"""Stochastic Brownian-bridge interpolant.
 
-    ``x_t = (1-t) x_noise + t x_data + \sigma \sqrt{t (1-t)} z``
+    Args:
+        sigma (float): Bridge noise scale ``\sigma``.
+        eps (float): Positive floor applied to endpoint denominators.
 
-    where ``z ~ N(0, I)`` is supplied via ``noise=`` to keep sampling
-    deterministic across calls (e.g. for the equivalence tests against
-    legacy paths).  When ``noise=None`` is passed, fresh Gaussian noise
-    is drawn internally.
+    The path is
+
+    .. math::
+
+       x_t = (1-t)x_{\mathrm{noise}} + t x_{\mathrm{data}}
+             + \sigma\sqrt{t(1-t)}z.
+
+    When ``noise=None`` is passed to :meth:`sample`, fresh Gaussian noise is
+    drawn internally.
 
     Supported targets:
 
     * :class:`Velocity` — conditional velocity ``u_t(x_t)`` with the
-      Brownian-bridge correction term, matching the legacy
-      ``BrownianBridgePath.target_ut(..., xt=...)``.
-    * :class:`Score` — Stein score ``\nabla \log p_t(x_t)``, matching
-      ``BrownianBridgePath.score_target``.
+      Brownian-bridge correction term.
+    * :class:`Score` — Stein score ``\nabla_x \log p_t(x_t)``.
     * :class:`GeneratorParams` — packed drift (and optional diffusion)
-      for an ``ItoGeneratorOperator``, matching
-      ``BrownianGeneratorPath.target_params``.
+      for an ``ItoGeneratorOperator``.
 
     :class:`Epsilon` and :class:`X0` raise ``NotImplementedError`` -
     the bridge's noise term is bound to ``z`` rather than a
@@ -73,9 +66,8 @@ class BrownianBridgeInterpolant:
     have no canonical formula here.
 
     Endpoint singularities at ``t=0`` and ``t=1`` (both Velocity and
-    Score divide by ``t(1-t)``) are guarded by an ``eps`` floor that
-    matches the legacy path's clamp; ``regression_loss`` callers
-    typically also pass ``eps_t`` for sampling discipline.
+    Score divide by ``t(1-t)``) are guarded by ``eps``.  Loss callers should
+    still avoid exact endpoints when sampling ``t``.
     """
 
     sigma: float = 1.0
@@ -115,9 +107,8 @@ class BrownianBridgeInterpolant:
         )
 
     # ------------------------------------------------------------------
-    # Target dispatch.  Each named target reuses the legacy formula
-    # exactly; the equivalence tests in tests/interpolants/test_bridge.py
-    # pin that the migration is bit-exact.
+    # Target dispatch.  Each named target is derived from the sampled bridge
+    # state so losses share the same formulas.
 
     def target(self, target: Target, state: InterpolantState) -> TensorLike:
         match target:

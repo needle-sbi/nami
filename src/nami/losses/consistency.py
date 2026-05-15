@@ -1,15 +1,8 @@
-r"""Unified consistency loss for trajectory-pair self-consistency training.
+r"""Consistency loss for trajectory-pair self-consistency training.
 
-Replaces the legacy ``cfm_loss`` (forward consistency) and
-``cfm_reverse_loss`` (reverse consistency) with one function on the
-unified Interpolant + Parameterization vocabulary.
-
-In nami's FM convention (``t=0`` is noise, ``t=1`` is data), forward
-consistency anchors at the **data** endpoint (the generation target,
-``target_time=1.0``) and reverse consistency anchors at the **noise**
-endpoint (``target_time=0.0``).  This is the opposite of the legacy
-labels under the old diffusion convention; the underlying mathematical
-objects are unchanged.
+In the flow-matching convention used here, ``t=0`` is the noise endpoint and
+``t=1`` is the data endpoint.  Forward consistency anchors at
+``target_time=1.0``; reverse consistency anchors at ``target_time=0.0``.
 
 Implements consistency-style distillation / training in the spirit of
 Song et al., *Consistency Models*, 2023 (arXiv:2303.01469), with the
@@ -19,12 +12,9 @@ linear-interpolant boundary map; ``target_time = 1`` reduces to the
 forward-consistency objective and ``target_time = 0`` to the reverse-
 consistency objective.
 
-Consistency-style losses do **not** fit the
-:func:`~nami.losses.regression.regression_loss` shape — they sample two
-trajectory points ``(x_t, x_{t+\delta})`` and MSE between consistency-function
-evaluations rather than between a single prediction and a single
-target.  Honest second loss family: same vocabulary, different
-dispatch.
+Consistency losses sample two trajectory points ``(x_t, x_{t+\delta})`` and
+minimize MSE between consistency-function evaluations, rather than regressing
+a single prediction onto a single target.
 
 The anchor side (which point is detached vs receives gradient) is
 chosen automatically based on whether ``target_time`` is closer to
@@ -67,72 +57,44 @@ def consistency_loss(
     eps_t: float = 0.0,
     reduction: str = "mean",
 ) -> torch.Tensor:
-    r"""Self-consistency MSE between two trajectory points under
-    ``f(x, t, v) = x + (T - t) v``.
+    r"""Compute self-consistency MSE between two trajectory points.
 
-    Mathematical object: a consistency-distillation / consistency-
-    training objective (cf. Song et al., *Consistency Models*, 2023,
-    arXiv:2303.01469; Yang et al., *Consistency Flow Matching*, 2024)
-    that enforces ``f(x_t, t) \approx f(x_{t+\delta}, t+\delta)`` along the conditional
-    path of an interpolant.  The anchor side (stop-gradient) is chosen
-    by proximity to ``target_time``: ``t=1`` (data) to forward
-    consistency, ``t=0`` (noise) to reverse consistency.
+    The consistency map is
 
-    Parameters
-    ----------
-    field
-        Network emitting velocity values (after ``output_transform``).
-    x_noise, x_data
-        Endpoints of the conditional path.
-    t
-        Optional pre-sampled times of shape matching the leading dims of
-        ``x_data``.  When ``None``, drawn from ``U[eps_t, 1 - eps_t]``.
-    c
-        Optional context.
-    interpolant
-        Interpolant used to sample ``x_t`` and (when ``euler_step=False``)
-        ``x_{t+\delta}`` from the conditional path.
-    parameterization
-        Must carry a :class:`~nami.parameterizations.Velocity` target.
-        ``output_transform`` is applied to the raw network output before
-        it enters the consistency function.
-    target_time
-        Endpoint ``T`` of the consistency function.  Must be exactly
-        ``1.0`` (data; forward consistency, legacy ``cfm_loss``) or
-        ``0.0`` (noise; reverse consistency, legacy
-        ``cfm_reverse_loss``).  Intermediate values are rejected
-        because the anchor-side selection is endpoint-specific:
-        per-sample anchor selection (the only honest extension to
-        intermediate ``T``) is a future stage when there is a real
-        consumer driving the requirement.
-    delta
-        Time offset between the two trajectory points.
-    target_field
-        Optional separate network (e.g. an EMA copy) used for the
-        anchor evaluation.  When ``None`` the anchor is computed with
-        ``field`` and stop-gradient detached.
-    euler_step
-        When ``True``, generate ``x_{t+\delta}`` via a detached Euler step of
-        the learned velocity instead of resampling from the
-        interpolant.  Reduces gradient variance from trajectory
-        mismatch at no extra forward-pass cost.
-    z
-        Optional latent noise for stochastic interpolants (e.g.
-        :class:`~nami.interpolants.bridge.BrownianBridgeInterpolant`).
-        Forwarded as ``noise=z`` to *both* ``interpolant.sample`` calls
-        — without this, a stochastic interpolant draws independent
-        noise at ``t`` and ``t+\delta`` and the two trajectory points
-        cease to share the same realisation.  Deterministic
-        interpolants (``LinearInterpolant``) ignore this and reject
-        it explicitly; the legacy ``cfm_loss`` was always paired with
-        ``LinearPath`` so the question never arose.
-    eps_t
-        Auto-sampled-``t`` clamping floor.  FM-style callers (linear
-        interpolant) pass ``0.0`` for bit-exact equivalence with the
-        legacy ``cfm_loss``; diffusion-style interpolants should pass
-        a non-zero value to avoid endpoint singularities.
-    reduction
-        ``"mean"`` | ``"sum"`` | ``"none"``.
+    .. math::
+
+       f(x,t,v) = x + (T-t)v,
+
+    and the objective enforces
+    ``f(x_t,t,v_t) \approx f(x_{t+\delta},t+\delta,v_{t+\delta})``.
+
+    Args:
+        field: Network emitting velocity values before ``output_transform``.
+        x_noise (torch.Tensor): Noise endpoint of the conditional path.
+        x_data (torch.Tensor): Data endpoint of the conditional path.
+        t (torch.Tensor | None): Optional time tensor with leading shape
+            matching ``x_data``. If ``None``, times are sampled from
+            ``U[eps_t, 1 - eps_t]``.
+        c (torch.Tensor | None): Optional conditioning tensor.
+        interpolant (Interpolant): Interpolant used to sample trajectory
+            points.
+        parameterization (Parameterization): Must contain a
+            :class:`~nami.parameterizations.Velocity` target.
+        target_time (float): Endpoint ``T`` in the consistency map. Must be
+            ``0.0`` or ``1.0``.
+        delta (float): Positive time offset between the two trajectory points.
+        target_field: Optional target network, such as an EMA copy, used for
+            the detached anchor.
+        euler_step (bool): If ``True``, constructs ``x_{t+\delta}`` with a
+            detached Euler step instead of a second interpolant sample.
+        z (torch.Tensor | None): Optional shared latent noise for stochastic
+            interpolants.
+        eps_t (float): Endpoint margin used when sampling ``t``.
+        reduction (str): ``"mean"``, ``"sum"``, or ``"none"``.
+
+    Returns:
+        torch.Tensor: Reduced consistency loss, or per-sample losses when
+        ``reduction="none"``.
     """
     if not isinstance(parameterization.target, Velocity):
         msg = (
@@ -149,8 +111,7 @@ def consistency_loss(
             f"target_time must be exactly 1.0 (forward consistency, data "
             f"endpoint) or 0.0 (reverse consistency, noise endpoint); "
             f"got {target_time}.  The anchor-side selection is endpoint-"
-            "specific; intermediate values would need per-sample anchor "
-            "selection, which is a future stage."
+            "specific; intermediate values would need per-sample anchor selection."
         )
         raise ValueError(msg)
 

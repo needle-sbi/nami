@@ -35,21 +35,24 @@ from nami.processes._common import (
 class GeneratorMatching(LazyProcess):
     """Generator-matching process driven by a :class:`Parameterization`.
 
-    The legacy ``operator`` kwarg is replaced by ``parameterization``,
-    which carries the operator inside its
-    :class:`~nami.parameterizations.GeneratorParams` target and binds
-    the operator's ``project`` as ``output_transform``.  The recipe for
-    constructing it is the
-    :func:`~nami.generators.parameterizations.generator_prediction`
-    factory.
+    Args:
+        field: Field emitting packed generator parameters.
+        solver: ODE or SDE solver.
+        parameterization (Parameterization): Must contain a
+            :class:`~nami.parameterizations.GeneratorParams` target.
+        t0 (float): Initial integration time.
+        t1 (float): Final integration time.
+        base (LazyDistribution | torch.distributions.Distribution | None):
+            Optional base distribution. If ``None``, a standard normal base is
+            constructed from ``event_shape`` or the operator event shape.
+        event_shape (tuple[int, ...] | None): Event shape used when creating a
+            default base distribution.
+        validate_args (bool): Whether to validate target and event-shape
+            compatibility.
 
-    The Process pattern-matches on ``parameterization.target`` to
-    extract the operator and uses ``output_transform`` (= ``op.project``
-    for ``generator_prediction``) to convert the raw network output
-    into operator-parameter space.  The integration paths
-    (``_integrate_ode`` / ``_integrate_sde``) are unchanged from the
-    legacy implementation; only the dispatch shape moves into the
-    unified vocabulary.
+    The process extracts the operator from ``parameterization.target`` and
+    applies ``parameterization.output_transform`` to map raw network output
+    into valid operator-parameter space.
     """
 
     def __init__(
@@ -82,7 +85,7 @@ class GeneratorMatching(LazyProcess):
 
     @property
     def operator(self):
-        """Operator carried by the parameterization (convenience accessor)."""
+        """GeneratorOperator: Operator carried by the parameterization."""
         target = self.parameterization.target
         if not isinstance(target, GeneratorParams):
             msg = (
@@ -101,9 +104,8 @@ class GeneratorMatching(LazyProcess):
             if not isinstance(self.parameterization, Parameterization):
                 msg = (
                     "parameterization must be a "
-                    "nami.parameterizations.Parameterization instance — the "
-                    "legacy `operator=...` kwarg was removed in stage 3c; "
-                    "use generator_prediction(op) to construct one"
+                    "nami.parameterizations.Parameterization instance; use "
+                    "generator_prediction(op) to construct one"
                 )
                 raise TypeError(msg)
             if not isinstance(self.parameterization.target, GeneratorParams):
@@ -224,13 +226,9 @@ class GeneratorMatchingProcess(ProcessRuntimeMixin):
         t: torch.Tensor,
         context: torch.Tensor | None,
     ) -> torch.Tensor:
-        # The unified path applies output_transform; for
-        # generator_prediction(op) this is op.project, so behaviour
-        # matches the legacy implementation exactly.  Going through
-        # the parameterization (rather than calling op.project
-        # directly) lets future GeneratorParams parameterisations
-        # supply a different transform — e.g. a custom projection
-        # onto a constrained manifold — without touching the Process.
+        # generator_prediction(op) uses op.project as output_transform.  Keeping
+        # the transform in the parameterization lets callers supply a custom
+        # projection without changing the process.
         raw = self._field(x, t, context)
         params = self._parameterization.output_transform(raw)
         lead = x.shape[: -len(self.event_shape)] if self.event_shape else x.shape

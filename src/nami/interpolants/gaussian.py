@@ -1,18 +1,15 @@
 r"""Gaussian-noise interpolant for diffusion-style transport.
 
-Implements ``x_t = \alpha(t) \cdot x_noise + \sigma(t) \cdot x_data`` against any
-:class:`~nami.schedules.base.NoiseSchedule`, plus the canonical
-:class:`~nami.parameterizations.Parameterization` factories that bind a
-target choice to its conventional weighting ``\omega(t)``.
+The path is
 
-The factories (:func:`epsilon_prediction`, :func:`score_prediction`,
-:func:`x0_prediction`) replace the ``parameterization="eps"|"score"|"x0"``
-string flag on the legacy ``Diffusion`` process.  Each factory's default
-weighting is the one that makes its loss numerically equivalent to the
-DDPM-uniform ``\epsilon``-prediction loss under change of variables - silent
-re-weighting bugs (the Arruda Eq. 57-61 case) become structurally
-impossible because changing target without changing ``\omega`` is changing the
-``Parameterization``, not toggling a flag.
+.. math::
+
+   x_t = \alpha(t)x_{\mathrm{noise}} + \sigma(t)x_{\mathrm{data}},
+
+where ``\alpha`` and ``\sigma`` are supplied by a
+:class:`~nami.schedules.base.NoiseSchedule`.  The module also provides
+factory functions that bind common diffusion targets to their standard
+loss weighting ``\omega(t)``.
 """
 
 from __future__ import annotations
@@ -43,11 +40,13 @@ from nami.schedules.base import NoiseSchedule
 class GaussianInterpolant:
     r"""Gaussian interpolant ``x_t = \alpha(t) x_noise + \sigma(t) x_data``.
 
-    In the FM convention used here, ``\alpha(t)`` is the noise coefficient
-    (``\alpha(0)=1, \alpha(1)=0``) and ``\sigma(t)`` is the data coefficient
-    (``\sigma(0)=0, \sigma(1)=1``).  The :class:`NoiseSchedule` numerical
-    contracts are unchanged — the schedule's ``alpha(t)`` plays the
-    noise-coefficient role, and ``sigma(t)`` plays the data-coefficient role.
+    Args:
+        schedule (NoiseSchedule): Schedule providing ``\alpha(t)`` and
+            ``\sigma(t)``.
+
+    In this interpolant, ``\alpha(t)`` weights ``x_noise`` and ``\sigma(t)``
+    weights ``x_data``.  A typical schedule has ``\alpha(0)=1``,
+    ``\alpha(1)=0``, ``\sigma(0)=0``, and ``\sigma(1)=1``.
 
     The source endpoint ``x_noise`` plays the role of the latent ``\epsilon``;
     the ``noise`` slot on :class:`InterpolantState` is therefore left ``None``.
@@ -67,14 +66,9 @@ class GaussianInterpolant:
 
        The :class:`~nami.parameterizations.Score` target divides by
        ``\alpha(t)`` (the noise level), which is zero at ``t=1`` for
-       VP-style schedules — the data endpoint in the FM convention. This
-       interpolant deliberately does **not** clamp ``\alpha`` internally —
-       silent clamps hide numerical bugs.  Callers must constrain
-       ``t`` to a non-degenerate interval; the stage-1b
-       ``regression_loss`` does so by default by sampling ``t`` from
-       ``[eps_t, 1 - eps_t]``.  Direct evaluation at ``t=1`` will return
-       ``inf`` / ``nan`` and that behaviour is pinned by a regression
-       test.
+       VP-style schedules.  This interpolant does not clamp ``\alpha``.
+       Callers should sample ``t`` from a non-degenerate interval such as
+       ``[eps_t, 1 - eps_t]``.
     """
 
     # The single field is a NoiseSchedule (e.g. nami.VPSchedule(),
@@ -196,11 +190,15 @@ class GaussianInterpolant:
 
 
 def epsilon_prediction(schedule: NoiseSchedule) -> Parameterization:
-    r"""``\epsilon``-prediction with ``\omega(t)=1`` — the DDPM-standard convention.
+    r"""Create an ``\epsilon``-prediction parameterization.
 
-    The network emits the standardised noise directly; the loss is plain
-    MSE.  Equivalent (via change of variables) to ``score`` and ``x0``
-    prediction with their conventional weightings.
+    Args:
+        schedule (NoiseSchedule): Unused schedule argument kept for the common
+            factory signature.
+
+    Returns:
+        Parameterization: Target ``Epsilon()`` with
+        ``\omega(t)=1``.
     """
     del schedule  # unused — epsilon-prediction's omega is schedule-independent
 
@@ -211,20 +209,20 @@ def epsilon_prediction(schedule: NoiseSchedule) -> Parameterization:
 
 
 def score_prediction(schedule: NoiseSchedule) -> Parameterization:
-    r"""Score-matching with ``\omega(t)=\alpha^2(t)``.
+    r"""Create a score-matching parameterization.
 
-    In the FM convention, ``score = -\epsilon / \alpha(t)`` (the noise level
-    is the coefficient of ``x_noise``, which is ``\alpha(t)``). Therefore
-    ``\omega(t)=\alpha^2(t)`` is the change-of-variable weighting that makes
-    this loss numerically equal to DDPM-uniform ``\epsilon``-prediction —
-    the role ``\sigma^2(t)`` played in the diffusion convention.
+    Args:
+        schedule (NoiseSchedule): Schedule providing the noise coefficient
+            ``\alpha(t)``.
 
-    Note: the score target itself is singular at ``t=1`` for VP-style
-    schedules (``\alpha(1) \to 0``). ``\omega(t)=\alpha^2(t)`` tames the *weighted*
-    loss but the unweighted target value is still very large (or
-    ``inf`` / ``nan``), which propagates through autograd.  Callers must
-    restrict ``t`` to ``[0, 1)``; stage 1b's ``regression_loss`` does so
-    by default.
+    Returns:
+        Parameterization: Target ``Score()`` with
+        ``\omega(t)=\alpha^2(t)``.
+
+    The target is
+    ``\nabla_x\log p_t(x_t) = -\epsilon / \alpha(t)`` and is singular when
+    ``\alpha(t)=0``.  Callers should avoid endpoint times where the schedule is
+    degenerate.
     """
 
     def weighting(t: torch.Tensor) -> torch.Tensor:
@@ -234,38 +232,31 @@ def score_prediction(schedule: NoiseSchedule) -> Parameterization:
 
 
 def v_prediction(schedule: NoiseSchedule) -> Parameterization:
-    r"""Salimans-Ho v-prediction with ``\omega(t)=1``.
+    r"""Create a v-prediction parameterization.
 
-    The network emits ``v = \alpha(t) \epsilon - \sigma(t) x_0``. The default uniform
-    weighting matches the ``\epsilon``-prediction equivalence path under the
-    same change-of-variable argument that ``\epsilon`` / score / ``x_0``
-    parameterisations share — but most published v-prediction recipes
-    apply an SNR-shifted weighting at training time.  Pass a custom
-    ``weighting`` to :class:`Parameterization` for those variants;
-    this factory's job is to bind the *target* and a sensible default.
+    Args:
+        schedule (NoiseSchedule): Unused schedule argument kept for the common
+            factory signature.
 
-    Only :class:`~nami.interpolants.gaussian.GaussianInterpolant`
-    implements the VPrediction target today.  Linear and Brownian-bridge
-    interpolants raise ``NotImplementedError`` for VPrediction — see their
-    respective ``target`` methods for the rationale.
+    Returns:
+        Parameterization: Target ``VPrediction()`` with ``\omega(t)=1``.
+
+    The network emits ``v = \alpha(t)\epsilon - \sigma(t)x_0``.
     """
     del schedule  # omega=1 is schedule-independent at this default.
     return Parameterization(target=VPrediction())
 
 
 def x0_prediction(schedule: NoiseSchedule) -> Parameterization:
-    r"""``x_0``-prediction with ``\omega(t) = \sigma^2(t)/\alpha^2(t) = 1/\mathrm{SNR}(t)``.
+    r"""Create a clean-endpoint prediction parameterization.
 
-    In the FM convention, ``x_0 = (x_t - \alpha(t)\epsilon)/\sigma(t)``,
-    so ``x_0 - x_0_{\text{pred}} = (\sigma/\alpha)(\epsilon_{\text{pred}} - \epsilon)``
-    and the change-of-variable weighting that makes the ``x_0`` loss
-    equivalent to DDPM-uniform ``\epsilon``-prediction is
-    ``(\sigma/\alpha)^2 = 1/\mathrm{SNR}(t)``.  This is the inverse of the diffusion-convention
-    weighting and reflects the t-direction flip.
+    Args:
+        schedule (NoiseSchedule): Schedule providing
+            ``\mathrm{SNR}(t)=\alpha^2(t)/\sigma^2(t)``.
 
-    Note: this weighting diverges as ``t \to 1`` for VP-style schedules
-    (``\alpha(t) \to 0``). Callers must restrict ``t`` to ``[0, 1)``;
-    stage 1b's ``regression_loss`` enforces this by default.
+    Returns:
+        Parameterization: Target ``X0()`` with
+        ``\omega(t)=1/\mathrm{SNR}(t)``.
     """
 
     def weighting(t: torch.Tensor) -> torch.Tensor:

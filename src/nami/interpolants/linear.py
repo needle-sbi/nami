@@ -100,8 +100,7 @@ class LinearInterpolant:
                 # Drift is identical to the Velocity target — the linear
                 # path's velocity *is* the conditional generator drift
                 # for an Ito operator.  Diffusion is zero because the
-                # path itself is deterministic.  Replaces the legacy
-                # ``LinearGeneratorPath.target_params`` body verbatim.
+                # path itself is deterministic.
                 drift = state.x_data - state.x_noise
                 if getattr(op, "diffusion_mode", "none") == "none":
                     return op.pack_params(drift=drift)
@@ -116,12 +115,10 @@ class LinearInterpolant:
 
 
 def velocity_prediction() -> Parameterization:
-    r"""Velocity-prediction with ``\omega(t) = 1`` — the standard FM convention.
+    r"""Create a velocity-prediction parameterization.
 
-    No schedule argument because deterministic linear paths have none;
-    if a future Velocity-supporting interpolant introduces a non-trivial
-    weighting, that factory will take its own schedule and live
-    alongside this one.
+    Returns:
+        Parameterization: Target ``Velocity()`` with ``\omega(t)=1``.
     """
     return Parameterization(target=Velocity())
 
@@ -150,8 +147,8 @@ class StochasticLinearInterpolant:
     with a clean ``\alpha/\sigma`` decomposition. Use ``GaussianInterpolant`` when
     those targets are required.
 
-    The default ``gamma`` is :class:`~nami.interpolants.gamma.BrownianGamma`
-    matching the legacy ``stochastic_fm_loss`` default.
+    Args:
+        gamma (GammaSchedule): Noise scale schedule ``\gamma(t)``.
     """
 
     gamma: GammaSchedule = field(default_factory=BrownianGamma)

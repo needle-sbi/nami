@@ -8,7 +8,16 @@ from torch.distributions import Distribution
 def expand_distribution(
     dist: Distribution, batch_shape: tuple[int, ...]
 ) -> Distribution:
-    """Expand ``dist`` to ``batch_shape`` (no-op when already matching)."""
+    """Expand a distribution to a batch shape.
+
+    Args:
+        dist (Distribution): Distribution to expand.
+        batch_shape (tuple[int, ...]): Desired batch shape.
+
+    Returns:
+        Distribution: ``dist`` when its batch shape already matches, otherwise
+        ``dist.expand(batch_shape)``.
+    """
     if dist.batch_shape == batch_shape:
         return dist
     if not hasattr(dist, "expand"):
@@ -18,5 +27,12 @@ def expand_distribution(
 
 
 def has_rsample(dist: Distribution) -> bool:
-    """Return ``True`` if ``dist`` supports the reparameterised ``rsample``."""
+    """Check whether a distribution supports reparameterized samples.
+
+    Args:
+        dist (Distribution): Distribution to inspect.
+
+    Returns:
+        bool: ``True`` when ``dist.has_rsample`` is truthy.
+    """
     return bool(getattr(dist, "has_rsample", False))

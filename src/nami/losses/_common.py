@@ -25,19 +25,18 @@ def sample_t(
     t: torch.Tensor | None,
     eps_t: float,
 ) -> torch.Tensor:
-    """Sample ``t ~ U[eps_t, 1 - eps_t]`` or coerce supplied ``t`` to ``lead``.
+    """Sample or broadcast time values.
 
-    Used by both :func:`~nami.losses.regression.regression_loss` and
-    :func:`~nami.losses.consistency.consistency_loss` so they share the
-    same t-sampling discipline contract.  Pass ``eps_t=0.0`` to draw
-    unclamped ``U[0, 1]`` samples (the right choice for losses whose
-    targets are non-singular at the endpoints).
+    Args:
+        x_data (torch.Tensor): Reference tensor used for device and dtype.
+        lead (tuple[int, ...]): Desired leading shape.
+        t (torch.Tensor | None): Optional explicit time tensor.
+        eps_t (float): Endpoint margin for automatic sampling.
 
-    When ``t`` is supplied we do *not* clamp it — that's the caller's
-    responsibility (the contract pinned by stage-1a's
-    ``test_explicit_t_is_not_silently_clamped``).  Clamping only kicks
-    in for the auto-sampled path so the singularity discipline is
-    opt-out, not silent.
+    Returns:
+        torch.Tensor: A tensor with shape ``lead``. If ``t`` is ``None``, values
+        are sampled from ``U[eps_t, 1 - eps_t]``. Explicit ``t`` values are
+        expanded but not clamped.
     """
     if t is not None:
         if tuple(t.shape) != lead:

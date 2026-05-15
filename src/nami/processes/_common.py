@@ -1,14 +1,9 @@
-"""Shared helpers used across :class:`FlowMatchingProcess`,
-:class:`DiffusionProcess`, :class:`GeneratorMatchingProcess`, and
+"""Shared runtime helpers for concrete process classes.
+
+The helpers in this module implement common tensor mechanics used by
+:class:`FlowMatchingProcess`, :class:`DiffusionProcess`,
+:class:`GeneratorMatchingProcess`, and
 :class:`ConsistencyFlowMatchingProcess`.
-
-These were duplicated as private methods on every Process before stage
-4's review pass; centralising them here makes each Process body
-shorter and the shared semantics easier to spot at a glance.
-
-Pure functions hold the standalone mechanics; :class:`ProcessRuntimeMixin`
-absorbs the tiny concrete-process delegators once those mechanics became
-stable across all Process classes.
 """
 
 from __future__ import annotations
@@ -17,7 +12,15 @@ import torch
 
 
 def cast_time(t: float | torch.Tensor, like: torch.Tensor) -> torch.Tensor:
-    """Cast scalar / tensor ``t`` to the device + dtype of ``like``."""
+    """Cast time values to match a reference tensor.
+
+    Args:
+        t (float | torch.Tensor): Scalar or tensor time value.
+        like (torch.Tensor): Reference tensor for device and dtype.
+
+    Returns:
+        torch.Tensor: ``t`` on ``like.device`` with ``like.dtype``.
+    """
     return torch.as_tensor(t, device=like.device, dtype=like.dtype)
 
 
@@ -27,6 +30,17 @@ def expand_context(
     event_ndim: int,
 ) -> torch.Tensor | None:
     """Broadcast a context tensor over a target's leading sample dims.
+
+    Args:
+        c (torch.Tensor | None): Context with shape
+            ``batch_shape + (context_dim,)``.
+        target (torch.Tensor): Tensor with shape
+            ``sample_shape + batch_shape + event_shape``.
+        event_ndim (int): Number of trailing event dimensions in ``target``.
+
+    Returns:
+        torch.Tensor | None: Context expanded to
+        ``sample_shape + batch_shape + (context_dim,)``, or ``None``.
 
     ``c`` has shape ``batch_shape + (context_dim,)``.  ``target`` has
     shape ``sample_shape + batch_shape + event_shape``.  This returns
@@ -49,9 +63,12 @@ def model_device_dtype(
 ) -> tuple[torch.device | None, torch.dtype | None]:
     """Probe a model's first parameter for its (device, dtype).
 
-    Returns ``(None, None)`` if the model has no parameters or doesn't
-    expose ``parameters()`` — used by Processes that auto-construct a
-    base distribution and need it on the same device as the model.
+    Args:
+        model: Object that may expose ``parameters()``.
+
+    Returns:
+        tuple[torch.device | None, torch.dtype | None]: First parameter device
+        and dtype, or ``(None, None)`` when unavailable.
     """
     if not hasattr(model, "parameters"):
         return None, None
@@ -61,7 +78,16 @@ def model_device_dtype(
 
 
 def resolve_event_ndim(field, fallback: int | None = None) -> int:
-    """Read ``field.event_ndim`` with an optional explicit fallback."""
+    """Resolve the event rank for a field.
+
+    Args:
+        field: Field-like object that may expose ``event_ndim``.
+        fallback (int | None): Explicit event rank used when the field does not
+            expose one.
+
+    Returns:
+        int: Number of trailing event dimensions.
+    """
     event_ndim = getattr(field, "event_ndim", None)
     if event_ndim is None:
         event_ndim = fallback
@@ -77,7 +103,16 @@ def validate_base_event_ndim(
     *,
     message: str = "field.event_ndim does not match base.event_shape",
 ) -> None:
-    """Validate that a base distribution's event rank matches a field."""
+    """Validate a base distribution event rank.
+
+    Args:
+        base (torch.distributions.Distribution): Base distribution.
+        event_ndim (int): Expected event rank.
+        message (str): Error message used on mismatch.
+
+    Raises:
+        ValueError: If ``len(base.event_shape) != event_ndim``.
+    """
     if len(base.event_shape) != event_ndim:
         raise ValueError(message)
 
@@ -85,15 +120,13 @@ def validate_base_event_ndim(
 class TransformedField:
     """Adapter that composes a field with ``output_transform``.
 
+    Args:
+        field: Field-like callable with ``field(x, t, c)``.
+        transform: Callable applied to the raw field output.
+
     Exposed to divergence estimators so they differentiate the
     transformed velocity (the one the integrator follows), not the raw
-    field output.  Plain class — estimators only need ``event_ndim``
-    and ``__call__``.
-
-    See :func:`~nami.processes.fm.FlowMatchingProcess._call_and_divergence`
-    for the bug this prevents: a non-identity ``output_transform`` would
-    have made the integrated drift and the divergence used by ``log_prob``
-    describe different dynamics.
+    field output.  Estimators only require ``event_ndim`` and ``__call__``.
     """
 
     def __init__(self, field, transform):
@@ -111,10 +144,7 @@ class TransformedField:
 class ProcessRuntimeMixin:
     """Shared concrete-Process runtime helpers.
 
-    Subclasses must expose ``event_shape``.  The mixin deliberately stays
-    small: construction and validation still differ enough across process
-    families that forcing them through inheritance would add more coupling
-    than it removes.
+    Subclasses must expose ``event_shape``.
     """
 
     @property

@@ -19,13 +19,15 @@ from nami.parameterizations import GeneratorParams, Parameterization
 
 
 def generator_prediction(operator: GeneratorOperator) -> Parameterization:
-    """Bind a generator operator into a :class:`Parameterization`.
+    """Create a generator-parameter prediction parameterization.
 
-    Replaces the legacy ``operator.project(field(x, t, c))`` plumbing
-    inside ``gm_loss``: the equivalent at the unified-vocabulary layer
-    is ``Parameterization(target=GeneratorParams(operator=op),
-    output_transform=op.project)``, and this factory is the
-    one-liner that produces it.
+    Args:
+        operator (GeneratorOperator): Operator that interprets the packed
+            parameter tensor.
+
+    Returns:
+        Parameterization: Target ``GeneratorParams(operator=operator)`` with
+        ``operator.project`` as ``output_transform``.
     """
     return Parameterization(
         target=GeneratorParams(operator=operator),

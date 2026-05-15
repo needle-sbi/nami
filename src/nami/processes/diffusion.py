@@ -46,21 +46,25 @@ from nami.processes._common import (
 class Diffusion(LazyProcess):
     r"""Diffusion process driven by a :class:`Parameterization`.
 
-    The ``parameterization`` kwarg replaces the legacy
-    ``parameterization="eps"|"score"|"x0"`` string flag.  The
-    :class:`~nami.parameterizations.Parameterization` carries the
-    :class:`~nami.parameterizations.Target` choice (``Epsilon`` /
-    ``Score`` / ``X0`` / ``VPrediction`` for diffusion) plus its weighting and
-    any ``output_transform``; the process pattern-matches on the
-    target to convert the field's emission into ``\epsilon`` for the
-    integrator.
+    Args:
+        model: Field emitting the target specified by ``parameterization``.
+        schedule: Noise schedule providing ``\alpha(t)``, ``\sigma(t)``, drift,
+            and diffusion coefficients.
+        solver: ODE or SDE solver.
+        parameterization (Parameterization): Diffusion target and output
+            projection. Supported targets are ``Epsilon``, ``Score``, ``X0``,
+            and ``VPrediction``.
+        t0 (float): Initial integration time, usually the noise endpoint.
+        t1 (float): Final integration time, usually the data endpoint.
+        base (LazyDistribution | torch.distributions.Distribution | None):
+            Optional base distribution.
+        event_shape (tuple[int, ...] | None): Event shape used when creating a
+            default base distribution.
+        validate_args (bool): Whether to validate target and event-shape
+            compatibility.
 
-    The conversion math reuses the helpers in
-    :mod:`nami.diffusion` — see :func:`score_to_eps`,
-    :func:`x0_to_eps`, :func:`v_to_eps`.  Adding a new diffusion
-    target means adding one ``case`` arm in
-    :meth:`DiffusionProcess._predict_eps`; static checkers flag the
-    missing arm.
+    The process converts the model output into ``\epsilon`` before applying the
+    probability-flow ODE or reverse-time SDE update.
     """
 
     def __init__(
@@ -70,14 +74,8 @@ class Diffusion(LazyProcess):
         solver,
         *,
         parameterization: Parameterization,
-        # NOTE: Diffusion intentionally retains the diffusion-convention
-        # time direction (t0=1.0 → noise, t1=0.0 → data) even after the
-        # FM-convention flip in Phase 3.  The score-based reverse-time
-        # PF-ODE drift `f - 0.5*g²*score` is intrinsically tied to that
-        # direction; the schedule's drift/diffusion functions describe
-        # the *forward* SDE that corrupts data into noise.  Re-deriving
-        # the Diffusion process for the FM convention requires a
-        # different drift formulation and is left out of scope here.
+        # Diffusion uses the schedule's forward-SDE convention:
+        # t0=1.0 is the noise endpoint and t1=0.0 is the data endpoint.
         t0: float = 1.0,
         t1: float = 0.0,
         base: LazyDistribution | torch.distributions.Distribution | None = None,
@@ -127,8 +125,7 @@ class Diffusion(LazyProcess):
             if not isinstance(self.parameterization, Parameterization):
                 msg = (
                     "parameterization must be a nami.parameterizations.Parameterization "
-                    'instance — the legacy string flag ("eps"|"score"|"x0") was '
-                    "removed; use epsilon_prediction(schedule), score_prediction(schedule), "
+                    "instance; use epsilon_prediction(schedule), score_prediction(schedule), "
                     "or x0_prediction(schedule)"
                 )
                 raise TypeError(msg)
@@ -218,10 +215,8 @@ class DiffusionProcess(ProcessRuntimeMixin):
         raw = self._model(x, tt, context)
         out = self._parameterization.output_transform(raw)
 
-        # Pattern-match dispatch on the typed Target.  Replaces the
-        # legacy string-flag if/elif chain with sum-type exhaustiveness:
-        # adding a new diffusion target means adding one case arm here
-        # and pyright/mypy flag a missing arm at any other consumer.
+        # Pattern-match dispatch on the typed target.  Adding a diffusion
+        # target requires adding one conversion arm here.
         match self._parameterization.target:
             case Epsilon():
                 eps = out

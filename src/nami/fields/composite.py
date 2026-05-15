@@ -1,20 +1,9 @@
-r"""Composite fields that combine separately trained heads.
+r"""Composite fields built from separately trained heads.
 
-The legacy :mod:`nami.interpolants.transforms` module carried two
-*two-model combiners* (``DriftFromVelocityScore`` and
-``MarkovizationDriftFromVelocityScore``) that wrapped a velocity field
-and a separate score field, combining them via gamma-schedule
-arithmetic to produce a probability-flow drift or markovisation SDE
-drift.  Those wrappers were deleted in stage 4 of the refactor — their
-single-model siblings (``ScoreFromEta``, ``ScoreFromRawNoise``,
-``MirrorVelocityFromScore``) are subsumed by Process-layer dispatch on
-``parameterization.target``, but the *two-model* shape doesn't fit the
-single-parameterization-per-field assumption.
-
-This module now holds the concrete replacements for the deleted
-two-model wrappers.  They are plain fields: callers pass separately
-trained velocity and score models plus the stochastic-interpolant gamma
-schedule, and the composite emits the runtime drift a Process needs.
+These modules combine a velocity head ``v(x,t)`` and score head
+``s(x,t) = \nabla_x \log p_t(x)`` with a stochastic-interpolant noise
+schedule ``\gamma(t)``.  The result is a runtime vector field suitable for
+probability-flow or Markovian SDE sampling.
 """
 
 from __future__ import annotations
@@ -33,24 +22,10 @@ from nami.interpolants.gamma import GammaSchedule
 class TwoHeadField(Protocol):
     r"""Field that combines two trained models into one runtime quantity.
 
-    Implementations consume the outputs of two separately-trained
-    networks (typically a velocity head and a score head) plus the
-    ambient noise schedule, and emit the runtime quantity a Process
-    needs (probability-flow drift, markovisation SDE drift, etc.).
-
-    The legacy classes that this protocol will replace lived in the
-    deleted ``nami.interpolants.transforms`` module:
-
-    * ``DriftFromVelocityScore``: ``u = v - \gamma(t)\dot{\gamma}(t) s``
-      (probability-flow drift).
-    * ``MarkovizationDriftFromVelocityScore``: ``b = v + (-\gamma(t)\dot{\gamma}(t)
-      + \frac{1}{2} g(t)^2) s`` (markovisation SDE drift, with ``g(t)^2`` an
-      independent diffusion coefficient).
-
-    A future PR will introduce concrete implementations alongside the
-    Process that consumes them; the Protocol signature here is the
-    contract those implementations must satisfy.
+    Implementations consume two networks, usually a velocity head and a score
+    head, and emit a vector field with shape ``lead + event_shape``.
     """
+
 
     def __call__(
         self,
@@ -58,19 +33,38 @@ class TwoHeadField(Protocol):
         t: torch.Tensor,
         c: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        """Compute the combined runtime quantity at ``(x, t)``."""
+        """Evaluate the composite field.
+
+        Args:
+            x (torch.Tensor): State tensor with shape ``lead + event_shape``.
+            t (torch.Tensor): Time tensor broadcastable to ``lead``.
+            c (torch.Tensor | None): Optional conditioning tensor.
+
+        Returns:
+            torch.Tensor: Composite vector field with the same shape as ``x``.
+        """
         ...
 
     @property
     def event_ndim(self) -> int | None:
-        """Event-tensor rank, matching the underlying head conventions."""
+        """int | None: Number of trailing event dimensions."""
         ...
 
 
 class DriftFromVelocityScore(nn.Module):
-    """Probability-flow drift from separately trained velocity and score heads.
+    r"""Probability-flow drift from separately trained velocity and score heads.
 
-    Computes ``u(x, t) = v(x, t) - gamma(t) * gamma_dot(t) * s(x, t)``.
+    Args:
+        velocity_model (nn.Module): Model returning ``v(x,t)``.
+        score_model (nn.Module): Model returning ``s(x,t)``.
+        gamma_schedule (GammaSchedule): Schedule providing ``\gamma(t)`` and
+            ``\dot{\gamma}(t)``.
+
+    The evaluated drift is
+
+    .. math::
+
+       u(x,t) = v(x,t) - \gamma(t)\dot{\gamma}(t)s(x,t).
     """
 
     def __init__(
@@ -103,11 +97,22 @@ class DriftFromVelocityScore(nn.Module):
 
 
 class MarkovizationDriftFromVelocityScore(nn.Module):
-    """Markovization SDE drift from velocity and score heads.
+    r"""Markovization SDE drift from velocity and score heads.
 
-    Computes ``b(x, t) = v(x, t) + (-gamma*gamma_dot + 0.5*g(t)^2) * s(x, t)``.
-    ``diffusion2`` is the squared diffusion coefficient ``g(t)^2`` as either a
-    constant or a callable ``(t) -> Tensor``.
+    Args:
+        velocity_model (nn.Module): Model returning ``v(x,t)``.
+        score_model (nn.Module): Model returning ``s(x,t)``.
+        gamma_schedule (GammaSchedule): Schedule providing ``\gamma(t)`` and
+            ``\dot{\gamma}(t)``.
+        diffusion2 (float | Callable[[torch.Tensor], torch.Tensor]): Squared
+            diffusion coefficient ``g^2(t)``.
+
+    The evaluated drift is
+
+    .. math::
+
+       b(x,t) = v(x,t) +
+       \left[-\gamma(t)\dot{\gamma}(t) + \frac{1}{2}g^2(t)\right]s(x,t).
     """
 
     def __init__(

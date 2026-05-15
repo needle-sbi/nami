@@ -44,6 +44,18 @@ from nami.processes._common import (
 class FlowMatching(LazyProcess):
     r"""Flow-matching process driven by a :class:`Parameterization`.
 
+    Args:
+        field: Velocity field.
+        base: Base distribution or lazy base distribution.
+        solver: ODE solver.
+        parameterization (Parameterization | None): Velocity target and output
+            projection. Defaults to :func:`velocity_prediction`.
+        t0 (float): Initial integration time.
+        t1 (float): Final integration time.
+        event_ndim (int | None): Event rank fallback when the field does not
+            expose ``event_ndim``.
+        validate_args (bool): Whether to validate target and event shapes.
+
     Unlike :class:`~nami.processes.diffusion.Diffusion`, FM has no
     algebraic dispatch over multiple targets — it only supports
     :class:`~nami.parameterizations.Velocity`, because converting score
@@ -54,8 +66,7 @@ class FlowMatching(LazyProcess):
     needs projection (e.g. through a constraint) can be sampled
     without a wrapper class.
 
-    The default, ``velocity_prediction()``, has identity
-    ``output_transform`` and reproduces the legacy behaviour exactly.
+    The default, ``velocity_prediction()``, has identity ``output_transform``.
 
     .. note::
 
@@ -213,26 +224,32 @@ class FlowMatchingProcess(ProcessRuntimeMixin):
     def _velocity(
         self, x: torch.Tensor, t: torch.Tensor, context: torch.Tensor | None
     ) -> torch.Tensor:
-        """Field call composed with ``output_transform``.
+        """Evaluate the transformed velocity field.
 
-        Centralises the transform so every integration path picks up
-        non-identity transforms automatically.
+        Args:
+            x (torch.Tensor): State tensor.
+            t (torch.Tensor): Time tensor.
+            context (torch.Tensor | None): Optional conditioning tensor.
+
+        Returns:
+            torch.Tensor: ``output_transform(field(x, t, context))``.
         """
         return self._parameterization.output_transform(self._field(x, t, context))
 
     def _transformed_field(self):
-        r"""Adapter exposing the transformed velocity to divergence estimators.
+        r"""Create an adapter for divergence estimation.
 
-        Estimators read ``field.event_ndim`` and call ``field(x, t, c)``;
-        without this adapter they would differentiate the *raw* field
-        output while the integrator uses ``output_transform(field(...))``.
-        For a non-identity transform the integrated drift and the
-        divergence used by ``log_prob`` would describe different
-        dynamics — the change-of-variables identity ``\partial_t \log p_t = -\nabla \cdot v``
-        only holds when the divergence is taken of the *same* velocity
-        the trajectory follows.  Wrapping cheaply removes that
-        inconsistency in the identity case (the wrapper is just one
-        extra Python call) and makes non-identity transforms correct.
+        Returns:
+            TransformedField: Callable whose output is the transformed velocity
+            used by the integrator.
+
+        The change-of-variables identity
+
+        .. math::
+
+           \partial_t \log p_t(x) = -\nabla_x \cdot v(x,t)
+
+        requires the divergence of the same velocity that advances the state.
         """
         return TransformedField(self._field, self._parameterization.output_transform)
 

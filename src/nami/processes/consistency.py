@@ -35,7 +35,7 @@ from nami.processes.fm import FlowMatchingProcess
 
 
 class ConsistencyFlowMatching(LazyProcess):
-    """Lazy process for consistency flow matching.
+    r"""Lazy process for consistency flow matching.
 
     Sampling is single-step via the consistency function.  Log-probability
     evaluation is either one-step (via an optional ``h_head``) or full ODE
@@ -51,31 +51,19 @@ class ConsistencyFlowMatching(LazyProcess):
     is supported; converting Score / Epsilon / X0 to a velocity needs a
     schedule that this Process does not carry.
 
-    Parameters
-    ----------
-    field : nn.Module or LazyField
-        Velocity field.
-    base : Distribution or LazyDistribution
-        Base (noise) distribution.
-    solver : ODESolver or None
-        ODE solver, required only for ODE-based :meth:`log_prob`.
-    parameterization : Parameterization or None
-        Bundle of (target, weighting, output_transform).  When ``None``
-        defaults to :func:`~nami.interpolants.linear.velocity_prediction`,
-        which has identity ``output_transform`` and reproduces legacy
-        behaviour exactly.
-    h_head : nn.Module or None
-        Scalar head predicting :math:`\\log p_t(x_t)`.  When provided,
-        :meth:`log_prob` evaluates the head at the data endpoint in a
-        single forward pass.
-    t0 : float
-        Source time (noise endpoint), default ``0.0``.
-    t1 : float
-        Target time (data / consistency endpoint), default ``1.0``.
-    event_ndim : int or None
-        Fallback when the field does not expose ``event_ndim``.
-    validate_args : bool
-        Validate shape consistency between field and base.
+    Args:
+        field: Velocity field or lazy field.
+        base: Base distribution or lazy base distribution.
+        solver: Optional ODE solver for ODE-based :meth:`log_prob`.
+        parameterization (Parameterization | None): Velocity target and output
+            projection. Defaults to :func:`velocity_prediction`.
+        h_head: Optional scalar head predicting ``\log p_t(x_t)``.
+        t0 (float): Source time, usually the noise endpoint.
+        t1 (float): Target time, usually the data endpoint.
+        event_ndim (int | None): Event rank fallback when the field does not
+            expose ``event_ndim``.
+        validate_args (bool): Whether to validate target and event-shape
+            compatibility.
     """
 
     def __init__(

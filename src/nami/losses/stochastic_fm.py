@@ -1,19 +1,15 @@
-r"""Stochastic flow-matching loss on the unified vocabulary.
+r"""Stochastic flow-matching loss.
 
 Trains a velocity field on a stochastic linear interpolant (Albergo &
 Vanden-Eijnden, *Building Normalizing Flows with Stochastic
 Interpolants*, 2023; Albergo, Boffi & Vanden-Eijnden, *Stochastic
 Interpolants: A Unifying Framework*, 2023, arXiv:2303.08797):
-``x_t = (1-t) x_noise + t x_data + gamma(t) z`` with conditional
-velocity ``u_t = (x_data - x_noise) + \dot{\gamma}(t) z``.
 
-Implementation is now a thin shim around
-:func:`~nami.losses.regression.regression_loss` with a
-:class:`~nami.interpolants.linear.StochasticLinearInterpolant` -
-preserved as a separate function name for callers used to the
-legacy import path (``nami.losses.stochastic_fm.stochastic_fm_loss``)
-and because the stochastic-linear case is the most common
-gamma-scheduled use that benefits from a one-liner factory.
+.. math::
+
+   x_t = (1-t)x_{\mathrm{noise}} + t x_{\mathrm{data}} + \gamma(t)z,
+   \qquad
+   u_t = x_{\mathrm{data}} - x_{\mathrm{noise}} + \dot{\gamma}(t)z.
 """
 
 from __future__ import annotations
@@ -40,24 +36,24 @@ def stochastic_fm_loss(
     z: torch.Tensor | None = None,
     reduction: str = "mean",
 ) -> torch.Tensor:
-    """Flow-matching loss for the stochastic linear interpolant.
+    """Compute stochastic flow-matching loss.
 
-    Mathematical object: velocity regression against the conditional
-    velocity of the gamma-scheduled stochastic linear interpolant of
-    Albergo, Boffi & Vanden-Eijnden, *Stochastic Interpolants: A
-    Unifying Framework*, 2023 (arXiv:2303.08797).  Thin shim around
-    :func:`~nami.losses.regression.regression_loss` that wires up the
-    interpolant and the velocity parameterization.
+    Args:
+        field: Velocity field.
+        x_noise (torch.Tensor): Noise endpoint.
+        x_data (torch.Tensor): Data endpoint.
+        t (torch.Tensor | None): Optional time tensor.
+        c (torch.Tensor | None): Optional conditioning tensor.
+        interpolant (StochasticLinearInterpolant | None): Fully configured
+            stochastic interpolant.
+        gamma (GammaSchedule | None): Gamma schedule used to construct an
+            interpolant when ``interpolant`` is ``None``.
+        z (torch.Tensor | None): Optional latent noise shared by sampling and
+            target construction.
+        reduction (str): ``"mean"``, ``"sum"``, or ``"none"``.
 
-    Either pass an ``interpolant`` (a fully-configured
-    ``StochasticLinearInterpolant``) or a bare ``gamma`` schedule to
-    construct one with default settings.  Passing both raises
-    ``ValueError`` - the API is unambiguous.
-
-    ``z`` is the latent noise; when ``None``, fresh noise is sampled
-    internally and the same draw is used inside ``regression_loss``
-    (since ``regression_loss`` forwards ``noise=z`` to
-    ``interpolant.sample``).
+    Returns:
+        torch.Tensor: Reduced stochastic flow-matching loss.
     """
     if interpolant is not None and gamma is not None:
         msg = "pass either `interpolant` or `gamma`, not both"

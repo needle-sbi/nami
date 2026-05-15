@@ -1,24 +1,17 @@
 r"""Algebraic conversions between diffusion prediction targets.
 
-Given a Gaussian conditional path ``x_t = \alpha(t) x_0 + \\sigma(t) \epsilon`` and its
-named target objects (``\\epsilon``, \\score ``\nabla \log p_t``, clean ``x_0``,
-v-prediction ``v = \alpha \epsilon - \sigma x_0``), these helpers convert one target
-into another using only ``(x_t, \alpha, \sigma)``.  Used by:
+For a Gaussian conditional path
 
-* :class:`~nami.processes.diffusion.DiffusionProcess` —
-  pattern-matches on ``parameterization.target`` and dispatches the
-  appropriate conversion to produce the ``\epsilon`` the integrator
-  consumes.
-* :class:`~nami.interpolants.gaussian.GaussianInterpolant` —
-  derives Score / V targets at training time from the closed-form
-  formulas.
-* :class:`~nami.solvers.dpm.DPMSolverPP` — uses
-  :func:`expand_like` to broadcast schedule scalars over batched
-  state tensors.
+.. math::
 
-These are algebraic identities between target spaces, so schedule-adjacent but not
-schedules in themselves, since they don't define ``\alpha(t), \sigma(t)``; they
-consume them.
+   x_t = \alpha(t) x_0 + \sigma(t)\epsilon,
+
+the functions in this module convert between standard diffusion targets:
+noise ``\epsilon``, score ``\nabla_x \log p_t(x_t)``, clean endpoint
+``x_0``, and v-prediction
+``v = \alpha(t)\epsilon - \sigma(t)x_0``.  The schedule values
+``\alpha(t)`` and ``\sigma(t)`` are inputs; this module does not define a
+schedule.
 """
 
 from __future__ import annotations
@@ -27,12 +20,15 @@ import torch
 
 
 def expand_like(scale: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-    r"""Broadcast ``scale`` to match ``target``'s rank by appending
-    trailing singleton dims.
+    r"""Broadcast a schedule tensor over event dimensions.
 
-    Used to broadcast schedule scalars ``\alpha(t), \sigma(t)`` (shape ``lead``)
-    across event dimensions of state tensors (shape
-    ``lead + event_shape``).
+    Args:
+        scale (torch.Tensor): Tensor with leading shape ``lead``.
+        target (torch.Tensor): Tensor with shape ``lead + event_shape``.
+
+    Returns:
+        torch.Tensor: ``scale`` reshaped with trailing singleton dimensions so
+        it broadcasts with ``target``.
     """
     while scale.ndim < target.ndim:
         scale = scale.unsqueeze(-1)
@@ -40,39 +36,90 @@ def expand_like(scale: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
 
 
 def eps_to_score(eps: torch.Tensor, sigma: torch.Tensor) -> torch.Tensor:
-    r"""``score = -\epsilon / \sigma(t)``.
+    r"""Convert noise prediction to score prediction.
 
-    Diffusion-convention conversion (``x_t = \alpha(t)x_0 + \sigma(t)\epsilon``).
-    Used by the score-based reverse-time PF-ODE inside
-    :class:`nami.processes.diffusion.Diffusion`, which deliberately
-    retains the diffusion convention even after the broader Phase 3 flip.
+    The conversion is
+
+    .. math::
+
+       \nabla_x \log p_t(x_t) = -\epsilon / \sigma(t).
+
+    Args:
+        eps (torch.Tensor): Predicted standardized noise ``\epsilon``.
+        sigma (torch.Tensor): Noise scale ``\sigma(t)`` with leading shape
+            matching ``eps``.
+
+    Returns:
+        torch.Tensor: Score tensor with the same shape as ``eps``.
     """
     return -eps / expand_like(sigma, eps)
 
 
 def score_to_eps(score: torch.Tensor, sigma: torch.Tensor) -> torch.Tensor:
-    r"""``\epsilon = -\sigma(t) \cdot score`` (diffusion convention)."""
+    r"""Convert score prediction to noise prediction.
+
+    Args:
+        score (torch.Tensor): Score ``\nabla_x \log p_t(x_t)``.
+        sigma (torch.Tensor): Noise scale ``\sigma(t)``.
+
+    Returns:
+        torch.Tensor: Standardized noise
+        ``\epsilon = -\sigma(t)\nabla_x \log p_t(x_t)``.
+    """
     return -score * expand_like(sigma, score)
 
 
 def eps_to_x0(
     x: torch.Tensor, eps: torch.Tensor, alpha: torch.Tensor, sigma: torch.Tensor
 ) -> torch.Tensor:
-    r"""``x_0 = (x_t - \sigma(t) \epsilon) / \alpha(t)`` (diffusion convention)."""
+    r"""Convert noise prediction to clean-endpoint prediction.
+
+    Args:
+        x (torch.Tensor): Current state ``x_t``.
+        eps (torch.Tensor): Predicted standardized noise ``\epsilon``.
+        alpha (torch.Tensor): Signal scale ``\alpha(t)``.
+        sigma (torch.Tensor): Noise scale ``\sigma(t)``.
+
+    Returns:
+        torch.Tensor: Clean endpoint
+        ``x_0 = (x_t - \sigma(t)\epsilon) / \alpha(t)``.
+    """
     return (x - expand_like(sigma, x) * eps) / expand_like(alpha, x)
 
 
 def x0_to_eps(
     x: torch.Tensor, x0: torch.Tensor, alpha: torch.Tensor, sigma: torch.Tensor
 ) -> torch.Tensor:
-    r"""``\epsilon = (x_t - \alpha(t) x_0) / \sigma(t)`` (diffusion convention)."""
+    r"""Convert clean-endpoint prediction to noise prediction.
+
+    Args:
+        x (torch.Tensor): Current state ``x_t``.
+        x0 (torch.Tensor): Predicted clean endpoint ``x_0``.
+        alpha (torch.Tensor): Signal scale ``\alpha(t)``.
+        sigma (torch.Tensor): Noise scale ``\sigma(t)``.
+
+    Returns:
+        torch.Tensor: Standardized noise
+        ``\epsilon = (x_t - \alpha(t)x_0) / \sigma(t)``.
+    """
     return (x - expand_like(alpha, x) * x0) / expand_like(sigma, x)
 
 
 def score_to_x0(
     x: torch.Tensor, score: torch.Tensor, alpha: torch.Tensor, sigma: torch.Tensor
 ) -> torch.Tensor:
-    r"""``x_0 = (x_t + \sigma^2(t) \cdot score) / \alpha(t)`` (diffusion convention)."""
+    r"""Convert score prediction to clean-endpoint prediction.
+
+    Args:
+        x (torch.Tensor): Current state ``x_t``.
+        score (torch.Tensor): Score ``\nabla_x \log p_t(x_t)``.
+        alpha (torch.Tensor): Signal scale ``\alpha(t)``.
+        sigma (torch.Tensor): Noise scale ``\sigma(t)``.
+
+    Returns:
+        torch.Tensor: Clean endpoint
+        ``x_0 = (x_t + \sigma^2(t)\nabla_x\log p_t(x_t)) / \alpha(t)``.
+    """
     sigma_exp = expand_like(sigma, x)
     return (x + (sigma_exp**2) * score) / expand_like(alpha, x)
 
@@ -80,7 +127,18 @@ def score_to_x0(
 def x0_to_score(
     x: torch.Tensor, x0: torch.Tensor, alpha: torch.Tensor, sigma: torch.Tensor
 ) -> torch.Tensor:
-    r"""``score = (\alpha(t) x_0 - x_t) / \sigma^2(t)`` (diffusion convention)."""
+    r"""Convert clean-endpoint prediction to score prediction.
+
+    Args:
+        x (torch.Tensor): Current state ``x_t``.
+        x0 (torch.Tensor): Predicted clean endpoint ``x_0``.
+        alpha (torch.Tensor): Signal scale ``\alpha(t)``.
+        sigma (torch.Tensor): Noise scale ``\sigma(t)``.
+
+    Returns:
+        torch.Tensor: Score
+        ``\nabla_x\log p_t(x_t) = (\alpha(t)x_0 - x_t) / \sigma^2(t)``.
+    """
     sigma_exp = expand_like(sigma, x)
     return (expand_like(alpha, x) * x0 - x) / (sigma_exp**2)
 
@@ -91,17 +149,31 @@ def v_to_eps(
     alpha: torch.Tensor,
     sigma: torch.Tensor,
 ) -> torch.Tensor:
-    r"""Salimans-Ho v-prediction to ``\epsilon`` conversion (diffusion convention).
+    r"""Convert v-prediction to noise prediction.
 
-    From the system ``v = \alpha \epsilon - \sigma x_0`` and ``x_t = \alpha x_0 + \sigma \epsilon``,
-    Cramer's rule gives::
+    From
 
-        \epsilon = (\sigma \cdot x_t + \alpha \cdot v) / (\alpha^2 + \sigma^2)
+    .. math::
 
-    The denominator is exactly 1 for variance-preserving schedules
-    (VP, EDM with the standard reparameterisation) but is generally
-    ``1 + \sigma^2`` for variance-exploding schedules; the formula handles
-    both without assuming variance preservation.
+       v = \alpha(t)\epsilon - \sigma(t)x_0,\qquad
+       x_t = \alpha(t)x_0 + \sigma(t)\epsilon,
+
+    Cramer's rule gives
+
+    .. math::
+
+       \epsilon =
+       \frac{\sigma(t)x_t + \alpha(t)v}{\alpha^2(t)+\sigma^2(t)}.
+
+    Args:
+        x (torch.Tensor): Current state ``x_t``.
+        v (torch.Tensor): Predicted v-target.
+        alpha (torch.Tensor): Signal scale ``\alpha(t)``.
+        sigma (torch.Tensor): Noise scale ``\sigma(t)``.
+
+    Returns:
+        torch.Tensor: Standardized noise ``\epsilon`` with the same shape as
+        ``x``.
     """
     alpha_exp = expand_like(alpha, x)
     sigma_exp = expand_like(sigma, x)

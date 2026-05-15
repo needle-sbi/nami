@@ -1,27 +1,14 @@
-"""Abstract noise-schedule contract for Gaussian conditional paths.
+r"""Abstract noise-schedule contract for Gaussian conditional paths.
 
-Defines the four scalar fields a schedule must expose. The functions
-``\\alpha(t)`` and ``\\sigma(t)`` are defined by their numerical contracts:
-``\\alpha(0)=1, \\alpha(1)=0`` and ``\\sigma(0)=0, \\sigma(1)=1`` (VP-style;
-VE-style modifies ``\\sigma``). Two consumers reinterpret which operand
-each multiplies:
+Schedules define ``\alpha(t)``, ``\sigma(t)``, and the forward SDE
+coefficients ``f(x,t)`` and ``g(t)``.  Diffusion processes use
 
-* :class:`~nami.processes.diffusion.Diffusion` (diffusion convention,
-  retained for the score-based reverse-time PF-ODE) reads
-  ``x_t = \\alpha(t) x_0 + \\sigma(t) \\epsilon`` — ``\\alpha`` is the signal
-  scale, ``\\sigma`` is the noise scale.  ``drift(x, t)`` and
-  ``diffusion(t)`` describe the forward SDE
-  ``dx = [f(x,t) - g(t)^2 \\nabla \\log p_t(x)] dt + g(t) d\\bar W`` in this
-  convention.
-* :class:`~nami.interpolants.gaussian.GaussianInterpolant` (FM
-  convention, ``t=0`` noise → ``t=1`` data) reads
-  ``x_t = \\alpha(t) \\epsilon + \\sigma(t) x_0`` — ``\\alpha`` is the noise
-  coefficient and ``\\sigma`` is the data coefficient (operand swap, same
-  numerical functions).
+.. math::
 
-The legacy "signal scale" / "noise scale" naming below reflects the
-diffusion-convention interpretation; FM-convention callers should
-mentally swap the labels.
+   x_t = \alpha(t)x_0 + \sigma(t)\epsilon,
+
+while Gaussian interpolants may use the same scalar functions with
+``x_noise`` and ``x_data`` as the two operands.
 
 References
 ----------
@@ -35,26 +22,62 @@ import torch
 
 
 class NoiseSchedule:
-    """Base interface for ``(\\alpha(t), \\sigma(t))`` schedules and their SDE form."""
+    r"""Base interface for scalar Gaussian schedules."""
 
     def alpha(self, t: torch.Tensor) -> torch.Tensor:
-        """Signal scale ``\\alpha(t)`` in ``x_t = \\alpha(t) x_0 + \\sigma(t) \\epsilon``."""
+        r"""Evaluate ``\alpha(t)``.
+
+        Args:
+            t (torch.Tensor): Time tensor.
+
+        Returns:
+            torch.Tensor: Signal scale for diffusion-style paths.
+        """
         raise NotImplementedError
 
     def sigma(self, t: torch.Tensor) -> torch.Tensor:
-        """Noise scale ``\\sigma(t)``."""
+        r"""Evaluate ``\sigma(t)``.
+
+        Args:
+            t (torch.Tensor): Time tensor.
+
+        Returns:
+            torch.Tensor: Noise scale for diffusion-style paths.
+        """
         raise NotImplementedError
 
     def snr(self, t: torch.Tensor) -> torch.Tensor:
-        """Signal-to-noise ratio ``\\alpha^2(t) / \\sigma^2(t)``."""
+        r"""Evaluate the signal-to-noise ratio.
+
+        Args:
+            t (torch.Tensor): Time tensor.
+
+        Returns:
+            torch.Tensor: ``\alpha^2(t) / \sigma^2(t)``.
+        """
         a = self.alpha(t)
         s = self.sigma(t)
         return (a * a) / (s * s)
 
     def drift(self, x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
-        """Forward-SDE drift ``f(x, t)``."""
+        """Evaluate the forward-SDE drift.
+
+        Args:
+            x (torch.Tensor): State tensor.
+            t (torch.Tensor): Time tensor.
+
+        Returns:
+            torch.Tensor: Drift ``f(x,t)`` with the same shape as ``x``.
+        """
         raise NotImplementedError
 
     def diffusion(self, t: torch.Tensor) -> torch.Tensor:
-        """Forward-SDE diffusion coefficient ``g(t)``."""
+        """Evaluate the forward-SDE diffusion coefficient.
+
+        Args:
+            t (torch.Tensor): Time tensor.
+
+        Returns:
+            torch.Tensor: Diffusion coefficient ``g(t)``.
+        """
         raise NotImplementedError

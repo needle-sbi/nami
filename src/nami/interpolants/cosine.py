@@ -44,9 +44,8 @@ from nami.parameterizations import (
 class CosineInterpolant:
     r"""Deterministic cosine-scheduled interpolant.
 
-    Replaces the legacy :class:`~nami.paths.cosine.CosinePath` on the
-    unified vocabulary.  Same closed-form math; supports the
-    :class:`~nami.parameterizations.Velocity` target.
+    Supports the :class:`~nami.parameterizations.Velocity` target with the
+    closed-form derivative of the cosine path.
     """
 
     def sample(

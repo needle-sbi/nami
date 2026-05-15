@@ -6,13 +6,16 @@ from nami.core.specs import as_tuple
 
 
 def require_event_ndim(field) -> int:
-    """Read the required ``event_ndim`` from a field-like object.
+    """Read the required event rank from a field-like object.
 
-    A field's ``event_ndim`` is the contract every loss and Process leans
-    on to broadcast time tensors and reduce per-sample MSE.  Centralising
-    the lookup here keeps the failure message consistent and avoids the
-    parallel definitions that drifted between ``losses._common`` and
-    ``processes._common``.
+    Args:
+        field: Field-like object exposing ``event_ndim``.
+
+    Returns:
+        int: Number of trailing event dimensions.
+
+    Raises:
+        ValueError: If the field does not expose ``event_ndim``.
     """
     event_ndim = getattr(field, "event_ndim", None)
     if event_ndim is None:
@@ -22,7 +25,14 @@ def require_event_ndim(field) -> int:
 
 
 def normalise_event_shape(dim: int | tuple[int, ...]) -> tuple[int, ...]:
-    """Normalise a flexible event shape argument."""
+    """Normalize a flexible event-shape argument.
+
+    Args:
+        dim (int | tuple[int, ...]): Event size or event shape.
+
+    Returns:
+        tuple[int, ...]: Event shape tuple.
+    """
     event_shape = as_tuple(dim)
     if not event_shape:
         msg = "dim must define at least one event dimension"
@@ -38,7 +48,17 @@ def validate_context(
     condition_dim: int,
     lead_shape: tuple[int, ...],
 ) -> None:
-    """Validate optional conditioning inputs against a target leading shape."""
+    """Validate optional conditioning inputs.
+
+    Args:
+        c (torch.Tensor | None): Optional conditioning tensor.
+        condition_dim (int): Expected final context dimension.
+        lead_shape (tuple[int, ...]): Expected leading shape.
+
+    Raises:
+        ValueError: If ``c`` has the wrong rank, leading shape, or final
+        dimension.
+    """
     if condition_dim == 0:
         if c is not None:
             msg = "context was provided but condition_dim is 0"

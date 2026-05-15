@@ -72,9 +72,8 @@ def bridge_matching_loss(
         interpolant = BrownianBridgeInterpolant()
 
     lead = leading_shape(x_data, event_ndim)
-    # Sample t once; both heads share it (matches legacy behaviour and
-    # ensures the same bridge point is used for the velocity and
-    # score regressions).
+    # Sample t once so both heads use the same bridge point for the velocity
+    # and score regressions.
     t = sample_t(x_data, lead, t, eps_t=interpolant.eps)
 
     if z is not None and tuple(z.shape) != tuple(x_data.shape):
