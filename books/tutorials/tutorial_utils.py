@@ -50,12 +50,12 @@ def _flow_diagram():
 
 def _interpolation_path():
     """Visualise a linear interpolation path with velocity arrows."""
-    x_target = torch.tensor([2.0, 1.0])
-    x_source = torch.tensor([-1.0, -1.0])
+    x_data = torch.tensor([2.0, 1.0])
+    x_noise = torch.tensor([-1.0, -1.0])
 
     times = torch.linspace(0, 1, 51)
-    path = torch.stack([(1 - t) * x_target + t * x_source for t in times])
-    velocity = (x_source - x_target).numpy()
+    path = torch.stack([(1 - t) * x_noise + t * x_data for t in times])
+    velocity = (x_data - x_noise).numpy()
 
     fig, ax = plt.subplots(figsize=(7, 5))
 
@@ -82,16 +82,16 @@ def _interpolation_path():
         )
 
     # endpoints
-    ax.scatter(*x_target, c="#2ca02c", s=220, marker=".", zorder=5,
-               edgecolors="white", linewidths=0.6, label=r"$t=0$ (target / data)")
-    ax.scatter(*x_source, c="#d62728", s=120, marker="o", zorder=5,
-               edgecolors="white", linewidths=0.6, label=r"$t=1$ (source / noise)")
+    ax.scatter(*x_data, c="#2ca02c", s=220, marker=".", zorder=5,
+               edgecolors="white", linewidths=0.6, label=r"$t=1$ (data)")
+    ax.scatter(*x_noise, c="#d62728", s=120, marker="o", zorder=5,
+               edgecolors="white", linewidths=0.6, label=r"$t=0$ (source / noise)")
 
     # labels
     ax.set_xlabel(r"$x_1$", fontsize=11)
     ax.set_ylabel(r"$x_2$", fontsize=11)
     ax.set_title(
-        r"Linear interpolation path  $x_t = (1-t)\,x_0 + t\,x_1$",
+        r"Linear interpolation path  $x_t = (1-t)\,x_{\mathrm{noise}} + t\,x_{\mathrm{data}}$",
         fontsize=11,
     )
     ax.set_aspect("equal")
