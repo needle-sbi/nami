@@ -7,6 +7,7 @@ __pycache__
 .coverage
 dist/
 src/nami/_version.py
+books/external/
 
 # below is taken from https://github.com/scientific-python/cookie/tree/main, but may simplify this
 # Byte-compiled / optimized / DLL files
