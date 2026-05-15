@@ -6,6 +6,7 @@ Solvers
 .. autosummary::
    :toctree: _generated
 
+   dpm
    heun
    ode
    sde

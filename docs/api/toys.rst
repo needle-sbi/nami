@@ -9,13 +9,13 @@ Installed automatically alongside ``nami``.
 .. autosummary::
    :toctree: _generated
 
+   checkerboard
    dataset
    gaussian
-   shell
    moons
-   checkerboard
-   ring
    parameterised
+   ring
    rng
+   shell
    spirals
    standardise

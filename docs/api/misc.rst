@@ -6,7 +6,8 @@ Miscellaneous
 .. autosummary::
    :toctree: _generated
 
-   debug
+   diffusion
    diagnostics
    lazy
    masking
+   parameterizations

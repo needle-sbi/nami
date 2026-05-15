@@ -1,4 +1,4 @@
-from __future__ import annotations
+
 
 import importlib.util
 from pathlib import Path
@@ -16,7 +16,7 @@ else:
 
 project = "nami"
 author = "Levi Evans"
-copyright = "2026, Levi Evans"
+copyright = "2026, Needle Developers"
 
 version = release = nami.__version__
 

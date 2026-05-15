@@ -6,5 +6,8 @@ Processes
 .. autosummary::
    :toctree: _generated
 
+   action
+   consistency
    diffusion
    fm
+   gm

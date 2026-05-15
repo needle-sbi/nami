@@ -1,19 +1,18 @@
 API Reference
 =============
 
-The API pages below are generated with autodoc/autosummary from source modules.
-
 .. toctree::
    :maxdepth: 2
 
    top_level
+   components
    core
    distributions
    divergence
    fields
+   generators
    interpolants
    losses
-   paths
    processes
    schedules
    solvers
