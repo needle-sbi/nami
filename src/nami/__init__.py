@@ -1,5 +1,5 @@
 """Public surface
-
+TODO: write nice summary docstring for this file
 * **Interpolant + Parameterization -> Loss**
 * **Field + Parameterization -> Process**
 * **Process -> sample / log_prob**
@@ -49,6 +49,12 @@ from nami.generators.parameterizations import generator_prediction
 
 from nami.interpolants.bridge import BrownianBridgeInterpolant
 from nami.interpolants.cosine import CosineInterpolant
+from nami.interpolants.gamma import (
+    BrownianGamma,
+    GammaSchedule,
+    ScaledBrownianGamma,
+    ZeroGamma,
+)
 from nami.interpolants.gaussian import (
     GaussianInterpolant,
     epsilon_prediction,
@@ -69,6 +75,7 @@ from nami.losses.action import action_matching_loss, action_prediction
 from nami.losses.consistency import consistency_loss
 from nami.losses.log_density import log_density_consistency_loss
 from nami.losses.regression import regression_loss
+from nami.losses.stochastic_fm import stochastic_fm_loss
 
 # ---------------------------------------------------------------------------
 # Vocab: targets, parameterizations
@@ -116,6 +123,7 @@ __all__ = [
     "ActionMatching",
     "AdaLNVelocityField",
     "BrownianBridgeInterpolant",
+    "BrownianGamma",
     "ConsistencyFlowMatching",
     "CosineInterpolant",
     "DPMSolverPP",
@@ -127,6 +135,7 @@ __all__ = [
     "EulerMaruyama",
     "ExactDivergence",
     "FlowMatching",
+    "GammaSchedule",
     "GaussianInterpolant",
     "GeneratorField",
     "GeneratorMatching",
@@ -139,6 +148,7 @@ __all__ = [
     "LogDensityHead",
     "MarkovizationDriftFromVelocityScore",
     "Parameterization",
+    "ScaledBrownianGamma",
     "Score",
     "StandardNormal",
     "StochasticLinearInterpolant",
@@ -148,6 +158,7 @@ __all__ = [
     "VPrediction",
     "Velocity",
     "VelocityField",
+    "ZeroGamma",
     "__version__",
     "action_matching_loss",
     "action_prediction",
@@ -157,6 +168,7 @@ __all__ = [
     "log_density_consistency_loss",
     "regression_loss",
     "score_prediction",
+    "stochastic_fm_loss",
     "v_prediction",
     "velocity_prediction",
     "x0_prediction",

@@ -60,7 +60,7 @@ def test_sample_matches_linear_formula(
     batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor],
 ) -> None:
     x_data, x_noise, t = batch
-    state = interpolant.sample(x_data, x_noise, t)
+    state = interpolant.sample(x_noise, x_data, t)
     expected = (1.0 - t.unsqueeze(-1)) * x_noise + t.unsqueeze(-1) * x_data
     assert torch.allclose(state.xt, expected, atol=1e-6)
 
@@ -68,8 +68,8 @@ def test_sample_matches_linear_formula(
 def test_sample_endpoints(interpolant: LinearInterpolant) -> None:
     x_data = torch.randn(4, 2)
     x_noise = torch.randn(4, 2)
-    state0 = interpolant.sample(x_data, x_noise, torch.zeros(4))
-    state1 = interpolant.sample(x_data, x_noise, torch.ones(4))
+    state0 = interpolant.sample(x_noise, x_data, torch.zeros(4))
+    state1 = interpolant.sample(x_noise, x_data, torch.ones(4))
     assert torch.allclose(state0.xt, x_noise, atol=1e-6)
     assert torch.allclose(state1.xt, x_data, atol=1e-6)
 
@@ -79,7 +79,7 @@ def test_sample_state_has_no_noise(
     batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor],
 ) -> None:
     x_data, x_noise, t = batch
-    state = interpolant.sample(x_data, x_noise, t)
+    state = interpolant.sample(x_noise, x_data, t)
     assert state.noise is None
     assert isinstance(state, InterpolantState)
 
@@ -90,7 +90,7 @@ def test_sample_rejects_external_noise(
 ) -> None:
     x_data, x_noise, t = batch
     with pytest.raises(ValueError, match="deterministic"):
-        interpolant.sample(x_data, x_noise, t, noise=torch.randn_like(x_noise))
+        interpolant.sample(x_noise, x_data, t, noise=torch.randn_like(x_noise))
 
 
 # ---------------------------------------------------------------------------
@@ -104,7 +104,7 @@ def test_target_velocity_is_constant_difference(
 ) -> None:
     """u_t = x_data - x_noise — independent of x_t and t."""
     x_data, x_noise, t = batch
-    state = interpolant.sample(x_data, x_noise, t)
+    state = interpolant.sample(x_noise, x_data, t)
     velocity = interpolant.target(Velocity(), state)
     assert torch.equal(velocity, x_data - x_noise)
 
@@ -127,7 +127,7 @@ def test_stochastic_targets_are_unsupported(
     can't sneak in.
     """
     x_data, x_noise, t = batch
-    state = interpolant.sample(x_data, x_noise, t)
+    state = interpolant.sample(x_noise, x_data, t)
     with pytest.raises(NotImplementedError, match="deterministic"):
         interpolant.target(target_cls(), state)
 
@@ -208,8 +208,8 @@ def test_regression_loss_matches_analytic_linear_path_formula(
     )
     actual = regression_loss(
         field,
-        x_data,
-        x_noise,
+        x_data=x_data,
+        x_noise=x_noise,
         t=t,
         interpolant=interpolant,
         parameterization=velocity_prediction(),
@@ -244,8 +244,8 @@ def test_regression_loss_matches_analytic_formula_under_reductions(
         )
         actual = regression_loss(
             field,
-            x_data,
-            x_noise,
+            x_data=x_data,
+            x_noise=x_noise,
             t=t,
             interpolant=interpolant,
             parameterization=velocity_prediction(),
@@ -281,8 +281,8 @@ def test_bare_parameterization_works_too(
 
     factory = regression_loss(
         field,
-        x_data,
-        x_noise,
+        x_data=x_data,
+        x_noise=x_noise,
         t=t,
         interpolant=interpolant,
         parameterization=velocity_prediction(),
@@ -290,8 +290,8 @@ def test_bare_parameterization_works_too(
     )
     bare = regression_loss(
         field,
-        x_data,
-        x_noise,
+        x_data=x_data,
+        x_noise=x_noise,
         t=t,
         interpolant=interpolant,
         parameterization=Parameterization(target=Velocity()),

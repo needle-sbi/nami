@@ -94,8 +94,8 @@ class BrownianBridgeInterpolant:
 
     def sample(
         self,
-        x_data: torch.Tensor,
         x_noise: torch.Tensor,
+        x_data: torch.Tensor,
         t: torch.Tensor,
         *,
         noise: torch.Tensor | None = None,
@@ -147,7 +147,7 @@ class BrownianBridgeInterpolant:
     # ------------------------------------------------------------------
 
     def _velocity(self, state: InterpolantState) -> torch.Tensor:
-        x_data, x_noise = state.x_data, state.x_noise
+        x_noise, x_data = state.x_noise, state.x_data
         tt = _broadcast_t(state.t, x_data)
         mu = (1.0 - tt) * x_noise + tt * x_data
         denom = 2.0 * torch.clamp(tt * (1.0 - tt), min=self.eps)
@@ -156,7 +156,7 @@ class BrownianBridgeInterpolant:
         return (x_data - x_noise) + coeff * (state.xt - mu)
 
     def _score(self, state: InterpolantState) -> torch.Tensor:
-        x_data, x_noise = state.x_data, state.x_noise
+        x_noise, x_data = state.x_noise, state.x_data
         tt = _broadcast_t(state.t, x_data)
         mu = (1.0 - tt) * x_noise + tt * x_data
         var = self.sigma**2 * torch.clamp(tt * (1.0 - tt), min=self.eps)

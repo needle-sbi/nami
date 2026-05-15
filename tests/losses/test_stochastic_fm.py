@@ -38,8 +38,8 @@ class TestStochasticFmLoss:
 
         deterministic = regression_loss(
             field,
-            x_data,
-            x_noise,
+            x_data=x_data,
+            x_noise=x_noise,
             t=t,
             interpolant=LinearInterpolant(),
             parameterization=velocity_prediction(),
@@ -48,8 +48,8 @@ class TestStochasticFmLoss:
         )
         stochastic = stochastic_fm_loss(
             field,
-            x_data,
-            x_noise,
+            x_data=x_data,
+            x_noise=x_noise,
             t=t,
             gamma=ZeroGamma(),
             z=z,
@@ -68,8 +68,8 @@ class TestStochasticFmLoss:
 
         loss_none = stochastic_fm_loss(
             field,
-            x_data,
-            x_noise,
+            x_data=x_data,
+            x_noise=x_noise,
             t=t,
             gamma=BrownianGamma(),
             z=z,
@@ -77,8 +77,8 @@ class TestStochasticFmLoss:
         )
         loss_sum = stochastic_fm_loss(
             field,
-            x_data,
-            x_noise,
+            x_data=x_data,
+            x_noise=x_noise,
             t=t,
             gamma=BrownianGamma(),
             z=z,
@@ -86,8 +86,8 @@ class TestStochasticFmLoss:
         )
         loss_mean = stochastic_fm_loss(
             field,
-            x_data,
-            x_noise,
+            x_data=x_data,
+            x_noise=x_noise,
             t=t,
             gamma=BrownianGamma(),
             z=z,
@@ -114,8 +114,8 @@ class TestStochasticFmLoss:
         with pytest.raises((ValueError, RuntimeError)):
             stochastic_fm_loss(
                 field,
-                x_data,
-                x_noise,
+                x_data=x_data,
+                x_noise=x_noise,
                 t=t,
                 gamma=BrownianGamma(),
                 z=z,

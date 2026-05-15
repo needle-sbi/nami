@@ -74,8 +74,8 @@ def test_perfect_velocity_gives_zero_loss(target_time: float) -> None:
 
     loss = consistency_loss(
         field,
-        x_data,
-        x_noise,
+        x_data=x_data,
+        x_noise=x_noise,
         t=t,
         interpolant=LinearInterpolant(),
         parameterization=velocity_prediction(),
@@ -118,8 +118,8 @@ def test_anchor_target_field_receives_no_gradient() -> None:
 
     loss = consistency_loss(
         online,
-        x_data,
-        x_noise,
+        x_data=x_data,
+        x_noise=x_noise,
         t=t,
         interpolant=LinearInterpolant(),
         parameterization=velocity_prediction(),
@@ -171,8 +171,8 @@ def test_forward_anchor_detach_path_blocks_gradient() -> None:
 
     loss = consistency_loss(
         field,
-        x_data,
-        x_noise,
+        x_data=x_data,
+        x_noise=x_noise,
         t=t,
         interpolant=LinearInterpolant(),
         parameterization=velocity_prediction(),
@@ -212,8 +212,8 @@ def test_target_field_changes_anchor_value() -> None:
 
     loss_no_target = consistency_loss(
         field,
-        x_data,
-        x_noise,
+        x_data=x_data,
+        x_noise=x_noise,
         t=t,
         interpolant=LinearInterpolant(),
         parameterization=velocity_prediction(),
@@ -223,8 +223,8 @@ def test_target_field_changes_anchor_value() -> None:
     )
     loss_with_target = consistency_loss(
         field,
-        x_data,
-        x_noise,
+        x_data=x_data,
+        x_noise=x_noise,
         t=t,
         interpolant=LinearInterpolant(),
         parameterization=velocity_prediction(),
@@ -250,8 +250,8 @@ def test_euler_step_runs_and_finite() -> None:
 
     loss = consistency_loss(
         field,
-        x_data,
-        x_noise,
+        x_data=x_data,
+        x_noise=x_noise,
         t=t,
         interpolant=LinearInterpolant(),
         parameterization=velocity_prediction(),
@@ -278,8 +278,8 @@ def test_euler_step_perfect_field_still_zero_loss() -> None:
 
     loss = consistency_loss(
         field,
-        x_data,
-        x_noise,
+        x_data=x_data,
+        x_noise=x_noise,
         t=t,
         interpolant=LinearInterpolant(),
         parameterization=velocity_prediction(),
@@ -302,8 +302,8 @@ def test_delta_clamp_at_t_equals_one() -> None:
 
     loss = consistency_loss(
         field,
-        x_data,
-        x_noise,
+        x_data=x_data,
+        x_noise=x_noise,
         t=t,
         interpolant=LinearInterpolant(),
         parameterization=velocity_prediction(),
@@ -319,8 +319,8 @@ def test_non_velocity_target_rejected() -> None:
     with pytest.raises(TypeError, match="Velocity target"):
         consistency_loss(
             field,
-            torch.randn(8, 3),
-            torch.randn(8, 3),
+            x_noise=torch.randn(8, 3),
+            x_data=torch.randn(8, 3),
             interpolant=LinearInterpolant(),
             parameterization=Parameterization(target=Score()),
             target_time=0.0,
@@ -339,8 +339,8 @@ def test_non_positive_delta_rejected(delta: float) -> None:
     with pytest.raises(ValueError, match="delta"):
         consistency_loss(
             field,
-            torch.randn(8, 3),
-            torch.randn(8, 3),
+            x_noise=torch.randn(8, 3),
+            x_data=torch.randn(8, 3),
             interpolant=LinearInterpolant(),
             parameterization=velocity_prediction(),
             target_time=0.0,
@@ -359,8 +359,8 @@ def test_intermediate_target_time_rejected(target_time: float) -> None:
     with pytest.raises(ValueError, match="target_time"):
         consistency_loss(
             field,
-            torch.randn(8, 3),
-            torch.randn(8, 3),
+            x_noise=torch.randn(8, 3),
+            x_data=torch.randn(8, 3),
             interpolant=LinearInterpolant(),
             parameterization=velocity_prediction(),
             target_time=target_time,

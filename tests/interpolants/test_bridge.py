@@ -67,7 +67,7 @@ def test_sample_matches_analytic_bridge_formula(
     batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
 ) -> None:
     x_data, x_noise, t, z = batch
-    state = interpolant.sample(x_data, x_noise, t, noise=z)
+    state = interpolant.sample(x_noise, x_data, t, noise=z)
     expected = _bridge_xt(x_data, x_noise, t, z, sigma=SIGMA)
     assert torch.allclose(state.xt, expected, atol=1e-12, rtol=1e-12)
 
@@ -77,7 +77,7 @@ def test_sample_state_carries_noise(
     batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
 ) -> None:
     x_data, x_noise, t, z = batch
-    state = interpolant.sample(x_data, x_noise, t, noise=z)
+    state = interpolant.sample(x_noise, x_data, t, noise=z)
     # Unlike LinearInterpolant, the bridge needs the noise z to define
     # x_t — so it lives on the state for downstream consumers.
     assert state.noise is not None
@@ -96,8 +96,8 @@ def test_sample_with_no_noise_draws_internally(
     x_noise = torch.randn(8, 3)
     t = 0.05 + 0.9 * torch.rand(8)
 
-    state_a = interpolant.sample(x_data, x_noise, t)
-    state_b = interpolant.sample(x_data, x_noise, t)
+    state_a = interpolant.sample(x_noise, x_data, t)
+    state_b = interpolant.sample(x_noise, x_data, t)
     # Different draws → different xt.
     assert not torch.allclose(state_a.xt, state_b.xt)
 
@@ -108,7 +108,7 @@ def test_velocity_matches_analytic_bridge_velocity(
 ) -> None:
     """Pins: Velocity target = ``(x_data - x_noise) + (2t-1)/(2 t(1-t))*(x_t - mu_t)``."""
     x_data, x_noise, t, z = batch
-    state = interpolant.sample(x_data, x_noise, t, noise=z)
+    state = interpolant.sample(x_noise, x_data, t, noise=z)
     expected = _bridge_velocity(x_data, x_noise, t, state.xt, eps=EPS)
     actual = interpolant.target(Velocity(), state)
     assert torch.allclose(actual, expected, atol=1e-12, rtol=1e-12)
@@ -120,7 +120,7 @@ def test_score_matches_analytic_bridge_score(
 ) -> None:
     """Pins: Score target = ``(mu_t - x_t) / (sigma2 * t(1-t))``."""
     x_data, x_noise, t, z = batch
-    state = interpolant.sample(x_data, x_noise, t, noise=z)
+    state = interpolant.sample(x_noise, x_data, t, noise=z)
     expected = _bridge_score(x_data, x_noise, t, state.xt, sigma=SIGMA, eps=EPS)
     actual = interpolant.target(Score(), state)
     assert torch.allclose(actual, expected, atol=1e-12, rtol=1e-12)
@@ -146,7 +146,7 @@ def test_generator_params_drift_equals_velocity_target(
     operator = ItoGeneratorOperator(
         event_shape=x_data.shape[-1:], diffusion=diffusion_mode
     )
-    state = interpolant.sample(x_data, x_noise, t, noise=z)
+    state = interpolant.sample(x_noise, x_data, t, noise=z)
     expected_drift = _bridge_velocity(x_data, x_noise, t, state.xt, eps=EPS)
 
     if diffusion_mode == "none":
@@ -168,7 +168,7 @@ def test_unsupported_targets_raise(
     target_cls: type,
 ) -> None:
     x_data, x_noise, t, z = batch
-    state = interpolant.sample(x_data, x_noise, t, noise=z)
+    state = interpolant.sample(x_noise, x_data, t, noise=z)
     with pytest.raises(NotImplementedError, match="Brownian-bridge increment"):
         interpolant.target(target_cls(), state)
 
@@ -195,7 +195,7 @@ def test_linear_interpolant_generator_params_drift_equals_velocity() -> None:
     t = torch.rand(16, dtype=torch.float64)
 
     interpolant = LinearInterpolant()
-    state = interpolant.sample(x_data, x_noise, t)
+    state = interpolant.sample(x_noise, x_data, t)
 
     expected_drift = x_data - x_noise
 

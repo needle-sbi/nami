@@ -52,11 +52,11 @@ from nami.parameterizations import Parameterization, Velocity
 
 def consistency_loss(
     field,
-    x_data: torch.Tensor,
+    *,
     x_noise: torch.Tensor,
+    x_data: torch.Tensor,
     t: torch.Tensor | None = None,
     c: torch.Tensor | None = None,
-    *,
     interpolant: Interpolant,
     parameterization: Parameterization,
     target_time: float = 1.0,
@@ -82,7 +82,7 @@ def consistency_loss(
     ----------
     field
         Network emitting velocity values (after ``output_transform``).
-    x_data, x_noise
+    x_noise, x_data
         Endpoints of the conditional path.
     t
         Optional pre-sampled times of shape matching the leading dims of
@@ -174,7 +174,7 @@ def consistency_loss(
     # so a stochastic interpolant places both trajectory points on the
     # same realisation — without this, BrownianBridgeInterpolant draws
     # independent z at each time and the consistency claim breaks.
-    state_t = interpolant.sample(x_data, x_noise, t, noise=z)
+    state_t = interpolant.sample(x_noise, x_data, t, noise=z)
     xt = state_t.xt
     vt = parameterization.output_transform(field(xt, t, c))
 
@@ -182,7 +182,7 @@ def consistency_loss(
         delta_broad = (tt - t).reshape(t.shape + (1,) * event_ndim)
         xtt = (xt + delta_broad * vt).detach()
     else:
-        state_tt = interpolant.sample(x_data, x_noise, tt, noise=z)
+        state_tt = interpolant.sample(x_noise, x_data, tt, noise=z)
         xtt = state_tt.xt
 
     vtt = parameterization.output_transform(field(xtt, tt, c))

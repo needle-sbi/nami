@@ -86,8 +86,8 @@ def test_perfect_scalar_field_gives_zero_loss() -> None:
 
     loss = action_matching_loss(
         field,
-        x_data,
-        x_noise,
+        x_data=x_data,
+        x_noise=x_noise,
         interpolant=LinearInterpolant(),
         parameterization=action_prediction(),
     )
@@ -105,8 +105,8 @@ def test_action_loss_is_differentiable() -> None:
     x_noise = torch.randn(8, 3)
     loss = action_matching_loss(
         head,
-        x_data,
-        x_noise,
+        x_data=x_data,
+        x_noise=x_noise,
         interpolant=LinearInterpolant(),
     )
     loss.backward()
@@ -123,8 +123,8 @@ def test_action_loss_rejects_non_action_parameterization() -> None:
     with pytest.raises(TypeError, match="Action"):
         action_matching_loss(
             head,
-            x_data,
-            x_noise,
+            x_data=x_data,
+            x_noise=x_noise,
             interpolant=LinearInterpolant(),
             parameterization=Parameterization(target=Velocity()),
         )
@@ -144,16 +144,16 @@ def test_action_loss_handles_stochastic_linear_interpolant_with_explicit_z() -> 
 
     loss1 = action_matching_loss(
         head,
-        x_data,
-        x_noise,
+        x_data=x_data,
+        x_noise=x_noise,
         t=t,
         interpolant=StochasticLinearInterpolant(),
         z=z,
     )
     loss2 = action_matching_loss(
         head,
-        x_data,
-        x_noise,
+        x_data=x_data,
+        x_noise=x_noise,
         t=t,
         interpolant=StochasticLinearInterpolant(),
         z=z,

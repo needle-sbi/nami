@@ -89,11 +89,11 @@ def _grad_x_s(
 
 def action_matching_loss(
     field,
-    x_data: torch.Tensor,
+    *,
     x_noise: torch.Tensor,
+    x_data: torch.Tensor,
     t: torch.Tensor | None = None,
     c: torch.Tensor | None = None,
-    *,
     interpolant: Interpolant,
     parameterization: Parameterization | None = None,
     eps_t: float = 0.0,
@@ -124,7 +124,7 @@ def action_matching_loss(
         Must expose ``event_ndim``.  Use
         :class:`~nami.fields.action.ActionHead` for the canonical
         implementation.
-    x_data, x_noise
+    x_noise, x_data
         Endpoints of the conditional path (noise at ``t=0``, data at
         ``t=1`` per nami's FM convention).
     t
@@ -171,7 +171,7 @@ def action_matching_loss(
     lead = leading_shape(x_data, event_ndim)
     t = sample_t(x_data, lead, t, eps_t)
 
-    state = interpolant.sample(x_data, x_noise, t, noise=z)
+    state = interpolant.sample(x_noise, x_data, t, noise=z)
     u_t = interpolant.target(parameterization.target, state)
 
     grad_s = _grad_x_s(field, state.xt, t, c, create_graph=create_graph)

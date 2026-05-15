@@ -51,8 +51,8 @@ class CosineInterpolant:
 
     def sample(
         self,
-        x_data: torch.Tensor,
         x_noise: torch.Tensor,
+        x_data: torch.Tensor,
         t: torch.Tensor,
         *,
         noise: torch.Tensor | None = None,

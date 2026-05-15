@@ -212,8 +212,8 @@ def test_default_eps_t_keeps_auto_sampled_t_off_endpoints(
 
     regression_loss(
         field,
-        x_data,
-        x_noise,
+        x_data=x_data,
+        x_noise=x_noise,
         interpolant=interpolant,
         parameterization=epsilon_prediction(schedule),
         eps_t=1e-3,
@@ -243,8 +243,8 @@ def test_explicit_t_is_not_silently_clamped(
     # divergence is the user's responsibility to avoid.
     loss = regression_loss(
         field,
-        x_data,
-        x_noise,
+        x_data=x_data,
+        x_noise=x_noise,
         t=t_at_zero,
         interpolant=interpolant,
         parameterization=epsilon_prediction(schedule),
@@ -263,8 +263,8 @@ def test_invalid_eps_t_raises(
         with pytest.raises(ValueError, match="eps_t"):
             regression_loss(
                 field,
-                x_data,
-                x_noise,
+                x_data=x_data,
+                x_noise=x_noise,
                 interpolant=interpolant,
                 parameterization=epsilon_prediction(schedule),
                 eps_t=bad,

@@ -40,14 +40,14 @@ def test_perfect_linear_generator_field_gives_zero_loss():
     # Use the interpolant's own target to construct the perfect field —
     # this is what a perfectly-trained model would emit.
     def perfect(x, _t, _c):  # noqa: ARG001
-        state = interpolant.sample(x_data, x_noise, t)
+        state = interpolant.sample(x_noise, x_data, t)
         return interpolant.target(GeneratorParams(operator=op), state)
 
     field = _Field(perfect).to(dtype=torch.float64)
     loss = regression_loss(
         field,
-        x_data,
-        x_noise,
+        x_data=x_data,
+        x_noise=x_noise,
         t=t,
         interpolant=interpolant,
         parameterization=generator_prediction(op),
@@ -78,14 +78,14 @@ def test_perfect_brownian_generator_field_gives_zero_loss():
     z = torch.randn(8, 3, dtype=torch.float64)
 
     def perfect(x, _t, _c):  # noqa: ARG001
-        state = interpolant.sample(x_data, x_noise, t, noise=z)
+        state = interpolant.sample(x_noise, x_data, t, noise=z)
         return interpolant.target(GeneratorParams(operator=op), state)
 
     field = _Field(perfect).to(dtype=torch.float64)
     loss = regression_loss(
         field,
-        x_data,
-        x_noise,
+        x_data=x_data,
+        x_noise=x_noise,
         t=t,
         interpolant=interpolant,
         parameterization=generator_prediction(op),
@@ -117,8 +117,8 @@ def test_generator_prediction_matches_explicit_parameterization():
 
     loss_factory = regression_loss(
         field,
-        x_data,
-        x_noise,
+        x_data=x_data,
+        x_noise=x_noise,
         t=t,
         interpolant=interpolant,
         parameterization=factory,
@@ -127,8 +127,8 @@ def test_generator_prediction_matches_explicit_parameterization():
     )
     loss_explicit = regression_loss(
         field,
-        x_data,
-        x_noise,
+        x_data=x_data,
+        x_noise=x_noise,
         t=t,
         interpolant=interpolant,
         parameterization=explicit,

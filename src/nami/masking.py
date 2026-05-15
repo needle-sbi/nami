@@ -49,12 +49,12 @@ def _expand_mask(mask: torch.Tensor, x: torch.Tensor, event_ndim: int) -> torch.
 
 def masked_fm_loss(
     field,
-    x_data: torch.Tensor,
-    x_noise: torch.Tensor,
     mask: torch.Tensor,
+    *,
+    x_noise: torch.Tensor,
+    x_data: torch.Tensor,
     t: torch.Tensor | None = None,
     c: torch.Tensor | None = None,
-    *,
     interpolant: Interpolant | None = None,
     parameterization: Parameterization | None = None,
     reduction: str = "mean",
@@ -68,8 +68,8 @@ def masked_fm_loss(
     ----------
     field : nn.Module
         Velocity field.  Must expose an ``event_ndim`` attribute >= 2.
-    x_data, x_noise : Tensor
-        Target and source tensors, each ``lead + event_shape``.
+    x_noise, x_data : Tensor
+        Source and target tensors, each ``lead + event_shape``.
     mask : Tensor
         Binary mask, ``lead + (N,)`` where *N* is the first event dim.
         ``1 = real``, ``0 = padding``.
@@ -114,7 +114,7 @@ def masked_fm_loss(
     lead = leading_shape(x_data, event_ndim)
     t = sample_t(x_data, lead, t, eps_t=0.0)
 
-    state = interpolant.sample(x_data, x_noise, t)
+    state = interpolant.sample(x_noise, x_data, t)
     target = interpolant.target(parameterization.target, state)
     prediction = parameterization.output_transform(field(state.xt, t, c))
 

@@ -48,11 +48,11 @@ def _log_prob_base_normal(x: torch.Tensor, event_ndim: int) -> torch.Tensor:
 def log_density_consistency_loss(
     field,
     h_head,
-    x_data: torch.Tensor,
+    *,
     x_noise: torch.Tensor,
+    x_data: torch.Tensor,
     t: torch.Tensor | None = None,
     c: torch.Tensor | None = None,
-    *,
     interpolant: Interpolant | None = None,
     target_h_head=None,
     delta: float = 0.01,
@@ -164,7 +164,7 @@ def log_density_consistency_loss(
 
     # Trajectory-pair samples share ``z`` so a stochastic interpolant
     # places ``x_t`` and ``x_{t-\delta}`` on the same realisation.
-    xt = interpolant.sample(x_data, x_noise, t, noise=z).xt
+    xt = interpolant.sample(x_noise, x_data, t, noise=z).xt
 
     # Divergence of the velocity field at (xt, t).
     div_v = divergence_estimator(field, xt, t, c)
@@ -178,7 +178,7 @@ def log_density_consistency_loss(
         delta_broad = _reshape(tt - t)
         xtt = (xt + delta_broad * vt).detach()
     else:
-        xtt = interpolant.sample(x_data, x_noise, tt, noise=z).xt
+        xtt = interpolant.sample(x_noise, x_data, tt, noise=z).xt
 
     # h predictions at both trajectory points.
     # h has its known boundary at t=0 (noise), so h_tt (closer to t=0) is
@@ -199,7 +199,7 @@ def log_density_consistency_loss(
     consistency_mse = (h_t - target).pow(2)
 
     # Boundary loss: h(x, 0) should equal log p_base(x) at the noise endpoint.
-    x_at_zero = interpolant.sample(x_data, x_noise, torch.zeros_like(t)).xt
+    x_at_zero = interpolant.sample(x_noise, x_data, torch.zeros_like(t)).xt
     h_at_zero = h_head(x_at_zero, torch.zeros_like(t), c)
     log_p_base = _log_prob_base_normal(x_at_zero, event_ndim)
     boundary_mse = (h_at_zero - log_p_base).pow(2)

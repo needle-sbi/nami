@@ -41,7 +41,7 @@ def test_v_target_gaussian_matches_alpha_eps_minus_sigma_x0() -> None:
     x_noise = torch.randn(8, 3, dtype=torch.float64)
     t = 0.05 + 0.9 * torch.rand(8, dtype=torch.float64)
 
-    state = interpolant.sample(x_data, x_noise, t)
+    state = interpolant.sample(x_noise, x_data, t)
     v_actual = interpolant.target(VPrediction(), state)
 
     a = schedule.alpha(t).unsqueeze(-1)
@@ -168,7 +168,7 @@ def _state_for(interpolant) -> object:
     x_data = torch.randn(4, 3)
     x_noise = torch.randn(4, 3)
     t = 0.05 + 0.9 * torch.rand(4)
-    return interpolant.sample(x_data, x_noise, t)
+    return interpolant.sample(x_noise, x_data, t)
 
 
 @pytest.mark.parametrize(

@@ -32,11 +32,11 @@ from nami.parameterizations import Parameterization, Score, Velocity
 def bridge_matching_loss(
     flow_field,
     score_field,
-    x_data: torch.Tensor,
+    *,
     x_noise: torch.Tensor,
+    x_data: torch.Tensor,
     t: torch.Tensor | None = None,
     c: torch.Tensor | None = None,
-    *,
     interpolant: BrownianBridgeInterpolant | None = None,
     z: torch.Tensor | None = None,
     flow_weight: float = 1.0,
@@ -90,8 +90,8 @@ def bridge_matching_loss(
 
     flow_loss = regression_loss(
         flow_field,
-        x_data,
-        x_noise,
+        x_noise=x_noise,
+        x_data=x_data,
         t=t,
         c=c,
         interpolant=interpolant,
@@ -102,8 +102,8 @@ def bridge_matching_loss(
     )
     score_loss = regression_loss(
         score_field,
-        x_data,
-        x_noise,
+        x_noise=x_noise,
+        x_data=x_data,
         t=t,
         c=c,
         interpolant=interpolant,

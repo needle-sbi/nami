@@ -51,7 +51,7 @@ def test_sample_matches_alpha_sigma_formula(
     batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor],
 ) -> None:
     x_data, x_noise, t = batch
-    state = interpolant.sample(x_data, x_noise, t)
+    state = interpolant.sample(x_noise, x_data, t)
     a = schedule.alpha(t).unsqueeze(-1)
     s = schedule.sigma(t).unsqueeze(-1)
     expected = a * x_noise + s * x_data
@@ -72,8 +72,8 @@ def test_sample_endpoints_are_pure_noise_and_clean_data(
     x_noise = torch.randn(4, 2)
     t0 = torch.zeros(4)
     t1 = torch.ones(4)
-    state0 = interpolant.sample(x_data, x_noise, t0)
-    _ = interpolant.sample(x_data, x_noise, t1)
+    state0 = interpolant.sample(x_noise, x_data, t0)
+    _ = interpolant.sample(x_noise, x_data, t1)
     # At t=0 the noise endpoint dominates fully (alpha(0)=1, sigma(0)=0).
     diff0 = (state0.xt - x_noise).abs().max().item()
     assert diff0 < 1e-6, f"max diff at t=0 is {diff0}; expected ~0"
@@ -91,7 +91,7 @@ def test_sample_state_has_no_extra_noise_slot(
     batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor],
 ) -> None:
     x_data, x_noise, t = batch
-    state = interpolant.sample(x_data, x_noise, t)
+    state = interpolant.sample(x_noise, x_data, t)
     assert state.noise is None
     assert isinstance(state, InterpolantState)
 
@@ -102,7 +102,7 @@ def test_sample_rejects_external_noise_argument(
 ) -> None:
     x_data, x_noise, t = batch
     with pytest.raises(ValueError, match="x_noise"):
-        interpolant.sample(x_data, x_noise, t, noise=torch.randn_like(x_noise))
+        interpolant.sample(x_noise, x_data, t, noise=torch.randn_like(x_noise))
 
 
 # ---------------------------------------------------------------------------
@@ -115,7 +115,7 @@ def test_target_epsilon_returns_x_noise(
     batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor],
 ) -> None:
     x_data, x_noise, t = batch
-    state = interpolant.sample(x_data, x_noise, t)
+    state = interpolant.sample(x_noise, x_data, t)
     assert torch.equal(interpolant.target(Epsilon(), state), x_noise)
 
 
@@ -124,7 +124,7 @@ def test_target_x0_returns_x_data(
     batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor],
 ) -> None:
     x_data, x_noise, t = batch
-    state = interpolant.sample(x_data, x_noise, t)
+    state = interpolant.sample(x_noise, x_data, t)
     assert torch.equal(interpolant.target(X0(), state), x_data)
 
 
@@ -139,7 +139,7 @@ def test_target_score_matches_negative_eps_over_alpha(
     alpha(1)=0), so the score divides by alpha rather than sigma.
     """
     x_data, x_noise, t = batch
-    state = interpolant.sample(x_data, x_noise, t)
+    state = interpolant.sample(x_noise, x_data, t)
     expected = -x_noise / schedule.alpha(t).unsqueeze(-1)
     actual = interpolant.target(Score(), state)
     assert torch.allclose(actual, expected, atol=1e-6)
@@ -163,7 +163,7 @@ def test_score_target_is_singular_at_t_one_by_design(
     """
     x_data = torch.randn(2, 3)
     x_noise = torch.randn(2, 3)
-    state = interpolant.sample(x_data, x_noise, torch.ones(2))
+    state = interpolant.sample(x_noise, x_data, torch.ones(2))
     score = interpolant.target(Score(), state)
     # VPSchedule's alpha(1) is small (~0.0066) but not exactly zero, so
     # the score blows up to a very large finite value rather than inf/nan.
@@ -199,7 +199,7 @@ def test_target_velocity_raises_until_schedule_derivatives_exist(
     force a deliberate update — guarding against silent capability drift.
     """
     x_data, x_noise, t = batch
-    state = interpolant.sample(x_data, x_noise, t)
+    state = interpolant.sample(x_noise, x_data, t)
     with pytest.raises(NotImplementedError, match="derivatives"):
         interpolant.target(Velocity(), state)
 

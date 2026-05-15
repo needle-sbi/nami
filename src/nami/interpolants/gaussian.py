@@ -77,16 +77,35 @@ class GaussianInterpolant:
        test.
     """
 
+    # The single field is a NoiseSchedule (e.g. nami.VPSchedule(),
+    # nami.VESchedule(), nami.EDMSchedule()) — not a tensor dim. A common
+    # first-use trap is ``GaussianInterpolant(4)``; __post_init__ catches
+    # that with an actionable message instead of failing later inside
+    # ``sample`` with ``'int' object has no attribute 'alpha'``.
     schedule: NoiseSchedule
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.schedule, NoiseSchedule):
+            msg = (
+                f"GaussianInterpolant(schedule=...) expects a NoiseSchedule "
+                f"instance (e.g. nami.VPSchedule()), got {type(self.schedule).__name__}. "
+                f"If you want a velocity-style flow-matching interpolant with "
+                f"no schedule, use nami.LinearInterpolant() instead."
+            )
+            raise TypeError(msg)
 
     def sample(
         self,
-        x_data: torch.Tensor,
         x_noise: torch.Tensor,
+        x_data: torch.Tensor,
         t: torch.Tensor,
         *,
         noise: torch.Tensor | None = None,
     ) -> InterpolantState:
+        # ``noise=`` is rejected: for a Gaussian interpolant the "noise
+        # variable" *is* x_noise (the source endpoint plays the role of
+        # epsilon). Accepting a separate noise tensor would create two
+        # parallel conventions for the same quantity.
         if noise is not None:
             msg = (
                 "GaussianInterpolant uses x_noise as the noise variable; "
@@ -118,9 +137,16 @@ class GaussianInterpolant:
                 a = expand_like(self.schedule.alpha(state.t), state.x_noise)
                 return -state.x_noise / a
             case Velocity():
+                # Velocity needs schedule derivatives (alpha'(t), sigma'(t))
+                # which the base NoiseSchedule contract does not expose. For
+                # flow-matching with a Velocity target, use LinearInterpolant
+                # (closed-form constant velocity = x_noise - x_data) or
+                # CosineInterpolant (closed-form alpha'/sigma').
                 msg = (
                     "GaussianInterpolant does not implement Velocity — "
-                    "schedule derivatives \\alpha'(t), \\sigma'(t) are required."
+                    "schedule derivatives \\alpha'(t), \\sigma'(t) are required. "
+                    "Use nami.LinearInterpolant() (with velocity_prediction()) "
+                    "or nami.CosineInterpolant() for a Velocity target."
                 )
                 raise NotImplementedError(msg)
             case VPrediction():

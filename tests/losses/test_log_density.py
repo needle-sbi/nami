@@ -61,7 +61,7 @@ def test_log_density_consistency_loss_runs():
     x_noise = torch.randn(5, 3)
     t = torch.rand(5)
 
-    loss = log_density_consistency_loss(field, h_head, x_data, x_noise, t=t)
+    loss = log_density_consistency_loss(field, h_head, x_data=x_data, x_noise=x_noise, t=t)
 
     assert loss.shape == ()
     assert torch.isfinite(loss)
@@ -75,13 +75,13 @@ def test_log_density_consistency_loss_reductions():
     t = torch.rand(5)
 
     loss_none = log_density_consistency_loss(
-        field, h_head, x_data, x_noise, t=t, reduction="none"
+        field, h_head, x_data=x_data, x_noise=x_noise, t=t, reduction="none"
     )
     loss_sum = log_density_consistency_loss(
-        field, h_head, x_data, x_noise, t=t, reduction="sum"
+        field, h_head, x_data=x_data, x_noise=x_noise, t=t, reduction="sum"
     )
     loss_mean = log_density_consistency_loss(
-        field, h_head, x_data, x_noise, t=t, reduction="mean"
+        field, h_head, x_data=x_data, x_noise=x_noise, t=t, reduction="mean"
     )
 
     assert loss_none.shape == (5,)
@@ -102,7 +102,7 @@ def test_log_density_consistency_loss_boundary_anchors_at_noise():
     x_noise = torch.randn(8, dim)
 
     loss = log_density_consistency_loss(
-        field, h_head, x_data, x_noise, lambda_boundary=1.0
+        field, h_head, x_data=x_data, x_noise=x_noise, lambda_boundary=1.0
     )
 
     assert torch.isfinite(loss)
@@ -128,8 +128,8 @@ def test_log_density_consistency_loss_with_target_h_head():
     log_density_consistency_loss(
         field,
         h_head,
-        x_data,
-        x_noise,
+        x_data=x_data,
+        x_noise=x_noise,
         target_h_head=target_h_head,
     )
 
@@ -148,7 +148,7 @@ def test_log_density_consistency_loss_gradients_flow_to_h_head():
     x_data = torch.randn(4, 3)
     x_noise = torch.randn(4, 3)
 
-    loss = log_density_consistency_loss(field, h_head, x_data, x_noise)
+    loss = log_density_consistency_loss(field, h_head, x_data=x_data, x_noise=x_noise)
     loss.backward()
 
     assert param.grad is not None
@@ -164,8 +164,8 @@ def test_log_density_consistency_loss_euler_step_runs():
     loss = log_density_consistency_loss(
         field,
         h_head,
-        x_data,
-        x_noise,
+        x_data=x_data,
+        x_noise=x_noise,
         euler_step=True,
     )
 
@@ -236,7 +236,7 @@ def test_negative_or_zero_delta_rejected():
             log_density_consistency_loss(
                 field,
                 h_head,
-                x_data,
-                x_noise,
+                x_data=x_data,
+                x_noise=x_noise,
                 delta=bad,
             )
