@@ -84,13 +84,12 @@ test = "pytest -q"
 cov = "pytest --cov --cov-report=term-missing"
 lint = "ruff check src tests"
 fmt = "ruff format src tests"
-typecheck = "ty check src/nami src/nami_toys"
-pylint = "pylint src/nami src/nami_toys"
+typecheck = "ty check src"
 docs = "LC_ALL= LC_CTYPE= sphinx-build -a -E -b html docs docs/_build/html"
 docs-rtd = "LC_ALL= LC_CTYPE= sphinx-build -T -b html -d docs/_build/doctrees -D language=en docs $READTHEDOCS_OUTPUT/html"
 docs-serve = "LC_ALL= LC_CTYPE= sphinx-autobuild -a -E --host 127.0.0.1 --port 8001 --watch src/nami --ignore docs/books docs docs/_build/html"
 build = "hatch build"
-kernel = "python -m ipykernel install --user --name nami"
+kernel = "python -m ipykernel install --user --name nami-dev"
 
 [tool.pixi.environments]
 default = { features = ["cpu", "docs", "lint", "test", "typecheck", "build", "experiments", "hooks"], solve-group = "cpu" }
