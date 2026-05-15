@@ -142,17 +142,17 @@ class TestMaskedFmLoss:
 
     def test_output_is_scalar(self, setup):
         field, x_data, x_noise, mask = setup
-        loss = masked_fm_loss(field, x_data, x_noise, mask)
+        loss = masked_fm_loss(field, mask, x_noise=x_noise, x_data=x_data)
         assert loss.shape == ()
 
     def test_reduction_none(self, setup):
         field, x_data, x_noise, mask = setup
-        loss = masked_fm_loss(field, x_data, x_noise, mask, reduction="none")
+        loss = masked_fm_loss(field, mask, x_noise=x_noise, x_data=x_data, reduction="none")
         assert loss.shape == (8,)
 
     def test_reduction_sum(self, setup):
         field, x_data, x_noise, mask = setup
-        loss = masked_fm_loss(field, x_data, x_noise, mask, reduction="sum")
+        loss = masked_fm_loss(field, mask, x_noise=x_noise, x_data=x_data, reduction="sum")
         assert loss.shape == ()
 
     def test_all_ones_mask_matches_regression_loss(self):
@@ -169,11 +169,11 @@ class TestMaskedFmLoss:
         mask = torch.ones(batch, n_objects)
         t = torch.rand(batch)
 
-        loss_masked = masked_fm_loss(field, x_data, x_noise, mask, t=t)
+        loss_masked = masked_fm_loss(field, mask, x_noise=x_noise, x_data=x_data, t=t)
         loss_plain = regression_loss(
             field,
-            x_data,
-            x_noise,
+            x_data=x_data,
+            x_noise=x_noise,
             t=t,
             interpolant=LinearInterpolant(),
             parameterization=velocity_prediction(),
@@ -199,7 +199,7 @@ class TestMaskedFmLoss:
         mask = torch.tensor([[1.0, 1.0, 0.0]])
         t = torch.tensor([0.5])
 
-        loss = masked_fm_loss(field, x_data, x_noise, mask, t=t, reduction="none")
+        loss = masked_fm_loss(field, mask, x_noise=x_noise, x_data=x_data, t=t, reduction="none")
         assert torch.allclose(loss, torch.tensor([7.5]))
 
     def test_zero_mask_gives_zero_loss(self):
@@ -211,7 +211,7 @@ class TestMaskedFmLoss:
         x_noise = torch.randn(batch, n_objects, dim)
         mask = torch.zeros(batch, n_objects)
 
-        loss = masked_fm_loss(field, x_data, x_noise, mask)
+        loss = masked_fm_loss(field, mask, x_noise=x_noise, x_data=x_data)
         assert loss.item() == 0.0
 
     def test_event_ndim_1_raises(self):
@@ -219,19 +219,19 @@ class TestMaskedFmLoss:
         x = torch.randn(4, 5)
         mask = torch.ones(4)
         with pytest.raises(ValueError, match="event_ndim >= 2"):
-            masked_fm_loss(field, x, x, mask)
+            masked_fm_loss(field, mask, x_noise=x, x_data=x)
 
     def test_no_event_ndim_raises(self):
         field = nn.Linear(3, 3)  # no event_ndim attribute
         x = torch.randn(4, 3)
         mask = torch.ones(4)
         with pytest.raises(ValueError, match="event_ndim is required"):
-            masked_fm_loss(field, x, x, mask)
+            masked_fm_loss(field, mask, x_noise=x, x_data=x)
 
     def test_custom_interpolant(self, setup):
         field, x_data, x_noise, mask = setup
         loss = masked_fm_loss(
-            field, x_data, x_noise, mask, interpolant=CosineInterpolant()
+            field, mask, x_noise=x_noise, x_data=x_data, interpolant=CosineInterpolant()
         )
         assert loss.shape == ()
         assert loss.item() > 0
@@ -239,7 +239,7 @@ class TestMaskedFmLoss:
     def test_invalid_reduction(self, setup):
         field, x_data, x_noise, mask = setup
         with pytest.raises(ValueError, match="reduction"):
-            masked_fm_loss(field, x_data, x_noise, mask, reduction="invalid")
+            masked_fm_loss(field, mask, x_noise=x_noise, x_data=x_data, reduction="invalid")
 
     def test_fewer_real_objects_lower_or_equal_loss(self):
         """Masking more objects should not increase loss when padded values
@@ -256,8 +256,8 @@ class TestMaskedFmLoss:
         mask_real = torch.tensor([[1, 1, 1, 0, 0, 0]], dtype=torch.float32)
         t = torch.tensor([0.5])
 
-        loss_all = masked_fm_loss(field, x_data, x_noise, mask_all, t=t)
-        loss_real = masked_fm_loss(field, x_data, x_noise, mask_real, t=t)
+        loss_all = masked_fm_loss(field, mask_all, x_noise=x_noise, x_data=x_data, t=t)
+        loss_real = masked_fm_loss(field, mask_real, x_noise=x_noise, x_data=x_data, t=t)
         assert loss_real < loss_all
 
     def test_integer_mask(self, setup):
@@ -265,7 +265,7 @@ class TestMaskedFmLoss:
         field, x_data, x_noise, _ = setup
         mask_int = torch.ones(8, 10, dtype=torch.long)
         mask_int[:, 7:] = 0
-        loss = masked_fm_loss(field, x_data, x_noise, mask_int)
+        loss = masked_fm_loss(field, mask_int, x_noise=x_noise, x_data=x_data)
         assert loss.shape == ()
 
 
