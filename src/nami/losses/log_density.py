@@ -1,22 +1,8 @@
 """Log-density consistency loss.
 
-This module formerly housed ``cfm_loss`` (forward consistency) and
-``cfm_reverse_loss`` (reverse consistency); both were deleted in
-stage 4 and replaced by
-:func:`~nami.losses.consistency.consistency_loss`, which dispatches
-between forward and reverse via the ``target_time`` kwarg on the
-unified ``Interpolant + Parameterization`` vocabulary.
-
-What survives here is :func:`log_density_consistency_loss` — a
-structurally different loss that trains a scalar log-density head
-``h_θ(x_t, t)`` via the instantaneous change-of-variables identity
-along an ODE trajectory (Chen et al., *Neural Ordinary Differential
-Equations*, 2018, arXiv:1806.07366) using a stochastic-trace
-divergence estimator (Hutchinson, 1989; Grathwohl et al., *FFJORD:
-Free-form Continuous Dynamics for Scalable Reversible Generative
-Models*, 2018, arXiv:1810.01367).  It consumes
-:class:`~nami.interpolants.protocol.Interpolant` rather than the
-deleted ``ProbabilityPath``.
+This module trains a scalar log-density head ``h_\theta(x_t,t)`` with the
+instantaneous change-of-variables identity along an ODE trajectory.  It uses
+divergence estimates in the style of Hutchinson traces and FFJORD.
 """
 
 from __future__ import annotations
@@ -37,7 +23,15 @@ from nami.losses._common import (
 
 
 def _log_prob_base_normal(x: torch.Tensor, event_ndim: int) -> torch.Tensor:
-    """Log-density of a standard normal, reduced over event dims."""
+    """Evaluate standard-normal log density over event dimensions.
+
+    Args:
+        x (torch.Tensor): Tensor with shape ``lead + event_shape``.
+        event_ndim (int): Number of trailing event dimensions.
+
+    Returns:
+        torch.Tensor: Log density with shape ``lead``.
+    """
     d = 1
     for s in x.shape[-event_ndim:]:
         d *= s
@@ -62,15 +56,22 @@ def log_density_consistency_loss(
     z: torch.Tensor | None = None,
     reduction: str = "mean",
 ) -> torch.Tensor:
-    r"""Log-prob consistency loss for the scalar head :math:`h_\theta`.
+    r"""Compute log-probability consistency loss for ``h_\theta``.
 
     Mathematical object: a trajectory-pair consistency objective for a
     log-density head, derived from the instantaneous change-of-variables
     identity along the ODE flow (Chen et al., *Neural Ordinary
     Differential Equations*, 2018, arXiv:1806.07366; Grathwohl et al.,
     *FFJORD*, 2018, arXiv:1810.01367 — divergence estimator).  Anchors
-    to the analytically-known base density at ``t = 1`` via an
-    auxiliary boundary term.
+    to the analytically-known base density at ``t = 0`` (the noise
+    endpoint in the FM convention) via an auxiliary boundary term.
+
+    Time-direction note: sampling integrates ``t : 0 → 1`` (noise →
+    data), but the log-density identity is integrated ``t : 1 → 0``
+    (data → noise) so that the trajectory terminates at the base
+    distribution whose density is known.  This loss enforces the
+    discrete analogue along the consistency pair ``(t, t - δ)``, stepping
+    toward the boundary anchor at ``t = 0``.
 
     Trains :math:`h_\\theta(x_t, t)` to predict :math:`\\log p_t(x_t)` via
     the consistency condition
@@ -86,58 +87,51 @@ def log_density_consistency_loss(
     from the noise endpoint where :math:`h` is known.
 
     An auxiliary boundary loss anchors :math:`h` at the noise endpoint
-    :math:`t = 1` where the base density is known analytically:
+    :math:`t = 0` where the base density is known analytically:
 
     .. math::
 
         \\mathcal{L}_{\\mathrm{bc}}
-        = \\lVert h(x_1, 1) - \\log p_{\\mathrm{base}}(x_1) \\rVert^2
+        = \\lVert h(x_0, 0) - \\log p_{\\mathrm{base}}(x_0) \\rVert^2
 
-    Parameters
-    ----------
-    field : nn.Module
-        Velocity field (used for divergence estimation).
-    h_head : nn.Module
-        Scalar head predicting :math:`\\log p_t(x_t)`.
-    x_data : Tensor
-        Target (data) minibatch.
-    x_noise : Tensor
-        Source (noise) minibatch.
-    t : Tensor or None
-        Time samples; drawn from U[0, 1] when ``None``.
-    c : Tensor or None
-        Optional conditioning context.
-    interpolant : nami.interpolants.protocol.Interpolant or None
-        Interpolant for ``x_t`` sampling; defaults to
-        :class:`~nami.interpolants.linear.LinearInterpolant`.
-    target_h_head : nn.Module or None
-        EMA copy of ``h_head`` for the target prediction at ``t + delta``.
-        When ``None`` the target is computed with ``h_head`` and detached.
-    delta : float
-        Time offset along the trajectory.
-    lambda_boundary : float
-        Weight of the boundary loss at :math:`t = 0` (the noise endpoint
-        in the FM convention).
-    divergence_estimator : nami.divergence.base.DivergenceEstimator or None
-        Estimator for :math:`\\operatorname{div} v_\\theta`.  Defaults to
-        :class:`HutchinsonDivergence`.
-    euler_step : bool
-        When ``True``, generate ``x_{t+\delta}`` via a detached Euler step of the
-        learned velocity instead of the conditional path.  Reduces gradient
-        variance from trajectory mismatch.
-    z : Tensor or None
-        Optional latent noise for stochastic interpolants.  Forwarded
-        as ``noise=z`` to *both* trajectory-point samples (``x_t`` and
-        ``x_{t-\delta}``) so they sit on the same bridge realisation. The
-        boundary point ``x_0`` is *not* given the same noise — it is
-        meant to be a fresh sample from the noise endpoint distribution
-        for the boundary anchor.  Deterministic interpolants
-        (``LinearInterpolant``) reject ``z`` explicitly; stochastic
-        interpolants without an explicit ``z`` would otherwise draw
-        independent noise per sample call and break the consistency
-        claim across the trajectory pair.
-    reduction : str
-        ``"mean"`` | ``"sum"`` | ``"none"``.
+    Notes:
+    Unlike :func:`~nami.losses.consistency.consistency_loss` and
+    :func:`~nami.losses.regression.regression_loss`, this loss does
+    **not** take a ``parameterization=`` kwarg.  The divergence term
+    ``div v_θ(x_t, t)`` and the optional Euler-step branch both consume
+    the raw field output as a velocity, so the loss is intrinsically
+    tied to the :class:`~nami.parameterizations.Velocity` parameterization.
+    For models trained under other parameterizations (Epsilon / Score /
+    X0 / VPrediction), convert to a velocity at the :class:`Process`
+    layer before training a log-density head against it, or use
+    exact-likelihood ODE integration via
+    :meth:`ConsistencyFlowMatching.log_prob` with ``ode=True``.
+
+    Args:
+        field: Velocity field used for divergence estimation.
+        h_head: Scalar head predicting ``\log p_t(x_t)``.
+        x_noise (torch.Tensor): Noise endpoint minibatch.
+        x_data (torch.Tensor): Data endpoint minibatch.
+        t (torch.Tensor | None): Optional time samples. Drawn from
+            ``U[0, 1]`` when ``None``.
+        c (torch.Tensor | None): Optional conditioning context.
+        interpolant (Interpolant | None): Interpolant for ``x_t`` sampling.
+            Defaults to :class:`~nami.interpolants.linear.LinearInterpolant`.
+        target_h_head: Optional target network, such as an EMA copy, for the
+            detached prediction.
+        delta (float): Positive time offset along the trajectory.
+        lambda_boundary (float): Weight of the boundary loss at ``t=0``.
+        divergence_estimator: Estimator for
+            ``\operatorname{div} v_\theta``. Defaults to
+            :class:`HutchinsonDivergence`.
+        euler_step (bool): If ``True``, generate the paired trajectory point
+            via a detached Euler step.
+        z (torch.Tensor | None): Optional latent noise shared by stochastic
+            interpolant samples.
+        reduction (str): ``"mean"``, ``"sum"``, or ``"none"``.
+
+    Returns:
+        torch.Tensor: Reduced log-density consistency loss.
     """
     event_ndim = require_event_ndim(field)
 
