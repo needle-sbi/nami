@@ -213,7 +213,10 @@ class ActionMatchingProcess(ProcessRuntimeMixin):
         when the field's parameters are frozen.
         """
         with torch.enable_grad():
-            xx = x.detach().requires_grad_(True)
+            if create_graph:
+                xx = x if x.requires_grad else x.clone().requires_grad_(True)
+            else:
+                xx = x.detach().requires_grad_(True)
             s = self._field(xx, t, context)
             (grad_s,) = torch.autograd.grad(
                 outputs=s.sum(),
