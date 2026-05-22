@@ -13,7 +13,7 @@ class ActionHead(nn.Module):
 
     Follows the ``(x, t, c)`` calling convention of
     :class:`~nami.VelocityField, but outputs a single scalar per sample.
-    
+
     The conditional velocity is recovered by autograd:
     :math:`u_t(x) = \\nabla_x s(x, t)`.  Intended for use with
     :func:`~nami.action_matching_loss` and

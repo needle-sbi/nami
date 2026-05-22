@@ -79,7 +79,6 @@ except ModuleNotFoundError:
     __version__ = "0+unknown"
 
 
-
 __all__ = [
     "RK4",
     "X0",
