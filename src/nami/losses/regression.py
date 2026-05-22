@@ -1,4 +1,4 @@
-r"""Unified regression loss for the Interpolant + Parameterization vocabulary.
+r"""Unified regression loss for the Interpolant + Parameterization schema.
 
 ``regression_loss`` is the training-time half of the unified design.  It
 consumes any :class:`~nami.interpolants.protocol.Interpolant` and any

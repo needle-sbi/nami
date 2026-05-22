@@ -19,7 +19,6 @@ from nami.core.specs import event_numel, flatten_event, validate_shapes
 from nami.fields._common import normalise_event_shape, validate_context
 from nami.fields.base import VectorField
 
-
 class GeneratorField(VectorField):
     """MLP field that predicts generator parameters."""
 

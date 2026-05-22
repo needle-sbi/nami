@@ -58,7 +58,7 @@ class ActionMatching(LazyProcess):
     Parameters
     ----------
     field
-        Scalar-output head — :class:`~nami.fields.action.ActionHead` is
+        Scalar-output head :class:`~nami.fields.action.ActionHead` is
         the canonical choice.  Must expose ``event_ndim``.
     base
         Base distribution sampled at ``t0``.

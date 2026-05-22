@@ -166,7 +166,7 @@ class DiffusionProcess(ProcessRuntimeMixin):
         solver,
         *,
         parameterization: Parameterization,
-        # See note on Diffusion.__init__ above — diffusion retains the
+        # See note on Diffusion.__init__ above, diffusion retains the
         # diffusion-convention t-direction.
         t0: float = 1.0,
         t1: float = 0.0,

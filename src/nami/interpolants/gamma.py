@@ -40,7 +40,7 @@ class GammaSchedule:
 
 
 class ZeroGamma(GammaSchedule):
-    """Degenerate schedule ``\\gamma(t) \\equiv 0`` — recovers deterministic interpolation."""
+    """Degenerate schedule ``\\gamma(t) \\equiv 0`` recovers deterministic interpolation."""
 
     def gamma(self, t: torch.Tensor) -> torch.Tensor:
         return torch.zeros_like(t)
@@ -56,7 +56,7 @@ class ZeroGamma(GammaSchedule):
 class BrownianGamma(GammaSchedule):
     """Brownian-bridge schedule ``\\gamma(t) = \\sqrt{t(1-t)}``.
 
-    Default choice from Albergo et al. — the noise scale vanishes at
+    Default choice from Albergo et al. the noise scale vanishes at
     both endpoints so the interpolant matches the source / target
     distributions exactly at ``t=0`` and ``t=1``.
     """

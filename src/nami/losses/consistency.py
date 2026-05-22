@@ -98,7 +98,7 @@ def consistency_loss(
     """
     if not isinstance(parameterization.target, Velocity):
         msg = (
-            "consistency_loss requires a Velocity target — the consistency "
+            "consistency_loss requires a Velocity target. The consistency "
             "function f(x, t, v) needs a velocity v, and this loss carries "
             "no schedule with which to convert from Score / Epsilon / X0.  "
             "If you want consistency over a Score-trained model, train a "
@@ -119,7 +119,7 @@ def consistency_loss(
         msg = (
             f"delta must be positive; got {delta}.  A non-positive delta "
             "would push tt = clamp(t + delta, max=1.0) below or equal to "
-            "t, breaking the trajectory-pair semantics — and a negative "
+            "t, breaking the trajectory-pair semantics and a negative "
             "delta could send tt outside [0, 1] entirely, producing "
             "sqrt(t (1-t)) of a negative argument inside "
             "BrownianBridgeInterpolant.sample."
@@ -133,7 +133,7 @@ def consistency_loss(
 
     # Sample ``(x_t, x_{t+\delta})``. Both calls forward the same ``noise=z``
     # so a stochastic interpolant places both trajectory points on the
-    # same realisation — without this, BrownianBridgeInterpolant draws
+    # same realisation, without this, BrownianBridgeInterpolant draws
     # independent z at each time and the consistency claim breaks.
     state_t = interpolant.sample(x_noise, x_data, t, noise=z)
     xt = state_t.xt
@@ -159,7 +159,7 @@ def consistency_loss(
     # detached.  For target_time=0 (reverse consistency, noise endpoint)
     # that's the t-side (smaller t, closer to 0); for target_time=1
     # (forward consistency, data endpoint) that's the tt-side (larger t,
-    # closer to 1).  ``target_time`` is validated to be exactly one of
+    # closer to 1). ``target_time`` is validated to be exactly one of
     # those two values above, so this branch is the only honest split.
     if target_time == 0.0:
         if target_field is not None:

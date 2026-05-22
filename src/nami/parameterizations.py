@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 # Every variant is a frozen dataclass so it can carry per-target metadata
 # (e.g. the GeneratorOperator that interprets GeneratorParams) without
 # leaking into string-keyed registries.  Frozen dataclasses also receive
-# ``__match_args__`` for free, which makes ``case Variant(field=x):``
+# ``__match_args__``, which makes ``case Variant(field=x):``
 # pattern matching work at call sites.
 
 

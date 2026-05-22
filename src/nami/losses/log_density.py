@@ -62,15 +62,15 @@ def log_density_consistency_loss(
     log-density head, derived from the instantaneous change-of-variables
     identity along the ODE flow (Chen et al., *Neural Ordinary
     Differential Equations*, 2018, arXiv:1806.07366; Grathwohl et al.,
-    *FFJORD*, 2018, arXiv:1810.01367 — divergence estimator).  Anchors
+    *FFJORD*, 2018, arXiv:1810.01367 divergence estimator).  Anchors
     to the analytically-known base density at ``t = 0`` (the noise
     endpoint in the FM convention) via an auxiliary boundary term.
 
-    Time-direction note: sampling integrates ``t : 0 → 1`` (noise →
-    data), but the log-density identity is integrated ``t : 1 → 0``
-    (data → noise) so that the trajectory terminates at the base
+    Time-direction note: sampling integrates ``t : 0 -> 1`` (noise ->
+    data), but the log-density identity is integrated ``t : 1 -> 0``
+    (data -> noise) so that the trajectory terminates at the base
     distribution whose density is known.  This loss enforces the
-    discrete analogue along the consistency pair ``(t, t - δ)``, stepping
+    discrete analogue along the consistency pair ``(t, t - \delta)``, stepping
     toward the boundary anchor at ``t = 0``.
 
     Trains :math:`h_\\theta(x_t, t)` to predict :math:`\\log p_t(x_t)` via

@@ -16,10 +16,10 @@ class ActionHead(nn.Module):
     The conditional velocity is recovered by autograd:
     :math:`u_t(x) = \\nabla_x s(x, t)`.  Intended for use with
     :func:`~nami.action_matching_loss` and
-    :class:`~nami.ActionMatching` — both the training loss and the
+    :class:`~nami.ActionMatching`, where both the training loss and the
     runtime integrator differentiate ``s`` with respect to ``x``.
 
-    Structurally identical to
+    This is Structurally identical to
     :class:`~nami.fields.consistency.LogDensityHead` (also scalar-out),
     but kept as a distinct class so the calling convention names the
     quantity it predicts.  Sharing the class would muddle two

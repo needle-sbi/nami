@@ -1,4 +1,4 @@
-"""Neural fields: MLP / transformer heads consumed by Process classes.
+"""Neural fields: heads consumed by Process classes.
 
 Each field is an ``nn.Module`` honouring the ``forward(x, t, c=None)``
 contract with an ``event_ndim`` attribute. Concrete heads cover

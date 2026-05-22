@@ -1,6 +1,6 @@
 """Event-shape primitives: tuple normalisation, flatten/unflatten, validation.
 
-Establishes nami's ``leading_shape + event_shape`` convention. ``event_shape``
+Establishes ``leading_shape + event_shape`` convention. ``event_shape``
 is the shape of a single sample (e.g. ``(d,)`` for vectors, ``(C, H, W)``
 for images); everything to the left is batch / sample / time replication.
 """

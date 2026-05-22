@@ -52,6 +52,15 @@ class ScalarTimeEmbedding(nn.Module):
             dtype=dtype,
         ).unsqueeze(-1)
 
+class BasisEmbedding(torch.nn.Module):
+    """Discrete basis index -> context vector for nami's (x, t, c) channel."""
+
+    def __init__(self, n_basis: int, emb_dim: int = 32):
+        super().__init__()
+        self.emb = nn.Embedding(n_basis, emb_dim)
+
+    def forward(self, k: torch.Tensor) -> torch.Tensor:
+        return self.emb(k.long()).unsqueeze(-2)
 
 class SinusoidalTimeEmbedding(nn.Module):
     """Map scalar time to sinusoidal features.

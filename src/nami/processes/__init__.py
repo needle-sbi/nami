@@ -5,7 +5,7 @@ the constructor users build, and ``forward(c)`` produces the concrete
 runtime object exposing ``sample`` / ``rsample`` / ``log_prob``.
 
 Process subpackage entry points are also re-exported at top-level
-``nami`` for the curated user API.
+``nami`` for the user API.
 """
 
 from __future__ import annotations

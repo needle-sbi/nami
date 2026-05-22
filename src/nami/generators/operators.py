@@ -1,7 +1,7 @@
 """Concrete generator operators.
 
-Currently implements :class:`ItoGeneratorOperator` — continuous-time
-generators with drift and optional diagonal diffusion. The diffusion
+Implements :class:`ItoGeneratorOperator`, a continuous-time
+generator with drift and optional diagonal diffusion. The diffusion
 mode toggles between ODE (``"none"``) and SDE (``"diagonal"``)
 runtime; the parameter layout grows from event-shape to
 ``(2, *event_shape)`` accordingly.

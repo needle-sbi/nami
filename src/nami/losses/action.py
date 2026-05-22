@@ -11,8 +11,8 @@ conditional velocity:
         \\bigl\\lVert \\nabla_x s_\\theta(x_t, t) - u_t(x_t) \\bigr\\rVert^2
 
 This is the gradient-regression form of Neklyudov et al., *Action
-Matching: Learning Stochastic Dynamics from Samples*, 2023 — the field
-is *not* trained as a vector predictor (it emits a scalar) and the
+Matching: Learning Stochastic Dynamics from Samples*, 2023, where the field
+is not trained as a vector predictor (it emits a scalar) and the
 velocity used at inference time (see
 :class:`~nami.processes.action.ActionMatching`) is recovered by autograd.
 The conditional velocity targets here come from the stochastic-
@@ -78,7 +78,7 @@ def _grad_x_s(
     if s.shape != xt.shape[: xt.ndim - (xt.ndim - s.ndim)]:
         # ActionHead returns ``(*lead,)``; anything else is the wrong
         # head shape and would silently sum across event dims below.
-        pass  # message-only; the real check is shape consistency below.
+        pass  # message-only; the real check is shape consistency below!!
     (grad_s,) = torch.autograd.grad(
         outputs=s.sum(),
         inputs=xt,

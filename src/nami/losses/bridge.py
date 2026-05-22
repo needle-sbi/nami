@@ -1,4 +1,4 @@
-"""Schrödinger-bridge matching loss on the unified vocabulary.
+"""Schrödinger-bridge matching loss.
 
 Trains a flow head (Velocity target) and a score head (Score target)
 jointly on a Brownian bridge.  Each head is regressed independently

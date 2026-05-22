@@ -1,4 +1,4 @@
-r"""Training-time losses on the unified Interpolant + Parameterization vocabulary.
+r"""Training-time losses on the unified Interpolant + Parameterization schema.
 
 Aggregates the regression-style objective
 (:func:`~nami.losses.regression.regression_loss`, specialising to Flow

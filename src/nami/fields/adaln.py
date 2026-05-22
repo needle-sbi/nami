@@ -67,7 +67,8 @@ class _AdaLNBlock(nn.Module):
         h = self.norm(x) * (1.0 + scale) + shift
         return x + gate * self.mlp(h)
 
-
+# TODO: better field abstraction that allows for the Lazy conditioning to also inject the method
+# for the condtioning?
 class AdaLNVelocityField(VectorField):
     """MLP velocity field with adaLN-zero conditioning on ``t`` and optional ``c``.
 
@@ -80,8 +81,7 @@ class AdaLNVelocityField(VectorField):
     flow during training.
 
     The output projection is also zero-initialised, so the field outputs
-    zero at init — a quiet starting point for the velocity head in flow
-    matching and diffusion training.
+    zero at init.
 
     Args:
         dim: Data dimensionality or event shape.

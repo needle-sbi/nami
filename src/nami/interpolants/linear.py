@@ -97,8 +97,8 @@ class LinearInterpolant:
                 # is identical to the Velocity target arm.
                 return state.x_data - state.x_noise
             case GeneratorParams(operator=op):
-                # Drift is identical to the Velocity target — the linear
-                # path's velocity *is* the conditional generator drift
+                # Drift is identical to the Velocity target. The linear
+                # path's velocity is the conditional generator drift
                 # for an Ito operator.  Diffusion is zero because the
                 # path itself is deterministic.
                 drift = state.x_data - state.x_noise
@@ -106,11 +106,6 @@ class LinearInterpolant:
                     return op.pack_params(drift=drift)
                 diffusion = torch.zeros_like(state.x_data)
                 return op.pack_params(drift=drift, diffusion=diffusion)
-        # ``assert_never`` gives both halves of the discipline:
-        # a static checker (mypy/pyright) flags a missing match arm
-        # as a type error, *and* the runtime fails crisply instead
-        # of silently returning ``None`` if a non-Target value slips
-        # through.
         assert_never(target)
 
 
@@ -142,7 +137,7 @@ class StochasticLinearInterpolant:
       with the ``\dot{\gamma}\cdot z`` correction:
       ``u_t = (x_data - x_noise) + \dot{\gamma}(t) z``.
 
-    Score / Epsilon / X0 raise ``NotImplementedError`` — the noise
+    Score / Epsilon / X0 raise ``NotImplementedError``. The noise
     variable here is ``z`` (the bridge increment), not a standardised ``\epsilon``
     with a clean ``\alpha/\sigma`` decomposition. Use ``GaussianInterpolant`` when
     those targets are required.

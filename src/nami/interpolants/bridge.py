@@ -54,13 +54,13 @@ class BrownianBridgeInterpolant:
 
     Supported targets:
 
-    * :class:`Velocity` — conditional velocity ``u_t(x_t)`` with the
+    * :class:`Velocity`: conditional velocity ``u_t(x_t)`` with the
       Brownian-bridge correction term.
-    * :class:`Score` — Stein score ``\nabla_x \log p_t(x_t)``.
-    * :class:`GeneratorParams` — packed drift (and optional diffusion)
+    * :class:`Score`: Stein score ``\nabla_x \log p_t(x_t)``.
+    * :class:`GeneratorParams`: packed drift (and optional diffusion)
       for an ``ItoGeneratorOperator``.
 
-    :class:`Epsilon` and :class:`X0` raise ``NotImplementedError`` -
+    :class:`Epsilon` and :class:`X0` raise ``NotImplementedError``
     the bridge's noise term is bound to ``z`` rather than a
     standardised ``\epsilon`` with a clean ``\sigma``-``\alpha`` decomposition, so those targets
     have no canonical formula here.
