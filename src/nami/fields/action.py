@@ -11,8 +11,9 @@ from nami.fields._common import normalise_event_shape, validate_context
 class ActionHead(nn.Module):
     """Scalar field predicting the action potential :math:`s(x, t)`.
 
-    Follows the same ``(x, t, c)`` calling convention as
-    :class:`~nami.VelocityField` but outputs a single scalar per sample.
+    Follows the ``(x, t, c)`` calling convention of
+    :class:`~nami.VelocityField, but outputs a single scalar per sample.
+    
     The conditional velocity is recovered by autograd:
     :math:`u_t(x) = \\nabla_x s(x, t)`.  Intended for use with
     :func:`~nami.action_matching_loss` and

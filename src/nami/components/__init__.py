@@ -1,4 +1,4 @@
-"""Reusable neural building blocks: MLPs, time embeddings, transformer blocks."""
+"""Neural building blocks"""
 
 from __future__ import annotations
 

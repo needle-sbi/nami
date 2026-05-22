@@ -1,4 +1,4 @@
-"""Activation-function registry keyed by lowercase name."""
+"""Activation-function registry"""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ _ACTIVATIONS: dict[str, type[nn.Module]] = {
 
 
 def get_activation(name: str) -> nn.Module:
-    """Return a freshly constructed activation module by name."""
+    """Return an activation module by name."""
     activation = _ACTIVATIONS.get(name)
     if activation is None:
         msg = f"Unknown activation: {name!r}. Available: {sorted(_ACTIVATIONS)}"
