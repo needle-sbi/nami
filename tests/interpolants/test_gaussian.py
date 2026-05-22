@@ -1,9 +1,4 @@
-"""Stage-1a tests: GaussianInterpolant + parameterization factories.
-
-Covers the building blocks only.  Loss-level equivalence between the
-three factories under change of variables lands in stage 1b alongside
-``regression_loss``.
-"""
+"""GaussianInterpolant + parameterization factories."""
 
 from __future__ import annotations
 

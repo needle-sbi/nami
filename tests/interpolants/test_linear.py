@@ -1,19 +1,4 @@
-"""LinearInterpolant + analytic linear-path velocity-matching baseline.
-
-Originally the FM-coverage golden tests compared ``regression_loss``
-against the legacy ``fm_loss``.  ``fm_loss`` was deleted in stage 2d;
-the baseline is now computed analytically from the linear-path
-velocity formula::
-
-    x_t = (1 - t) * x_noise + t * x_data
-    u_t = x_data - x_noise  (constant)
-    L_per_sample(x_data, x_noise, t)
-        = mean_over_event_dims( (field(x_t, t) - u_t) ** 2 )
-
-If ``regression_loss`` ever drifts from this formula, the abstraction
-no longer implements linear-path flow matching — which is exactly what
-the deleted ``fm_loss`` used to encode.
-"""
+"""LinearInterpolant + analytic linear-path velocity-matching baseline."""
 
 from __future__ import annotations
 

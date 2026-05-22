@@ -148,7 +148,7 @@ class _LinearField(torch.nn.Module):
 
 
 def test_cfm_invert_round_trip_with_linear_field():
-    """With the exact conditional velocity, sample → invert recovers the
+    """With the exact conditional velocity, sample -> invert recovers the
     original noise (up to floating-point precision).
 
     FM convention (t0=0, t1=1):

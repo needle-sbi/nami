@@ -217,13 +217,8 @@ def test_generator_field_matches_operator_shape():
     assert params.shape == (5, 2, 4)
 
 
-# ---------------------------------------------------------------------------
-# Stage-3c headline: sample equivalence between custom output_transform paths
-# ---------------------------------------------------------------------------
-
-
 class _RawDriftDiffusion(torch.nn.Module):
-    """Field that emits raw (drift, raw_diffusion) — exercises projection."""
+    """Field that emits raw (drift, raw_diffusion), this exercises projection."""
 
     event_ndim = 1
 
@@ -274,7 +269,7 @@ def test_default_projection_path_is_op_project():
 
 def test_custom_output_transform_changes_samples():
     """A non-``op.project`` ``output_transform`` (here, op.project then
-    a sign flip on diffusion) measurably changes samples — pins that
+    a sign flip on diffusion) measurably changes samples pins that
     the Process actually consults
     ``parameterization.output_transform`` rather than calling
     ``op.project`` directly behind it.
@@ -311,6 +306,6 @@ def test_custom_output_transform_changes_samples():
     )().sample(sample_shape=(8,))
 
     assert not torch.allclose(s_default, s_custom), (
-        "output_transform appears not to be applied — the Process is "
+        "output_transform appears not to be applied, the Process is "
         "calling op.project directly behind the parameterization"
     )

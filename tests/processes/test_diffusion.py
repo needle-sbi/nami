@@ -595,16 +595,6 @@ class TestDiffusionProcesses:
         assert sample.shape == (4, 2)
         assert torch.isfinite(sample).all()
 
-    # ---------------------------------------------------------
-    # Headline equivalence test for the stage-1c refactor.
-    #
-    # The string-flag dispatch was deleted; the new dispatch is a sum-type
-    # match on parameterization.target.  This test pins that all three
-    # target choices produce identical sample trajectories when the field
-    # is constructed to emit the parameterisation-correct value for the
-    # *same underlying eps prediction*.  If the algebraic identities behind
-    # score_to_eps / x0_to_eps drift, this test fails by sample-divergence
-    # rather than by a downstream training regression.
     def test_three_target_choices_produce_identical_samples(self):
         schedule = VPSchedule()
         solver = Heun(steps=20)

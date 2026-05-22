@@ -11,7 +11,7 @@
   (e.g. an EMA copy) instead of the online network's stop-gradient
   output.
 * ``euler_step=True`` substitutes a detached Euler step on the
-  learned velocity for the resampled ``x_{t+δ}``; samples are still
+  learned velocity for the resampled ``x_{t+delta}``; samples are still
   finite and the trajectory pair is well-formed.
 * Only ``Velocity`` targets are accepted — Score / Epsilon / X0
   cannot synthesise a velocity without a schedule, which this loss
@@ -265,7 +265,7 @@ def test_euler_step_runs_and_finite() -> None:
 
 def test_euler_step_perfect_field_still_zero_loss() -> None:
     """Under the perfect velocity field, the Euler step produces
-    ``x_{t+δ} = x_t + δ v`` which lies exactly on the linear path
+    ``x_{t+δ} = x_t + deltav`` which lies exactly on the linear path
     (because ``v = x_data - x_noise`` is the analytic velocity).
     So both consistency-function evaluations agree and the loss is
     zero.

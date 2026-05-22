@@ -286,7 +286,13 @@ class TestBridgeMatchingLoss:
         score = _PerfectScoreField(interpolant, x_data=x_data, x_noise=x_noise)
 
         loss = bridge_matching_loss(
-            flow, score, x_data=x_data, x_noise=x_noise, t=t, z=z, interpolant=interpolant
+            flow,
+            score,
+            x_data=x_data,
+            x_noise=x_noise,
+            t=t,
+            z=z,
+            interpolant=interpolant,
         )
 
         assert torch.allclose(loss, torch.tensor(0.0), atol=1e-10)
@@ -300,8 +306,12 @@ class TestBridgeMatchingLoss:
         t = torch.tensor([0.25, 0.5, 0.5, 0.75])
         z = torch.randn_like(x_data)
 
-        loss1 = bridge_matching_loss(flow, score, x_data=x_data, x_noise=x_noise, t=t, z=z)
-        loss2 = bridge_matching_loss(flow, score, x_data=x_data, x_noise=x_noise, t=t, z=z)
+        loss1 = bridge_matching_loss(
+            flow, score, x_data=x_data, x_noise=x_noise, t=t, z=z
+        )
+        loss2 = bridge_matching_loss(
+            flow, score, x_data=x_data, x_noise=x_noise, t=t, z=z
+        )
 
         assert torch.allclose(loss1, loss2)
 
@@ -376,7 +386,9 @@ class TestBridgeMatchingLoss:
         x_data = torch.randn(16, 3)
         x_noise = torch.randn(16, 3)
 
-        _ = bridge_matching_loss(flow, score, x_data=x_data, x_noise=x_noise, interpolant=interpolant)
+        _ = bridge_matching_loss(
+            flow, score, x_data=x_data, x_noise=x_noise, interpolant=interpolant
+        )
 
         assert flow.last_t is not None
         assert score.last_t is not None

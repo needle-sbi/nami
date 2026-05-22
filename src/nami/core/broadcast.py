@@ -1,7 +1,7 @@
 """Broadcasting helper for ``(x, t, c)`` triples with explicit event rank.
 
-Used to align state ``x``, time ``t``, and context ``c`` to a 
-common leading (batch) shape while preserving the event dimensions of ``x`` 
+Used to align state ``x``, time ``t``, and context ``c`` to a
+common leading (batch) shape while preserving the event dimensions of ``x``
 and the feature dimension of ``c``.
 """
 

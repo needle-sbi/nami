@@ -1,11 +1,9 @@
 """Action-matching loss + factory tests.
 
-Pins:
-
 * ``action_prediction`` returns a ``Parameterization`` with ``Action``
   target and the conventional uniform ω(t)=1 weighting.
-* ``action_matching_loss`` regresses ``∇_x s`` against the interpolant
-  velocity — a "perfect" scalar field whose gradient *is* the linear
+* ``action_matching_loss`` regresses ``\\nabla_x s`` against the interpolant
+  velocity; a "perfect" scalar field whose gradient *is* the linear
   velocity should give zero loss.
 * The loss is differentiable through the autograd plumbing
   (``create_graph=True``).
@@ -35,7 +33,7 @@ class _PerfectLinearAction(nn.Module):
 
     For ``LinearInterpolant`` the conditional velocity is the constant
     ``v = x_data - x_noise``.  The scalar potential ``s(x, t) = v * x``
-    has ``∇_x s = v`` everywhere, so ``action_matching_loss`` should
+    has ``\\nabla_x s = v`` everywhere, so ``action_matching_loss`` should
     return exactly zero.
 
     The field must take ``v`` at construction (the loss only sees
@@ -67,7 +65,7 @@ def test_action_prediction_factory_shape() -> None:
 
 
 def test_perfect_scalar_field_gives_zero_loss() -> None:
-    """For the linear path, ``s(x) = v * x`` has ``∇_x s = v = u_t`` so
+    """For the linear path, ``s(x) = v * x`` has ``\\nabla_x s = v = u_t`` so
     the regression target is matched exactly.  This is the sanity
     pin that the autograd plumbing returns the right gradient.
     """

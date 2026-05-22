@@ -106,7 +106,7 @@ def test_three_parameterizations_produce_equal_weighted_losses(
     """All three factories yield the same per-sample weighted loss on
     consistent network outputs.
 
-    This pins the structural fix: ω(t) carried with the Target choice
+    This pins the structural fix: omega(t) carried with the Target choice
     means the *effective* loss is invariant to parameterisation —
     silent re-weighting bugs become impossible because changing target
     *is* changing the Parameterization, not toggling a flag.
@@ -174,7 +174,7 @@ def test_breaking_weighting_target_binding_breaks_equivalence(
     loss_eps = regression_loss(
         eps_field, parameterization=epsilon_prediction(schedule), **common
     )
-    # Score target with eps's ω=1 — the silent-reweighting bug shape.
+    # Score target with eps's omeg=1 — the silent-reweighting bug shape.
     bad = Parameterization(target=Score(), weighting=torch.ones_like)
     loss_score_unweighted = regression_loss(score_field, parameterization=bad, **common)
 
@@ -188,8 +188,7 @@ def test_breaking_weighting_target_binding_breaks_equivalence(
 
 
 # ---------------------------------------------------------------------------
-# t-sampling discipline (the contract from stage 1a)
-# ---------------------------------------------------------------------------
+# t-sampling discipline
 
 
 def test_default_eps_t_keeps_auto_sampled_t_off_endpoints(
@@ -334,7 +333,7 @@ def test_output_transform_is_applied(
     loss_id = regression_loss(field, parameterization=p_id, **common)
     loss_neg = regression_loss(field, parameterization=p_neg, **common)
 
-    # field emits 0 → p_id has prediction=0; p_neg has prediction=-0=0 too.
+    # field emits 0 -> p_id has prediction=0; p_neg has prediction=-0=0 too.
     # That's degenerate.  Use a non-zero field to make the test load-bearing:
     nz_field = _ConsistentEpsField(torch.ones_like(x_data)).to(dtype=torch.float64)
     loss_id_nz = regression_loss(nz_field, parameterization=p_id, **common)

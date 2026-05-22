@@ -79,9 +79,7 @@ def test_v_prediction_factory_returns_parameterization_with_v_target() -> None:
 def test_v_prediction_works_end_to_end_in_diffusion_process() -> None:
     """``Diffusion`` accepts ``v_prediction`` and produces samples
     consistent with ``epsilon_prediction`` when the field outputs are
-    algebraically related (closing the inconsistency the stage-4
-    review flagged: ``v_prediction`` was exported but ``Diffusion``
-    rejected ``VPrediction``).
+    algebraically related.
     """
     schedule = VPSchedule()
     solver = Heun(steps=12)

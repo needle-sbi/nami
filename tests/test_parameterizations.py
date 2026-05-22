@@ -33,7 +33,7 @@ def test_parameterization_defaults_are_neutral() -> None:
 
 
 def test_pattern_match_dispatch_over_target_variants() -> None:
-    """Mirror the dispatch shape concrete Interpolants will use in Stage 1.
+    """Mirror the dispatch shape concrete Interpolants.
 
     Each variant must be reachable by a structural pattern; missing arms
     fall through to the explicit failure.  This is the test that breaks

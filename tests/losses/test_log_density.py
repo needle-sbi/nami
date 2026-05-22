@@ -1,10 +1,4 @@
-"""Tests for ``log_density_consistency_loss``.
-
-The forward / reverse consistency tests that used to live here were
-deleted in stage 4 alongside ``cfm_loss`` / ``cfm_reverse_loss``;
-their semantic claims are pinned in ``tests/losses/test_consistency.py``
-against the unified ``consistency_loss``.
-"""
+"""Tests for ``log_density_consistency_loss``."""
 
 from __future__ import annotations
 
@@ -61,7 +55,9 @@ def test_log_density_consistency_loss_runs():
     x_noise = torch.randn(5, 3)
     t = torch.rand(5)
 
-    loss = log_density_consistency_loss(field, h_head, x_data=x_data, x_noise=x_noise, t=t)
+    loss = log_density_consistency_loss(
+        field, h_head, x_data=x_data, x_noise=x_noise, t=t
+    )
 
     assert loss.shape == ()
     assert torch.isfinite(loss)

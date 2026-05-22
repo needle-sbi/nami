@@ -26,7 +26,6 @@ class TwoHeadField(Protocol):
     head, and emit a vector field with shape ``lead + event_shape``.
     """
 
-
     def __call__(
         self,
         x: torch.Tensor,

@@ -33,7 +33,6 @@ from nami.processes._common import (
 
 # ---------------------------------------------------------------------------
 # cast_time / expand_context / model_device_dtype
-# ---------------------------------------------------------------------------
 
 
 def test_cast_time_matches_target_device_and_dtype() -> None:
@@ -79,7 +78,6 @@ def test_model_device_dtype_handles_parameterless_model() -> None:
 
 # ---------------------------------------------------------------------------
 # Event-ndim helpers
-# ---------------------------------------------------------------------------
 
 
 def test_resolve_event_ndim_reads_field_attribute() -> None:
@@ -113,7 +111,6 @@ def test_validate_base_event_ndim_rejects_mismatch() -> None:
 
 # ---------------------------------------------------------------------------
 # TransformedField adapter
-# ---------------------------------------------------------------------------
 
 
 def test_transformed_field_composes_field_with_transform() -> None:
@@ -133,7 +130,6 @@ def test_transformed_field_composes_field_with_transform() -> None:
 
 # ---------------------------------------------------------------------------
 # ProcessRuntimeMixin
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize(

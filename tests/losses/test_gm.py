@@ -63,10 +63,6 @@ def test_perfect_brownian_generator_field_gives_zero_loss():
     is internally consistent — what the interpolant produces as the
     target is what a perfect field should emit, regardless of the
     bridge correction term.
-
-    Uses ``diffusion="none"`` so ``op.project`` is identity; the
-    diffusion-projection round-trip is covered by stage-3c's
-    ``test_default_projection_path_is_op_project``.
     """
     op = ItoGeneratorOperator((3,))
     sigma = 0.5

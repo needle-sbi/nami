@@ -147,12 +147,16 @@ class TestMaskedFmLoss:
 
     def test_reduction_none(self, setup):
         field, x_data, x_noise, mask = setup
-        loss = masked_fm_loss(field, mask, x_noise=x_noise, x_data=x_data, reduction="none")
+        loss = masked_fm_loss(
+            field, mask, x_noise=x_noise, x_data=x_data, reduction="none"
+        )
         assert loss.shape == (8,)
 
     def test_reduction_sum(self, setup):
         field, x_data, x_noise, mask = setup
-        loss = masked_fm_loss(field, mask, x_noise=x_noise, x_data=x_data, reduction="sum")
+        loss = masked_fm_loss(
+            field, mask, x_noise=x_noise, x_data=x_data, reduction="sum"
+        )
         assert loss.shape == ()
 
     def test_all_ones_mask_matches_regression_loss(self):
@@ -199,7 +203,9 @@ class TestMaskedFmLoss:
         mask = torch.tensor([[1.0, 1.0, 0.0]])
         t = torch.tensor([0.5])
 
-        loss = masked_fm_loss(field, mask, x_noise=x_noise, x_data=x_data, t=t, reduction="none")
+        loss = masked_fm_loss(
+            field, mask, x_noise=x_noise, x_data=x_data, t=t, reduction="none"
+        )
         assert torch.allclose(loss, torch.tensor([7.5]))
 
     def test_zero_mask_gives_zero_loss(self):
@@ -239,7 +245,9 @@ class TestMaskedFmLoss:
     def test_invalid_reduction(self, setup):
         field, x_data, x_noise, mask = setup
         with pytest.raises(ValueError, match="reduction"):
-            masked_fm_loss(field, mask, x_noise=x_noise, x_data=x_data, reduction="invalid")
+            masked_fm_loss(
+                field, mask, x_noise=x_noise, x_data=x_data, reduction="invalid"
+            )
 
     def test_fewer_real_objects_lower_or_equal_loss(self):
         """Masking more objects should not increase loss when padded values
@@ -257,7 +265,9 @@ class TestMaskedFmLoss:
         t = torch.tensor([0.5])
 
         loss_all = masked_fm_loss(field, mask_all, x_noise=x_noise, x_data=x_data, t=t)
-        loss_real = masked_fm_loss(field, mask_real, x_noise=x_noise, x_data=x_data, t=t)
+        loss_real = masked_fm_loss(
+            field, mask_real, x_noise=x_noise, x_data=x_data, t=t
+        )
         assert loss_real < loss_all
 
     def test_integer_mask(self, setup):

@@ -17,7 +17,7 @@ from nami import (
 
 
 class _LinearActionPotential(nn.Module):
-    """``s(x) = v * x``; ``∇_x s = v`` independent of ``(x, t)``."""
+    """``s(x) = v * x``; ``\\nabla_x s = v`` independent of ``(x, t)``."""
 
     event_ndim = 1
 
@@ -47,7 +47,7 @@ class _ConstantVelocity(nn.Module):
 def test_action_matching_drift_is_grad_of_potential() -> None:
     """Samples from ``ActionMatching(s(x)=v*x, ...)`` match samples from
     ``FlowMatching(f(x,t)=v, ...)`` under the same RNG seed and solver —
-    proves the integrator drift is exactly ``∇_x s``.
+    proves the integrator drift is exactly ``\\nabla_x s``.
     """
     dim = 3
     v_value = -0.7
@@ -93,7 +93,7 @@ def test_action_matching_uses_action_prediction_by_default() -> None:
 
 
 def test_action_matching_log_prob_not_implemented() -> None:
-    """``log_prob`` requires the Laplacian of ``s`` (∂/∂t log p = -∇*∇s).
+    """``log_prob`` requires the Laplacian of ``s`` (\partial/\partialt log p = -\\nabla*\\nabla*s).
     Deferred until a real consumer drives that second-order autograd.
     """
     process = ActionMatching(

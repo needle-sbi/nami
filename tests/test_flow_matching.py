@@ -193,12 +193,7 @@ def test_default_and_explicit_velocity_prediction_produce_identical_samples():
 
 
 def test_non_velocity_target_rejected():
-    """FM only supports the Velocity target; Score / Epsilon / X0 raise.
-
-    The conversion eps → velocity / score → velocity / x0 → velocity all
-    require a NoiseSchedule that the FM Process does not carry.  Use
-    Diffusion for those targets.
-    """
+    """FM only supports the Velocity target; Score / Epsilon / X0 raise."""
     field = _LinearField()
     base = StandardNormal(event_shape=(3,))
 
@@ -216,13 +211,7 @@ def test_non_velocity_target_rejected():
 
 
 def test_non_identity_output_transform_changes_samples():
-    """``output_transform`` is wired into the integration path.
-
-    With a non-identity transform (here, a sign flip), the sampled
-    trajectory must differ from the identity case — pins that the
-    transform isn't being silently short-circuited inside
-    ``_velocity``.
-    """
+    """``output_transform`` is wired into the integration path."""
     field = _LinearField()
     base = StandardNormal(event_shape=(3,))
 
@@ -250,12 +239,8 @@ def test_log_prob_divergence_uses_transformed_field():
     For a linear field f(x, t) = -x and ``output_transform = lambda y: 2*y``,
     the effective velocity is ``v(x, t) = -2x`` and its divergence is
     ``-2d`` (where d = event_dim).  If the estimator differentiated the
-    raw field instead, it would return ``-d`` — wrong by a factor of 2,
+    raw field instead, it would return ``-d``; wrong by a factor of 2,
     which propagates into the integrated log-density.
-
-    Pins the stage-4 review fix: the FM Process now wraps
-    ``(field, output_transform)`` into ``_TransformedField`` before
-    handing the estimator something to differentiate.
     """
 
     class _NegX(nn.Module):

@@ -67,6 +67,7 @@ class _AdaLNBlock(nn.Module):
         h = self.norm(x) * (1.0 + scale) + shift
         return x + gate * self.mlp(h)
 
+
 # TODO: better field abstraction that allows for the Lazy conditioning to also inject the method
 # for the condtioning?
 class AdaLNVelocityField(VectorField):
