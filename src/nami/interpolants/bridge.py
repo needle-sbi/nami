@@ -142,8 +142,7 @@ class BrownianBridgeInterpolant:
         tt = _broadcast_t(state.t, x_data)
         mu = (1.0 - tt) * x_noise + tt * x_data
         denom = 2.0 * torch.clamp(tt * (1.0 - tt), min=self.eps)
-        # Sign flip from chain rule on the (1-2t) coefficient under t -> 1-t.
-        coeff = (2.0 * tt - 1.0) / denom
+        coeff = (1.0 - 2.0 * tt) / denom
         return (x_data - x_noise) + coeff * (state.xt - mu)
 
     def _score(self, state: InterpolantState) -> torch.Tensor:
