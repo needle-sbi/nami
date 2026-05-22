@@ -21,9 +21,7 @@ if TYPE_CHECKING:
 
 
 # ---------------------------------------------------------------------------
-# Note:
-# ---------------------------------------------------------------------------
-# Every variant is a frozen dataclass so it can carry per-target metadata
+# Note: Every variant is a frozen dataclass so it can carry per-target metadata
 # (e.g. the GeneratorOperator that interprets GeneratorParams) without
 # leaking into string-keyed registries.  Frozen dataclasses also receive
 # ``__match_args__``, which makes ``case Variant(field=x):``
@@ -116,7 +114,6 @@ Target = Velocity | Score | Epsilon | X0 | VPrediction | Action | GeneratorParam
 
 # ---------------------------------------------------------------------------
 # Parameterization
-# ---------------------------------------------------------------------------
 
 TensorLike = torch.Tensor
 """Tensor type used for concrete target values."""
