@@ -146,6 +146,7 @@ ipykernel = ">=7.1.0,<8"
 matplotlib = ">=3.10.8,<4"
 scipy = ">=1.17.0,<2"
 sbi = ">=0.26.1,<0.27"
+imageio = ">=2.35.0,<3"
 
 [tool.pixi.feature.hooks.dependencies]
 pre-commit = "*"
