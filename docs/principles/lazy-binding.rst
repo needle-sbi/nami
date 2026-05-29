@@ -38,10 +38,16 @@ extra branching into training or sampling code. With it, the field defines
 is bound for sampling or likelihood evaluation, and the two responsibilities
 no longer leak into each other.
 
+.. note::
+
+   A planned extension of nami will include mechanisms by which
+   the binding of the context can be inlcuded by different and 
+   more robust mechanisms, e.g. via a context encoder, gated conditioning, etc.
+
 When binding matters
 --------------------
 
-For an unconditional model, binding is a no-op — ``fm()`` and ``fm(None)``
+For an unconditional model, binding is simply a no-op, so ``fm()`` and ``fm(None)``
 both produce a runnable process. For a conditional model, binding is where
 the context tensor's batch shape is read; passing a context of shape
 ``(B, d_c)`` produces a process whose ``.sample((S,))`` returns a tensor of
@@ -62,14 +68,11 @@ Conceptually
 The split is a design statement: the field is a pure function of
 ``(x, t, c)``; the loss is a pure function of ``(field, x_noise, x_data)``;
 the lazy process is a small protocol that says "here is everything you need
-to sample once you tell me what to condition on". Each piece stays
-single-purpose, and the only object that carries runtime state about the
-conditioning is the bound process — which is exactly the object that needs
-it.
+to sample once you tell me what to condition on".
 
 See also
 --------
 
-- :doc:`core-abstractions` — where the lazy process sits in the stack.
-- :doc:`parameterizations` — how the bound process interprets the field's
+- :doc:`core-abstractions`: where the lazy process sits in the stack.
+- :doc:`parameterizations`: how the bound process interprets the field's
   output.

@@ -1,7 +1,7 @@
 Core abstractions
 =================
 
-nami is built from a small set of objects that compose along orthogonal axes
+nami is built from a small set of objects that compose along orthogonal axes,
 rather than a tall class hierarchy. Once you have a feel for what each one
 does and where the seams between them live, the rest of the library reads as
 combinations of these pieces.
@@ -12,8 +12,8 @@ The pieces
 A **field** is a neural network with the contract
 ``forward(x, t, c=None)``. It is the only object that holds learnable
 parameters. Fields predict whatever quantity the chosen training objective
-regresses against — a velocity, a score, raw noise, or a vector of operator
-parameters — and they declare an integer ``event_ndim`` so that the rest of
+regresses against; a velocity, a score, raw noise, or a vector of operator
+parameters, and they declare an integer ``event_ndim`` so that the rest of
 the stack can recover the sample/batch/event split of any tensor without
 guessing.
 
@@ -35,7 +35,7 @@ different objectives. :func:`~nami.regression_loss` and
 different conditional targets; the field never sees the difference.
 
 A **process** is the runtime object that knows how to actually move samples
-around — either by integrating an ODE or SDE from the source distribution,
+around. This is done either by integrating an ODE or SDE from the source distribution,
 or by evaluating a one-step consistency function. Processes are the only
 place where the time direction is load-bearing: the loss is direction-free,
 the field is direction-free, but the process integrates.
@@ -109,7 +109,7 @@ Within a process, ``x_data`` is the endpoint at :math:`t=1` and ``x_noise``
 is the endpoint at :math:`t=0`; sampling integrates from :math:`t=0` up to
 :math:`t=1`. This is a library-level choice that keeps flow matching,
 consistency FM, stochastic FM, and generator matching on the same clock.
-The :class:`~nami.Diffusion` process is the exception — it retains the
+The :class:`~nami.Diffusion` process is the exception, since it retains the
 diffusion-native orientation (data at small time, noise at large time)
 because the score-based reverse-time PF-ODE is intrinsic to that direction.
 In running prose elsewhere we let the variable names — ``x_data`` and
@@ -119,9 +119,9 @@ behaves do not have to name endpoint values.
 See also
 --------
 
-- :doc:`parameterizations` — what a field can predict, and why several
+- :doc:`parameterizations`: what a field can predict, and why several
   options exist.
-- :doc:`lazy-binding` — what ``LazyProcess`` and ``LazyDistribution`` buy
+- :doc:`lazy-binding`: what ``LazyProcess`` and ``LazyDistribution`` buy
   you, and when to reach for them.
-- :doc:`model-families` — how flow matching, diffusion, consistency, and
+- :doc:`model-families`: how flow matching, diffusion, consistency, and
   generator matching are four views of one transport-map object.

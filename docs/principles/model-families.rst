@@ -42,15 +42,12 @@ Consistency flow matching
 Consistency flow matching trains the same velocity field, but replaces the
 regression loss with a *self-consistency* objective. Two points on the same
 conditional trajectory must map to the same endpoint via a consistency
-function :math:`f(x_t, t) = x_t - t\,v_\theta(x_t, t)` (toward the data
-endpoint) or :math:`g(x_t, t) = x_t + (1-t)\,v_\theta(x_t, t)` (toward the
+function :math:`f(x_t, t) = x_t + (1-t)\,v_\theta(x_t, t)` (toward the data
+endpoint) or :math:`g(x_t, t) = x_t - t\,v_\theta(x_t, t)` (toward the
 noise endpoint). After training, a single forward pass of :math:`f` produces
 a sample, so no ODE integration is required at inference; the price is a
 one-step approximation that introduces some variance.
 
-In nami this workflow is experimental: the losses and process APIs expose
-useful one-step primitives, but the most reliable local recipe starts from
-a strong flow-matching baseline rather than training from scratch.
 
 Stochastic flow matching
 ------------------------
@@ -63,6 +60,9 @@ velocity target picks up an extra :math:`\dot\gamma(t)\,Z` term; the field
 and the sampling process are otherwise the standard flow-matching pair.
 The added noise is best understood as a training-time regulariser rather
 than as a different family of model.
+
+.. note:: 
+   A planned extension will include antithetic sampling capabilities.
 
 Diffusion
 ---------
