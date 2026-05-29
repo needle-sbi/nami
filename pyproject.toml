@@ -105,6 +105,7 @@ scipy = ">=1.17.0,<2"
 
 [tool.pixi.pypi-dependencies]
 marimo = ">=0.23.6,<0.24"
+nami = { path = ".", editable = true }
 
 [tool.pixi.feature.cpu.dependencies]
 pytorch-cpu = ">=2.0.0,<3"
