@@ -39,6 +39,8 @@ Stochastic flow matching
 Adds Brownian bridge noise :math:`\gamma(t) = \sqrt{t(1-t)}` to the
 interpolant. The noisier interpolant can improve training stability and
 sample diversity; at sampling time, the same ``FlowMatching`` process is used.
+This form of flow matching is particularly useful for high-dimensional and 
+multi-modal data.
 
 .. code-block:: python
 
@@ -49,7 +51,7 @@ sample diversity; at sampling time, the same ``FlowMatching`` process is used.
    x_noise, x_data = torch.randn(32, 8), torch.randn(32, 8)
 
    # The only change from deterministic FM is the loss function and the
-   # gamma schedule — the rest of the pipeline stays identical.
+   # gamma schedule
    loss = nami.stochastic_fm_loss(
        field,
        x_noise=x_noise, x_data=x_data,
@@ -118,48 +120,26 @@ Generator matching
 Conditional generation
 ----------------------
 
-To condition on external information, build a field whose ``forward``
-accepts a third argument ``c``. The lazy process binds context once;
-all samples drawn from that process share the same conditioning.
+To condition on external information, give the field a ``condition_dim``.
+:class:`~nami.VelocityField` then expects a context vector ``c`` and the
+process layer handles the rest: the lazy process binds context once, and
+all samples drawn from that process share the same conditioning. Any field
+following the ``forward(x, t, c=None)`` / ``event_ndim`` contract works the
+same way — but for a plain MLP you rarely need to write your own.
 
 .. code-block:: python
 
    import torch
-   from torch import nn
    import nami
 
-   class ConditionalField(nn.Module):
-       """A minimal conditional velocity field.
-
-       Concatenates x, t, and context c before passing through an MLP.
-       Any architecture works — the only requirement is the signature
-       ``forward(x, t, c=None)`` and an ``event_ndim`` property.
-       """
-       def __init__(self, dim: int, context_dim: int):
-           super().__init__()
-           self.net = nn.Sequential(
-               nn.Linear(dim + context_dim + 1, 128),
-               nn.SiLU(),
-               nn.Linear(128, dim),
-           )
-
-       @property
-       def event_ndim(self) -> int:
-           return 1
-
-       def forward(self, x, t, c=None):
-           t_exp = t.unsqueeze(-1).expand(*x.shape[:-1], 1)
-           inputs = [x, t_exp] + ([c] if c is not None else [])
-           return self.net(torch.cat(inputs, dim=-1))
-
-   field = ConditionalField(dim=8, context_dim=4)
+   field = nami.VelocityField(dim=8, condition_dim=4)
    base = nami.StandardNormal(event_shape=(8,))
    solver = nami.RK4(steps=32)
    fm = nami.FlowMatching(field, base, solver)
 
    # Binding 16 context vectors produces 16 parallel trajectories.
-   # sample((1,)) draws one sample per context → shape (1, 16, 8).
-   # sample((50,)) would draw 50 samples per context → shape (50, 16, 8).
+   # sample((1,)) draws one sample per context -> shape (1, 16, 8).
+   # sample((50,)) would draw 50 samples per context -> shape (50, 16, 8).
    context = torch.randn(16, 4)
    samples = fm(context).sample((1,))   # (1, 16, 8)
 
@@ -168,25 +148,48 @@ Score-based diffusion
 
 Forward process :math:`q(x_t \mid x_0) = \mathcal{N}(\alpha_t x_0, \sigma_t^2 I)`
 with a VP schedule. The model predicts :math:`\varepsilon`; sampling reverses
-the SDE. Note that nami handles *sampling only* — you train the model with
-your own denoising loss outside of nami.
+the SDE. Both halves live in nami: ``regression_loss`` trains the
+:math:`\varepsilon`-model when paired with a :class:`~nami.GaussianInterpolant`
+(which supplies the forward process above) and
+:func:`~nami.epsilon_prediction`, and :class:`~nami.Diffusion` reverses it.
+
+.. note::
+
+   Despite its name, :class:`~nami.VelocityField` is just the generic MLP
+   vector field — what it emits is set by the ``parameterization``, so here
+   it predicts :math:`\varepsilon`, not velocity. The same class backs the
+   velocity, score, and :math:`x_0` examples on this page. This abstraction
+   will be updated in the future to prevent confusion.
 
 .. code-block:: python
 
+   import torch
    import nami
 
-   model = nami.VelocityField(dim=8)
+   field = nami.VelocityField(dim=8)
    schedule = nami.VPSchedule(beta_min=0.1, beta_max=20.0)
-   solver = nami.EulerMaruyama(steps=100)
 
+   # Train: the GaussianInterpolant builds q(x_t | x_0) from the schedule,
+   # and epsilon_prediction(schedule) regresses field(x_t, t) against the
+   # noise epsilon with the matching weighting.
+   x_noise, x_data = torch.randn(32, 8), torch.randn(32, 8)
+   loss = nami.regression_loss(
+       field,
+       x_noise=x_noise, x_data=x_data,
+       interpolant=nami.GaussianInterpolant(schedule=schedule),
+       parameterization=nami.epsilon_prediction(schedule=schedule),
+   )
+   loss.backward()
+
+   # Sample: reverse the SDE with the same schedule and parameterization.
    diffusion = nami.Diffusion(
-       model=model,
+       model=field,
        schedule=schedule,
-       solver=solver,
+       solver=nami.EulerMaruyama(steps=100),
        parameterization=nami.epsilon_prediction(schedule=schedule),
        event_shape=(8,),
    )
-   samples = diffusion(None).sample((64,))
+   samples = diffusion().sample((64,))
 
 Parameterisation transforms
 ----------------------------
