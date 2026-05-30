@@ -33,12 +33,12 @@ def _bridge_xt(x_data, x_noise, t, z, *, sigma):
 def _bridge_velocity(x_data, x_noise, t, xt, *, eps):
     """Closed-form bridge conditional velocity at xt.
 
-    u_t(x_t) = (x_data - x_noise) + (2t-1)/(2 t(1-t)) * (x_t - mu_t)
+    u_t(x_t) = (x_data - x_noise) + (1-2t)/(2 t(1-t)) * (x_t - mu_t)
     """
     tt = t.reshape(t.shape + (1,) * (x_data.ndim - t.ndim))
     mu = (1.0 - tt) * x_noise + tt * x_data
     denom = 2.0 * torch.clamp(tt * (1.0 - tt), min=eps)
-    coeff = (2.0 * tt - 1.0) / denom
+    coeff = (1.0 - 2.0 * tt) / denom
     return (x_data - x_noise) + coeff * (xt - mu)
 
 
@@ -106,7 +106,7 @@ def test_velocity_matches_analytic_bridge_velocity(
     interpolant: BrownianBridgeInterpolant,
     batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
 ) -> None:
-    """Pins: Velocity target = ``(x_data - x_noise) + (2t-1)/(2 t(1-t))*(x_t - mu_t)``."""
+    """Pins: Velocity target = ``(x_data - x_noise) + (1-2t)/(2 t(1-t))*(x_t - mu_t)``."""
     x_data, x_noise, t, z = batch
     state = interpolant.sample(x_noise, x_data, t, noise=z)
     expected = _bridge_velocity(x_data, x_noise, t, state.xt, eps=EPS)
