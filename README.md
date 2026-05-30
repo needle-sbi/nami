@@ -1,5 +1,5 @@
   <p align="center">
-    <img src="/docs/assets/nami_logo.svg" width="640" alt="Nami logo">
+    <img src="/docs/assets/nami_logo.svg" width="520" alt="Nami logo">
   </p>
 
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org) [![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B-ee4c2c)](https://pytorch.org)
