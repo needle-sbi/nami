@@ -25,3 +25,11 @@ pixi run setup
 ```
 
 Common development commands are `pixi run test`, `pixi run lint`, `pixi run fmt`, `pixi run typecheck`, and `pixi run docs`.
+
+Guidelines for contributing will soon be added once the project is more stable. You are very welcome to use any part of the library in your own projects whilst waiting for the contribution guidelines, and for the project to be available on PyPI. Thanks a lot for your interest!
+
+---
+
+This project is supported by HelmholtzAI and DESY.
+
+<img src="/docs/_static/institutes/Helmholtz-Logo-Blue-RGB.png" alt="HelmholtzAI" width="160"/> &nbsp;
