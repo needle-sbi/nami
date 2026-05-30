@@ -4,6 +4,7 @@ import math
 
 import pytest
 import torch
+from torch.distributions import Bernoulli, Independent
 
 from nami import (
     RK4,
@@ -12,11 +13,13 @@ from nami import (
     Heun,
     ItoGeneratorOperator,
     Parameterization,
+    StandardNormal,
     Velocity,
     generator_prediction,
 )
 from nami.fields.generator import GeneratorField
 from nami.generators.base import GeneratorOperator
+from nami.processes.gm import GeneratorMatchingProcess
 
 
 def _inv_softplus(x: float) -> float:
@@ -78,6 +81,52 @@ class _JumpOperator(GeneratorOperator):
     def diffusion(self, x, t, params):
         _ = x, t, params
         raise NotImplementedError
+
+
+class _ScalarOperator(GeneratorOperator):
+    def __init__(self):
+        super().__init__(runtime_kind="ode")
+
+    @property
+    def event_shape(self) -> tuple[int, ...]:
+        return ()
+
+    @property
+    def parameter_shape(self) -> tuple[int, ...]:
+        return ()
+
+    def pack_params(self, *, drift, diffusion=None):
+        _ = diffusion
+        return drift
+
+    def drift(self, x, t, params):
+        _ = x, t
+        return params
+
+    def diffusion(self, x, t, params):
+        _ = x, t, params
+        raise NotImplementedError
+
+
+class _NoRsampleSolver:
+    requires_steps = True
+    supports_rsample = False
+    is_sde = False
+    steps = 2
+
+    def integrate(self, f, x0, *, t0, t1, steps=None):
+        _ = steps
+        return x0 + (t1 - t0) * f(x0, t0)
+
+
+class _MissingStepsSolver:
+    requires_steps = True
+    supports_rsample = True
+    is_sde = False
+
+    def integrate(self, *_args, **_kwargs):
+        msg = "integrate should not be reached without steps"
+        raise AssertionError(msg)
 
 
 def test_generator_matching_ode_smoke():
@@ -155,6 +204,74 @@ def test_generator_matching_rsample_rejects_sde():
         process.rsample(sample_shape=(3,))
 
 
+def test_generator_matching_rsample_ode_path():
+    operator = ItoGeneratorOperator((2,))
+    process = GeneratorMatching(
+        _ZeroDrift(),
+        RK4(steps=2),
+        parameterization=generator_prediction(operator),
+        event_shape=(2,),
+    )()
+
+    sample = process.rsample(sample_shape=(3,))
+
+    assert sample.shape == (3, 2)
+    assert torch.isfinite(sample).all()
+
+
+def test_generator_matching_rsample_rejects_non_reparameterized_base():
+    operator = ItoGeneratorOperator((2,))
+    base = Independent(Bernoulli(probs=torch.full((2,), 0.5)), 1)
+    process = GeneratorMatching(
+        _ZeroDrift(),
+        RK4(steps=2),
+        parameterization=generator_prediction(operator),
+        base=base,
+    )()
+
+    with pytest.raises(NotImplementedError, match="base distribution"):
+        process.rsample(sample_shape=(3,))
+
+
+def test_generator_matching_rsample_rejects_solver_without_rsample():
+    operator = ItoGeneratorOperator((2,))
+    process = GeneratorMatching(
+        _ZeroDrift(),
+        _NoRsampleSolver(),
+        parameterization=generator_prediction(operator),
+        base=StandardNormal((2,)),
+    )()
+
+    with pytest.raises(NotImplementedError, match="solver does not support rsample"):
+        process.rsample(sample_shape=(3,))
+
+
+def test_generator_matching_ode_solver_requires_steps_attribute():
+    operator = ItoGeneratorOperator((2,))
+    process = GeneratorMatching(
+        _ZeroDrift(),
+        _MissingStepsSolver(),
+        parameterization=generator_prediction(operator),
+        event_shape=(2,),
+    )()
+
+    with pytest.raises(ValueError, match="solver requires steps"):
+        process.sample(sample_shape=(3,))
+
+
+def test_generator_matching_sde_solver_requires_steps_attribute():
+    operator = ItoGeneratorOperator((2,), diffusion="diagonal")
+    process = GeneratorMatching(
+        _ConstantDiagonalDiffusion(scale=0.2),
+        object(),
+        parameterization=generator_prediction(operator),
+        event_shape=(2,),
+    )()
+
+    with pytest.raises(ValueError, match="sde solver requires steps"):
+        process.sample(sample_shape=(3,))
+
+
 def test_generator_matching_validates_operator_shape():
     operator = ItoGeneratorOperator((2,))
 
@@ -201,6 +318,49 @@ def test_generator_matching_rejects_non_generator_params_target():
             parameterization=Parameterization(target=Velocity()),
             event_shape=(2,),
         )()
+
+
+def test_generator_matching_operator_property_rejects_non_generator_target():
+    process = GeneratorMatching(
+        _ZeroDrift(),
+        RK4(steps=2),
+        parameterization=Parameterization(target=Velocity()),
+        event_shape=(2,),
+        validate_args=False,
+    )
+
+    with pytest.raises(TypeError, match="GeneratorParams"):
+        _ = process.operator
+
+
+def test_generator_matching_still_rejects_non_generator_target_without_validation():
+    with pytest.raises(TypeError, match="GeneratorParams"):
+        GeneratorMatching(
+            _ZeroDrift(),
+            RK4(steps=2),
+            parameterization=Parameterization(target=Velocity()),
+            event_shape=(2,),
+            validate_args=False,
+        )()
+
+
+def test_generator_matching_requires_event_shape_for_scalar_default_base():
+    with pytest.raises(ValueError, match="event_shape is required"):
+        GeneratorMatching(
+            _ZeroDrift(),
+            RK4(steps=2),
+            parameterization=generator_prediction(_ScalarOperator()),
+        )()
+
+
+def test_generator_matching_process_rejects_non_generator_target_directly():
+    with pytest.raises(TypeError, match="GeneratorParams"):
+        GeneratorMatchingProcess(
+            _ZeroDrift(),
+            base=StandardNormal((2,)),
+            solver=RK4(steps=2),
+            parameterization=Parameterization(target=Velocity()),
+        )
 
 
 def test_generator_field_matches_operator_shape():
