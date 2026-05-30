@@ -21,9 +21,9 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import assert_never
 
 import torch
+from typing_extensions import assert_never
 
 from nami.interpolants._common import broadcast_t as _broadcast_t
 from nami.interpolants.protocol import InterpolantState

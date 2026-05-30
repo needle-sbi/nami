@@ -24,9 +24,9 @@ targets.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import assert_never
 
 import torch
+from typing_extensions import assert_never
 
 from nami.interpolants._common import broadcast_t as _broadcast_t
 from nami.interpolants.gamma import BrownianGamma, GammaSchedule

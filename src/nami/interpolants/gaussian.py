@@ -15,9 +15,9 @@ loss weighting ``\omega(t)``.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import assert_never
 
 import torch
+from typing_extensions import assert_never
 
 from nami.diffusion import expand_like
 from nami.interpolants.protocol import InterpolantState

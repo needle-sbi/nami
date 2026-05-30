@@ -34,6 +34,8 @@ dynamic = ["version"]
 
 dependencies = [
   "torch >= 2.0.0,<3",
+  # needed for python 3.10 support for not having assert_never in the standard library
+  "typing-extensions >= 4.0",
 ]
 
 [project.urls]
