@@ -12,4 +12,4 @@ Applied and exploratory notebooks grouped by topic.
    coupling/index
    masking/index
    sbi/index
-   ../external/index
+   generators/index
