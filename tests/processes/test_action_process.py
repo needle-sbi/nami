@@ -93,7 +93,7 @@ def test_action_matching_uses_action_prediction_by_default() -> None:
 
 
 def test_action_matching_log_prob_not_implemented() -> None:
-    """``log_prob`` requires the Laplacian of ``s`` (\partial/\partialt log p = -\\nabla*\\nabla*s).
+    r"""``log_prob`` requires the Laplacian of ``s`` (\partial/\partialt log p = -\\nabla*\\nabla*s).
     Deferred until a real consumer drives that second-order autograd.
     """
     process = ActionMatching(
