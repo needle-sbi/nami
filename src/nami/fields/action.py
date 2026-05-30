@@ -12,7 +12,7 @@ class ActionHead(nn.Module):
     """Scalar field predicting the action potential :math:`s(x, t)`.
 
     Follows the ``(x, t, c)`` calling convention of
-    :class:`~nami.VelocityField, but outputs a single scalar per sample.
+    :class:`~nami.VelocityField`, but outputs a single scalar per sample.
 
     The conditional velocity is recovered by autograd:
     :math:`u_t(x) = \\nabla_x s(x, t)`.  Intended for use with
