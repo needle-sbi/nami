@@ -11,5 +11,4 @@ problems.
 
    books/tutorials/index
    books/experiment/index
-   books/external/index
    books/toys/index

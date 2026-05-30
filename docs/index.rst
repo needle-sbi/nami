@@ -52,10 +52,6 @@ transport maps.
 
          Applied experiments and toy problems.
 
-         :doc:`External notebooks <books/external/index>`
-
-         Notebooks ported from external sources.
-
 To support conditional and reusable workflows, :mod:`nami` separates lazy binding
 from runnable processes. :class:`nami.lazy.LazyDistribution` keeps source
 distributions bindable when they depend on context or trainable parameters, while
