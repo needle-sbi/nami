@@ -22,6 +22,4 @@ keyword on the loss; nothing else changes.
 
 The cosine interpolant is smooth at the endpoints, which can help when the
 endpoint geometry is awkward; the linear interpolant gives a constant
-conditional velocity and is the simpler default. See
-:doc:`../explanation/core-abstractions` for the role of the interpolant in
-the wider pipeline.
+conditional velocity and is the simpler default.

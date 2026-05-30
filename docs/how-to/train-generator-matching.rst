@@ -6,7 +6,7 @@ regression. The field predicts raw operator parameters; the operator
 interprets them as drift (and optionally diffusion). With
 ``diffusion="none"``, the operator produces drift only and sampling is a
 plain ODE; this configuration recovers deterministic flow matching as a
-special case. See :doc:`../explanation/model-families` for the equivalences.
+special case.
 
 .. code-block:: python
 

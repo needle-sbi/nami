@@ -1,5 +1,5 @@
 Core Principles
-===========
+===============
 
 .. toctree::
    :maxdepth: 1

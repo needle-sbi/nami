@@ -10,8 +10,7 @@ The only change from deterministic FM is the loss function and the gamma
 schedule. :class:`~nami.BrownianGamma` is a sensible default; if training
 is unstable, try :class:`~nami.ScaledBrownianGamma` with a smaller scale
 (e.g. 0.5). :class:`~nami.ZeroGamma` recovers deterministic FM exactly and
-is useful as a sanity check. See
-:doc:`../explanation/numerical-considerations` for the trade-offs.
+is useful as a sanity check.
 
 .. code-block:: python
 

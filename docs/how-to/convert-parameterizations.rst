@@ -3,8 +3,7 @@ Convert between parameterisations
 
 When you have a model trained under one parameterisation but need another
 for sampling, nami provides a small family of transforms that compose with
-the field at sampling time. See :doc:`../explanation/parameterizations` for
-why several parameterisations exist and when each is appropriate.
+the field at sampling time.
 
 .. code-block:: python
 

@@ -9,10 +9,9 @@ For continuous normalising flows, evaluate
              + \int \nabla \cdot v_t \,\mathrm{d}t
 
 via the instantaneous change-of-variables formula. The augmented solve
-costs more than plain sampling — every solver step has to evaluate the
-divergence of the velocity field — so use it only when log-densities are
-actually wanted. See :doc:`../explanation/numerical-considerations` for the
-Hutchinson-vs-exact trade-off.
+costs more than plain sampling, since every solver step has to evaluate the
+divergence of the velocity field, so use it only when log-densities are
+actually wanted.
 
 .. code-block:: python
 
@@ -33,5 +32,5 @@ exact Jacobian trace at :math:`\mathcal{O}(d)` backward passes per step and
 is appropriate for low-dimensional problems.
 
 Note that ``return_logp=True`` does not turn flow-matching training into
-CNF maximum-likelihood training — it reintroduces CNF-style inference cost
+CNF maximum-likelihood training, it reintroduces CNF-style inference cost
 for that call only.

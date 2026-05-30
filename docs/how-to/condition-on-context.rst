@@ -3,8 +3,7 @@ Condition on external context
 
 Conditioning enters nami via the field's third argument ``c``, and the lazy
 process binds it once per call. The built-in fields support conditioning
-natively — there is no separate ``ConditionalField`` class to subclass —
-so most workflows are a one-line change to the field constructor.
+natively, so most workflows are a one-line change to the field constructor.
 
 The default recipe
 ------------------
@@ -27,7 +26,7 @@ shape ``(B, d_c)`` at call time, which the lazy process binds for you.
 
 The output shape follows the ``(sample, batch, event)`` convention: with
 ``sample((S,))`` and a context of batch shape ``(B,)`` the result has
-shape ``(S, B, E)`` — one trajectory per context, ``S`` independent samples
+shape ``(S, B, E)``, one trajectory per context, ``S`` independent samples
 per trajectory. The same field also works unconditionally: omit
 ``condition_dim`` and call ``fm()`` (or ``fm(None)``) at sampling time.
 
@@ -60,7 +59,7 @@ conventional remedy when input concatenation washes out with depth.
 :class:`~nami.TransformerVelocityField` projects the context to a single
 cross-attention key/value token and is the natural choice when the data
 event is itself token-shaped or when richer attention-based conditioning
-is wanted. The choice between them is a constructor swap — the loss,
+is wanted. The choice between them is a constructor swap; the loss,
 process, solver, and sampling code are unchanged.
 
 A reasonable default progression: start with :class:`~nami.VelocityField`,
@@ -82,16 +81,7 @@ concatenating ``t`` and ``c`` only at the input layer is a known weak
 pattern. The signals tend to be washed out by depth, with the network
 either ignoring the context or collapsing onto the unconditional flow.
 The conventional remedies are to re-inject ``t`` and ``c`` at every block
-— for example via FiLM or adaLN modulation, GLU gating, or cross-attention.
+for example via FiLM or adaLN modulation, GLU gating, or cross-attention.
 :class:`~nami.AdaLNVelocityField` and :class:`~nami.TransformerVelocityField`
 are working references for the modulation and cross-attention halves of
 that pattern respectively.
-
-See also
---------
-
-- :doc:`../explanation/lazy-binding` — what the lazy process is doing
-  when it binds ``c`` and why the field stays a pure function of
-  ``(x, t, c)``.
-- :doc:`../explanation/core-abstractions` — where the field sits among
-  the other primitives.

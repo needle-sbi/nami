@@ -10,8 +10,7 @@ Choose the schedule (:class:`~nami.VPSchedule`, :class:`~nami.VESchedule`,
 :class:`~nami.EDMSchedule`) to match how the model was trained, and set
 ``parameterization`` to whichever of :func:`~nami.epsilon_prediction`,
 :func:`~nami.score_prediction`, or :func:`~nami.x0_prediction` the model
-predicts. A parameterisation mismatch produces garbage samples;
-see :doc:`../explanation/parameterizations`.
+predicts. A parameterisation mismatch produces garbage samples.
 
 .. code-block:: python
 

@@ -3,9 +3,7 @@ Train a Schrödinger bridge model
 
 Learn separate velocity and score fields jointly along a Brownian-bridge
 path, then reconstruct the SDE drift from the two fields at sampling time.
-This follows the bridge-matching approach of Tong et al. See
-:doc:`../explanation/model-families` for how it relates to the other
-families.
+This follows the bridge-matching approach of Tong et al.
 
 .. code-block:: python
 

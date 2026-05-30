@@ -2,8 +2,7 @@ How-to guides
 =============
 
 Short, copy-pasteable recipes for common nami tasks. Each page assumes you
-already have rough orientation; for the conceptual scaffolding, see
-:doc:`../explanation/index`. For full signatures and defaults, see
+already have rough orientation. For full signatures and defaults, see
 :doc:`../api/index`.
 
 .. toctree::

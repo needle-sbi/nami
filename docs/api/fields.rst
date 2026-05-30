@@ -7,9 +7,10 @@ Fields
    :toctree: _generated
 
    action
+   adaln
    base
    composite
    consistency
    generator
-   transformer
+   transformer_velocity
    velocity

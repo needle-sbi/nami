@@ -60,6 +60,7 @@ exclude_patterns = [
     "_generated",
     "**.ipynb_checkpoints",
     "books/test/**",
+    "api/summary.md",  # local-review bundle of _generated; not part of the built docs
     ".DS_Store",
 ]
 
