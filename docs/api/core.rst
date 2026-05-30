@@ -8,4 +8,3 @@ Core
 
    broadcast
    specs
-   typing

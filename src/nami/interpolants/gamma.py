@@ -1,24 +1,47 @@
+"""Gamma schedules for stochastic-interpolant noise scaling.
+
+Encodes the ``\\gamma(t)`` profile that multiplies the Gaussian latent
+in a stochastic interpolant ``x_t = I(t, x_0, x_1) + \\gamma(t) z``.
+Implementations expose ``gamma``, ``gamma_dot``, and the common
+product ``gamma * gamma_dot`` used in score / drift identities.
+
+References
+----------
+- Albergo, Boffi, Vanden-Eijnden, *Stochastic Interpolants: A Unifying
+  Framework*, 2023 (arXiv:2303.08797).
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 
 import torch
 
-# Based on https://github.com/malbergo/stochastic-interpolants/tree/main [https://arxiv.org/abs/2303.08797 Albergo et al.]
-
 
 class GammaSchedule:
+    """Abstract noise-scaling schedule ``\\gamma(t)`` for stochastic interpolants."""
+
     def gamma(self, t: torch.Tensor) -> torch.Tensor:
+        """Noise scale ``\\gamma(t)``."""
         raise NotImplementedError
 
     def gamma_dot(self, t: torch.Tensor) -> torch.Tensor:
+        """Time derivative ``\\dot{\\gamma}(t)``."""
         raise NotImplementedError
 
     def gamma_gamma_dot(self, t: torch.Tensor) -> torch.Tensor:
+        """Convenience product ``\\gamma(t) \\dot{\\gamma}(t)``.
+
+        Subclasses with closed-form simplifications (e.g. Brownian
+        ``\\gamma^2 = t(1-t)`` gives ``\\gamma \\dot{\\gamma} = (1-2t)/2``) override this
+        to avoid the singularity at endpoints.
+        """
         return self.gamma(t) * self.gamma_dot(t)
 
 
 class ZeroGamma(GammaSchedule):
+    """Degenerate schedule ``\\gamma(t) \\equiv 0`` recovers deterministic interpolation."""
+
     def gamma(self, t: torch.Tensor) -> torch.Tensor:
         return torch.zeros_like(t)
 
@@ -31,6 +54,13 @@ class ZeroGamma(GammaSchedule):
 
 @dataclass(frozen=True)
 class BrownianGamma(GammaSchedule):
+    """Brownian-bridge schedule ``\\gamma(t) = \\sqrt{t(1-t)}``.
+
+    Default choice from Albergo et al. the noise scale vanishes at
+    both endpoints so the interpolant matches the source / target
+    distributions exactly at ``t=0`` and ``t=1``.
+    """
+
     eps: float = 1e-12
 
     def gamma(self, t: torch.Tensor) -> torch.Tensor:

@@ -6,7 +6,11 @@ Fields
 .. autosummary::
    :toctree: _generated
 
+   action
+   adaln
    base
-   diffusion
-   transformer
+   composite
+   consistency
+   generator
+   transformer_velocity
    velocity

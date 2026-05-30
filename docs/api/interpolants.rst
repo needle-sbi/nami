@@ -6,5 +6,9 @@ Interpolants
 .. autosummary::
    :toctree: _generated
 
+   bridge
+   cosine
    gamma
-   transforms
+   gaussian
+   linear
+   protocol

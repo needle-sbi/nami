@@ -1,3 +1,10 @@
+"""Toy 2-D datasets and a lightweight ``ToyDataset`` container.
+
+Classic generative-model targets — checkerboards, two-moons, two-spirals,
+Gaussian ring / shell / mixture — used in notebooks and unit tests as
+fast, visualisable benchmarks for transport methods.
+"""
+
 from __future__ import annotations
 
 from .checkerboard import Checkerboard

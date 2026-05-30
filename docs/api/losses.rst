@@ -6,5 +6,9 @@ Losses
 .. autosummary::
    :toctree: _generated
 
-   fm
+   action
+   bridge
+   consistency
+   log_density
+   regression
    stochastic_fm

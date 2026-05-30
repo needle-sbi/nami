@@ -1,3 +1,17 @@
+"""Time embeddings used by velocity / score / action fields.
+
+``ScalarTimeEmbedding`` passes ``t`` through unchanged (one feature);
+``SinusoidalTimeEmbedding`` follows the Transformer / DDPM convention
+of sinusoids at geometrically spaced frequencies.
+
+References
+----------
+- Vaswani et al., *Attention Is All You Need*, 2017
+  (arXiv:1706.03762) — sinusoidal positional encoding.
+- Ho et al., *Denoising Diffusion Probabilistic Models*, 2020
+  (arXiv:2006.11239) — sinusoidal time embedding for diffusion.
+"""
+
 from __future__ import annotations
 
 import math
@@ -37,6 +51,17 @@ class ScalarTimeEmbedding(nn.Module):
             device=device,
             dtype=dtype,
         ).unsqueeze(-1)
+
+
+class BasisEmbedding(torch.nn.Module):
+    """Discrete basis index -> context vector for nami's (x, t, c) channel."""
+
+    def __init__(self, n_basis: int, emb_dim: int = 32):
+        super().__init__()
+        self.emb = nn.Embedding(n_basis, emb_dim)
+
+    def forward(self, k: torch.Tensor) -> torch.Tensor:
+        return self.emb(k.long()).unsqueeze(-2)
 
 
 class SinusoidalTimeEmbedding(nn.Module):

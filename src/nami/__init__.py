@@ -1,90 +1,139 @@
+"""Public surface
+TODO: write nice summary docstring for this file
+* **Interpolant + Parameterization -> Loss**
+* **Field + Parameterization -> Process**
+* **Process -> sample / log_prob**
+
+"""
+
 from __future__ import annotations
 
-from . import debug, diagnostics
-from .components import (
-    MLPBackbone,
-    ScalarTimeEmbedding,
-    SinusoidalTimeEmbedding,
-    TransformerBackbone,
-    TransformerBlock,
-)
-from .distributions.normal import DiagonalNormal, StandardNormal
-from .divergence.exact import ExactDivergence
-from .divergence.hutchinson import HutchinsonDivergence
-from .fields.transformer import TransformerVelocityField
-from .fields.velocity import VelocityField
-from .interpolants.gamma import BrownianGamma, ScaledBrownianGamma, ZeroGamma
-from .interpolants.transforms import (
+from nami import diffusion as diffusion
+from nami.distributions.normal import DiagonalNormal, StandardNormal
+from nami.divergence.exact import ExactDivergence
+from nami.divergence.hutchinson import HutchinsonDivergence
+from nami.fields.action import ActionHead
+from nami.fields.adaln import AdaLNVelocityField
+from nami.fields.composite import (
     DriftFromVelocityScore,
     MarkovizationDriftFromVelocityScore,
-    MirrorVelocityFromScore,
-    ScoreFromNoise,
 )
-from .lazy import (
-    LazyDistribution,
-    LazyField,
-    UnconditionalDistribution,
-    UnconditionalField,
+from nami.fields.consistency import LogDensityHead
+from nami.fields.generator import GeneratorField
+from nami.fields.transformer_velocity import TransformerVelocityField
+from nami.fields.velocity import VelocityField
+from nami.generators.base import GeneratorOperator
+from nami.generators.operators import ItoGeneratorOperator
+from nami.generators.parameterizations import generator_prediction
+from nami.interpolants.bridge import BrownianBridgeInterpolant
+from nami.interpolants.cosine import CosineInterpolant
+from nami.interpolants.gamma import (
+    BrownianGamma,
+    GammaSchedule,
+    ScaledBrownianGamma,
+    ZeroGamma,
 )
-from .losses.bridge import bridge_matching_loss
-from .losses.fm import fm_loss
-from .losses.stochastic_fm import stochastic_fm_loss
-from .masking import masked_fm_loss, masked_sample
-from .paths.bridge import BrownianBridgePath
-from .paths.cosine import CosinePath
-from .paths.linear import LinearPath
-from .processes.diffusion import Diffusion, DiffusionProcess
-from .processes.fm import FlowMatching, FlowMatchingProcess
-from .schedules.edm import EDMSchedule
-from .schedules.ve import VESchedule
-from .schedules.vp import VPSchedule
-from .solvers.dpm import DPMSolverPP
-from .solvers.heun import Heun
-from .solvers.ode import RK4
-from .solvers.sde import EulerMaruyama
+from nami.interpolants.gaussian import (
+    GaussianInterpolant,
+    epsilon_prediction,
+    score_prediction,
+    v_prediction,
+    x0_prediction,
+)
+from nami.interpolants.linear import (
+    LinearInterpolant,
+    StochasticLinearInterpolant,
+    velocity_prediction,
+)
+from nami.losses.action import action_matching_loss, action_prediction
+from nami.losses.consistency import consistency_loss
+from nami.losses.log_density import log_density_consistency_loss
+from nami.losses.regression import regression_loss
+from nami.losses.stochastic_fm import stochastic_fm_loss
+from nami.parameterizations import (
+    X0,
+    Action,
+    Epsilon,
+    GeneratorParams,
+    Parameterization,
+    Score,
+    Velocity,
+    VPrediction,
+)
+from nami.processes.action import ActionMatching
+from nami.processes.consistency import ConsistencyFlowMatching
+from nami.processes.diffusion import Diffusion
+from nami.processes.fm import FlowMatching
+from nami.processes.gm import GeneratorMatching
+from nami.schedules.edm import EDMSchedule
+from nami.schedules.ve import VESchedule
+from nami.schedules.vp import VPSchedule
+from nami.solvers.dpm import DPMSolverPP
+from nami.solvers.heun import Heun
+from nami.solvers.ode import RK4
+from nami.solvers.sde import EulerMaruyama
+
+try:
+    from nami._version import version as __version__
+except ModuleNotFoundError:
+    __version__ = "0+unknown"
+
 
 __all__ = [
     "RK4",
-    "BrownianBridgePath",
+    "X0",
+    "Action",
+    "ActionHead",
+    "ActionMatching",
+    "AdaLNVelocityField",
+    "BrownianBridgeInterpolant",
     "BrownianGamma",
-    "CosinePath",
+    "ConsistencyFlowMatching",
+    "CosineInterpolant",
     "DPMSolverPP",
     "DiagonalNormal",
     "Diffusion",
-    "DiffusionProcess",
     "DriftFromVelocityScore",
     "EDMSchedule",
+    "Epsilon",
     "EulerMaruyama",
     "ExactDivergence",
     "FlowMatching",
-    "FlowMatchingProcess",
+    "GammaSchedule",
+    "GaussianInterpolant",
+    "GeneratorField",
+    "GeneratorMatching",
+    "GeneratorOperator",
+    "GeneratorParams",
     "Heun",
     "HutchinsonDivergence",
-    "LazyDistribution",
-    "LazyField",
-    "LinearPath",
-    "MLPBackbone",
+    "ItoGeneratorOperator",
+    "LinearInterpolant",
+    "LogDensityHead",
     "MarkovizationDriftFromVelocityScore",
-    "MirrorVelocityFromScore",
-    "ScalarTimeEmbedding",
+    "Parameterization",
     "ScaledBrownianGamma",
-    "ScoreFromNoise",
-    "SinusoidalTimeEmbedding",
+    "Score",
     "StandardNormal",
-    "TransformerBackbone",
-    "TransformerBlock",
+    "StochasticLinearInterpolant",
     "TransformerVelocityField",
-    "UnconditionalDistribution",
-    "UnconditionalField",
     "VESchedule",
     "VPSchedule",
+    "VPrediction",
+    "Velocity",
     "VelocityField",
     "ZeroGamma",
-    "bridge_matching_loss",
-    "debug",
-    "diagnostics",
-    "fm_loss",
-    "masked_fm_loss",
-    "masked_sample",
+    "__version__",
+    "action_matching_loss",
+    "action_prediction",
+    "consistency_loss",
+    "epsilon_prediction",
+    "generator_prediction",
+    "log_density_consistency_loss",
+    "regression_loss",
+    "score_prediction",
     "stochastic_fm_loss",
+    "v_prediction",
+    "velocity_prediction",
+    "x0_prediction",
 ]

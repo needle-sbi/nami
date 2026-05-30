@@ -1,41 +1,66 @@
+"""Schrödinger-bridge matching loss.
+
+Trains a flow head (Velocity target) and a score head (Score target)
+jointly on a Brownian bridge.  Each head is regressed independently
+via :func:`~nami.losses.regression.regression_loss`; this function
+just bundles them with shared ``t``, ``z``, and weighting kwargs so
+callers don't have to thread the same RNG state through two calls.
+
+Implements the joint flow + score regression of Tong et al.,
+*Simulation-free Schrödinger Bridges via Score and Flow Matching*,
+AISTATS 2024 (https://proceedings.mlr.press/v238/tong24a/tong24a.pdf).
+Related bridge-matching constructions: Shi et al., *Diffusion
+Schrödinger Bridge Matching*, 2023; Peluchetti, *Diffusion Bridge
+Mixture Transports*, 2023.
+"""
+
 from __future__ import annotations
 
 import torch
 
-from ..paths.bridge import BrownianBridgePath
-from ._common import (
+from nami.interpolants.bridge import BrownianBridgeInterpolant
+from nami.losses._common import (
     leading_shape,
-    per_sample_mse,
-    prepare_time,
     reduce_loss,
     require_event_ndim,
+    sample_t,
 )
+from nami.losses.regression import regression_loss
+from nami.parameterizations import Parameterization, Score, Velocity
 
 
 def bridge_matching_loss(
     flow_field,
     score_field,
-    x_target: torch.Tensor,
-    x_source: torch.Tensor,
+    *,
+    x_noise: torch.Tensor,
+    x_data: torch.Tensor,
     t: torch.Tensor | None = None,
     c: torch.Tensor | None = None,
-    *,
-    path: BrownianBridgePath | None = None,
+    interpolant: BrownianBridgeInterpolant | None = None,
     z: torch.Tensor | None = None,
     flow_weight: float = 1.0,
     score_weight: float = 1.0,
     reduction: str = "mean",
 ) -> torch.Tensor:
-    """Schrodinger bridge matching loss (flow + score regression).
+    """Schrödinger-bridge matching loss (joint flow + score regression).
 
-    ``x_target`` should be posterior-side samples (paired with context ``c`` if used),
-    and ``x_source`` should be independent prior-side samples.
+    Mathematical object: simultaneous regression of the conditional
+    velocity (Velocity target) and Stein score (Score target) of a
+    Brownian-bridge interpolant between paired endpoints — the
+    simulation-free SB objective of Tong et al., *Simulation-free
+    Schrödinger Bridges via Score and Flow Matching*, AISTATS 2024.
 
-    If ``t`` is not provided, times are sampled uniformly on
-    ``[path.eps, 1 - path.eps]`` to avoid endpoint singularities in bridge targets.
+    ``x_data`` should be posterior-side samples (paired with context
+    ``c`` if used), and ``x_noise`` should be independent prior-side
+    samples.
 
-    Reference:
-    https://proceedings.mlr.press/v238/tong24a/tong24a.pdf
+    Times are auto-sampled from ``[interpolant.eps, 1 - interpolant.eps]``
+    when ``t`` is omitted, avoiding the Brownian bridge's endpoint
+    singularities.  Both heads see the *same* ``(t, z)`` so they sit
+    on the same bridge realisation — when ``z`` is omitted we draw
+    one here (rather than letting each ``regression_loss`` call draw
+    independent noise inside ``interpolant.sample``).
     """
     event_ndim = require_event_ndim(flow_field)
     score_event_ndim = require_event_ndim(score_field)
@@ -43,29 +68,49 @@ def bridge_matching_loss(
         msg = "flow_field.event_ndim and score_field.event_ndim must match"
         raise ValueError(msg)
 
-    if path is None:
-        path = BrownianBridgePath()
+    if interpolant is None:
+        interpolant = BrownianBridgeInterpolant()
 
-    lead = leading_shape(x_target, event_ndim)
-    if t is None:
-        dtype = x_target.dtype if x_target.dtype.is_floating_point else torch.float32
-        t = torch.rand(lead, device=x_target.device, dtype=dtype)
-        t = path.eps + (1.0 - 2.0 * path.eps) * t
-    else:
-        t = prepare_time(x_target, lead, t)
+    lead = leading_shape(x_data, event_ndim)
+    # Sample t once so both heads use the same bridge point for the velocity
+    # and score regressions.
+    t = sample_t(x_data, lead, t, eps_t=interpolant.eps)
 
-    if z is not None and tuple(z.shape) != tuple(x_target.shape):
-        msg = "z must match the shape of x_target"
+    if z is not None and tuple(z.shape) != tuple(x_data.shape):
+        msg = "z must match the shape of x_data"
         raise ValueError(msg)
 
-    xt = path.sample_xt(x_target, x_source, t, z=z)
-    flow_target = path.target_ut(x_target, x_source, t, xt=xt)
-    score_tgt = path.score_target(x_target, x_source, t, xt=xt)
+    # Draw shared noise once when not supplied — without this, the two
+    # ``regression_loss`` calls below would each forward ``noise=None``
+    # to ``interpolant.sample``, which draws independent z, and the
+    # flow / score regressions would land on different bridge points.
+    if z is None:
+        z = torch.randn_like(x_data)
 
-    vt = flow_field(xt, t, c)
-    st = score_field(xt, t, c)
+    flow_loss = regression_loss(
+        flow_field,
+        x_noise=x_noise,
+        x_data=x_data,
+        t=t,
+        c=c,
+        interpolant=interpolant,
+        parameterization=Parameterization(target=Velocity()),
+        z=z,
+        eps_t=interpolant.eps,
+        reduction="none",
+    )
+    score_loss = regression_loss(
+        score_field,
+        x_noise=x_noise,
+        x_data=x_data,
+        t=t,
+        c=c,
+        interpolant=interpolant,
+        parameterization=Parameterization(target=Score()),
+        z=z,
+        eps_t=interpolant.eps,
+        reduction="none",
+    )
 
-    flow_mse = per_sample_mse(vt, flow_target, lead)
-    score_mse = per_sample_mse(st, score_tgt, lead)
-    loss = flow_weight * flow_mse + score_weight * score_mse
-    return reduce_loss(loss, reduction)
+    total = flow_weight * flow_loss + score_weight * score_loss
+    return reduce_loss(total, reduction)

@@ -1,3 +1,5 @@
+"""Activation-function registry"""
+
 from __future__ import annotations
 
 from torch import nn
@@ -18,6 +20,7 @@ _ACTIVATIONS: dict[str, type[nn.Module]] = {
 
 
 def get_activation(name: str) -> nn.Module:
+    """Return an activation module by name."""
     activation = _ACTIVATIONS.get(name)
     if activation is None:
         msg = f"Unknown activation: {name!r}. Available: {sorted(_ACTIVATIONS)}"

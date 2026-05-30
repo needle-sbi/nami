@@ -1,9 +1,22 @@
+"""Hutchinson stochastic-trace divergence estimator.
+
+Single-sample unbiased estimate ``\\mathbb{E}_\\epsilon[\\epsilon^T J \\epsilon] = \\mathrm{tr}(J)``
+with ``\\epsilon`` drawn from a Rademacher or Gaussian probe. One vJp call
+per evaluation regardless of event size.
+
+References
+----------
+- Hutchinson, 1989 — original trace estimator.
+- Grathwohl et al., *FFJORD*, 2018 (arXiv:1810.01367) — Hutchinson
+  trace integrated through a continuous flow.
+"""
+
 from __future__ import annotations
 
 import torch
 
-from ..core.specs import split_event
-from .base import DivergenceEstimator
+from nami.core.specs import split_event
+from nami.divergence.base import DivergenceEstimator
 
 
 def _rademacher_like(x: torch.Tensor) -> torch.Tensor:
@@ -11,6 +24,17 @@ def _rademacher_like(x: torch.Tensor) -> torch.Tensor:
 
 
 class HutchinsonDivergence(DivergenceEstimator):
+    """Hutchinson stochastic trace estimator.
+
+    Parameters
+    ----------
+    probe : {"rademacher", "gaussian"}
+        Probe distribution. Rademacher has the lower variance for
+        diagonally dominant Jacobians and is the default.
+    create_graph : bool
+        Retain the autograd graph through the estimate.
+    """
+
     def __init__(self, probe: str = "rademacher", *, create_graph: bool = False):
         if probe not in {"rademacher", "gaussian"}:
             msg = "probe must be 'rademacher' or 'gaussian'"

@@ -1,3 +1,10 @@
+"""Event-shape primitives: tuple normalisation, flatten/unflatten, validation.
+
+Establishes ``leading_shape + event_shape`` convention. ``event_shape``
+is the shape of a single sample (e.g. ``(d,)`` for vectors, ``(C, H, W)``
+for images); everything to the left is batch / sample / time replication.
+"""
+
 from __future__ import annotations
 
 import math
@@ -8,18 +15,31 @@ import torch
 
 
 def as_tuple(x: Iterable[int] | int | None) -> tuple[int, ...]:
-    """normaliser to take flexible input and return always a tuple for convenience."""
+    """Normalize an event-shape argument.
+
+    Args:
+        x (Iterable[int] | int | None): Flexible shape input.
+
+    Returns:
+        tuple[int, ...]: ``()`` for ``None``, ``(x,)`` for an integer, or a
+        tuple copy of an iterable.
+    """
     if x is None:
         return ()
-    if isinstance(x, tuple):
-        return x
-    if isinstance(x, list):
-        return tuple(int(v) for v in x)
-    return (int(x),)
+    if isinstance(x, int):
+        return (int(x),)
+    return tuple(int(v) for v in x)
 
 
 def event_numel(event_shape: Iterable[int] | None) -> int:
-    """returns the total number of elements in the event shape"""
+    """Return the number of scalar elements in an event.
+
+    Args:
+        event_shape (Iterable[int] | None): Event shape.
+
+    Returns:
+        int: Product of event-shape dimensions, or ``1`` for scalar events.
+    """
     shape = as_tuple(event_shape)
     if not shape:
         return 1
@@ -29,7 +49,15 @@ def event_numel(event_shape: Iterable[int] | None) -> int:
 def split_event(
     x: torch.Tensor, event_ndim: int
 ) -> tuple[tuple[int, ...], tuple[int, ...]]:
-    """given a tensor, return shape split into leading shape and event shape"""
+    """Split a tensor shape into leading and event parts.
+
+    Args:
+        x (torch.Tensor): Tensor with shape ``lead + event_shape``.
+        event_ndim (int): Number of trailing event dimensions.
+
+    Returns:
+        tuple[tuple[int, ...], tuple[int, ...]]: ``(lead, event_shape)``.
+    """
     if event_ndim < 0:
         msg = "event_ndim must be >= 0"
         raise ValueError(msg)
@@ -42,7 +70,15 @@ def split_event(
 
 
 def flatten_event(x: torch.Tensor, event_ndim: int) -> torch.Tensor:
-    """collapse all event dimensions into a single flat dimension"""
+    """Flatten event dimensions into one trailing dimension.
+
+    Args:
+        x (torch.Tensor): Tensor with shape ``lead + event_shape``.
+        event_ndim (int): Number of trailing event dimensions.
+
+    Returns:
+        torch.Tensor: Tensor with shape ``lead + (prod(event_shape),)``.
+    """
     if event_ndim < 0:
         msg = "event_ndim must be >= 0"
         raise ValueError(msg)
@@ -55,7 +91,15 @@ def flatten_event(x: torch.Tensor, event_ndim: int) -> torch.Tensor:
 
 
 def unflatten_event(x: torch.Tensor, event_shape: tuple[int, ...]) -> torch.Tensor:
-    """inverse of `flatten_event`"""
+    """Restore flattened event dimensions.
+
+    Args:
+        x (torch.Tensor): Tensor with one flattened trailing event dimension.
+        event_shape (tuple[int, ...]): Target event shape.
+
+    Returns:
+        torch.Tensor: Tensor with shape ``lead + event_shape``.
+    """
     if not event_shape:
         return x
     return x.reshape(*x.shape[:-1], *event_shape)
@@ -67,8 +111,16 @@ def validate_shapes(
     expected_event_shape: tuple[int, ...] | None = None,
     batch_shape: tuple[int, ...] | None = None,
 ) -> None:
-    """Runtime assertion helper to enforce explicit shapes and
-    prevent silent broadcasting
+    """Validate event and batch shape contracts.
+
+    Args:
+        tensor (torch.Tensor): Tensor to validate.
+        event_ndim (int): Number of trailing event dimensions.
+        expected_event_shape (tuple[int, ...] | None): Expected event shape.
+        batch_shape (tuple[int, ...] | None): Expected leading shape.
+
+    Raises:
+        ValueError: If ``event_ndim`` is invalid or a shape check fails.
     """
     if event_ndim < 0:
         msg = "event_ndim must be >= 0"
@@ -96,10 +148,9 @@ def validate_shapes(
 class TensorSpec:
     """Minimal tensor specification for models, samplers, and distributions.
 
-    Attributes:
-    ----------
-        event_shape (tuple[int, ...]): The shape of a single event (sample, vector, matrix, etc).
-        dtype (torch.dtype | None): The expected data type of the tensor.
+    Args:
+        event_shape (tuple[int, ...]): Shape of one event.
+        dtype (torch.dtype | None): Expected tensor dtype, when constrained.
     """
 
     event_shape: tuple[int, ...]

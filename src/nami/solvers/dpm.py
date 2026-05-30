@@ -1,8 +1,22 @@
+"""DPM-Solver++ inspired ODE solver with a diffusion-specific fast path.
+
+Generic ``integrate`` falls back to Heun's method for non-diffusion
+ODEs. ``integrate_diffusion`` implements the 1st/2nd-order data-prediction
+DPM-Solver++ update in log-SNR space.
+
+References
+----------
+- Lu et al., *DPM-Solver: A Fast ODE Solver for Diffusion Probabilistic
+  Model Sampling in Around 10 Steps*, 2022 (arXiv:2206.00927).
+- Lu et al., *DPM-Solver++: Fast Solver for Guided Sampling of Diffusion
+  Probabilistic Models*, 2022 (arXiv:2211.01095).
+"""
+
 from __future__ import annotations
 
 import torch
 
-from ..fields.diffusion import _expand_like
+from nami.diffusion import expand_like
 
 
 class DPMSolverPP:
@@ -30,15 +44,15 @@ class DPMSolverPP:
         if steps <= 0:
             msg = f"steps must be positive, got {steps}"
             raise ValueError(msg)
-        
+
         if order not in {1, 2}:
             msg = f"order must be 1 or 2, got {order}"
             raise ValueError(msg)
-        
+
         if skip_type not in {"time_uniform", "logsnr"}:
             msg = "skip_type must be 'time_uniform' or 'logsnr'"
             raise ValueError(msg)
-        
+
         if sigma_min <= 0:
             msg = f"sigma_min must be positive, got {sigma_min}"
             raise ValueError(msg)
@@ -59,7 +73,11 @@ class DPMSolverPP:
         rtol: float = 1e-5,  # unused
         steps: int | None = None,
     ) -> torch.Tensor:
-        # generic fallback (Heun)
+        """Generic fixed-step integration via Heun fallback.
+
+        For diffusion-specific fast sampling use
+        :meth:`integrate_diffusion`.
+        """
         _ = atol, rtol
         steps = int(steps or self.steps)
         if steps <= 0:  # pragma: no cover — constructor validates
@@ -88,7 +106,7 @@ class DPMSolverPP:
         rtol: float = 1e-5,  # unused
         steps: int | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        # generic fallback (Heun), specifically for augmented states.
+        """Heun fallback for augmented ``(x, log p)`` integration."""
         _ = atol, rtol
         steps = int(steps or self.steps)
         if steps <= 0:  # pragma: no cover — constructor validates
@@ -138,10 +156,10 @@ class DPMSolverPP:
             lambda_next = self._lambda(schedule, t_next)
             h = lambda_next - lambda_curr
 
-            alpha_next = _expand_like(self._alpha(schedule, t_next), x)
-            sigma_curr = _expand_like(self._sigma(schedule, t_curr), x)
-            sigma_next = _expand_like(self._sigma(schedule, t_next), x)
-            phi_1 = _expand_like(torch.expm1(-h), x)
+            alpha_next = expand_like(self._alpha(schedule, t_next), x)
+            sigma_curr = expand_like(self._sigma(schedule, t_curr), x)
+            sigma_next = expand_like(self._sigma(schedule, t_next), x)
+            phi_1 = expand_like(torch.expm1(-h), x)
 
             if self.order == 1 or x0_prev is None or lambda_prev is None:
                 x_next = (sigma_next / sigma_curr) * x - alpha_next * phi_1 * x0_curr
@@ -158,7 +176,7 @@ class DPMSolverPP:
                     h,
                 )
                 r0 = h0 / h_safe
-                d1 = (x0_curr - x0_prev) / _expand_like(r0, x)
+                d1 = (x0_curr - x0_prev) / expand_like(r0, x)
                 x_next = (
                     (sigma_next / sigma_curr) * x
                     - alpha_next * phi_1 * x0_curr
@@ -180,8 +198,8 @@ class DPMSolverPP:
         self, predict_eps, schedule, x: torch.Tensor, t: torch.Tensor
     ) -> torch.Tensor:
         eps = predict_eps(x, t)
-        alpha = _expand_like(self._alpha(schedule, t), x)
-        sigma = _expand_like(self._sigma(schedule, t), x)
+        alpha = expand_like(self._alpha(schedule, t), x)
+        sigma = expand_like(self._sigma(schedule, t), x)
         return (x - sigma * eps) / alpha
 
     def _alpha(self, schedule, t: torch.Tensor) -> torch.Tensor:
@@ -235,10 +253,7 @@ class DPMSolverPP:
         for _ in range(64):
             mid = 0.5 * (lo + hi)
             mid_l = self._lambda(schedule, mid)
-            if increasing:
-                go_right = mid_l < target_lambda
-            else:
-                go_right = mid_l > target_lambda
+            go_right = mid_l < target_lambda if increasing else mid_l > target_lambda
             lo = torch.where(go_right, mid, lo)
             hi = torch.where(go_right, hi, mid)
 

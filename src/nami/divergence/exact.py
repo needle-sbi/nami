@@ -1,12 +1,31 @@
+"""Exact divergence via per-component autograd.
+
+Loops over the flattened event dimensions and accumulates
+``\\partial v_i / \\partial x_i``. Cost scales linearly with the event
+size, so callers cap ``max_dim`` to keep training tractable.
+"""
+
 from __future__ import annotations
 
 import torch
 
-from ..core.specs import event_numel, split_event
-from .base import DivergenceEstimator
+from nami.core.specs import event_numel, split_event
+from nami.divergence.base import DivergenceEstimator
 
 
 class ExactDivergence(DivergenceEstimator):
+    """Exact-trace divergence estimator (one autograd call per event dim).
+
+    Parameters
+    ----------
+    max_dim : int
+        Refuse to estimate when the flattened event has more than
+        ``max_dim`` components — protects against silent O(D) cost.
+    create_graph : bool
+        Whether to retain the autograd graph through the divergence
+        (needed for second-order objectives).
+    """
+
     def __init__(self, max_dim: int = 16, *, create_graph: bool = False):
         self.max_dim = int(max_dim)
         self.create_graph = bool(create_graph)

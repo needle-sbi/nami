@@ -35,10 +35,10 @@ class ParameterisedGaussian:
         Dimension of the mean vector that theta controls.
     """
 
-    sig_loc: torch.Tensor = field(default_factory=lambda: _DEFAULT_SIG_LOC.clone())
-    sig_cov: torch.Tensor = field(default_factory=lambda: _DEFAULT_SIG_COV.clone())
-    bkg_loc: torch.Tensor = field(default_factory=lambda: _DEFAULT_BKG_LOC.clone())
-    bkg_cov: torch.Tensor = field(default_factory=lambda: _DEFAULT_BKG_COV.clone())
+    sig_loc: torch.Tensor = field(default_factory=_DEFAULT_SIG_LOC.clone)
+    sig_cov: torch.Tensor = field(default_factory=_DEFAULT_SIG_COV.clone)
+    bkg_loc: torch.Tensor = field(default_factory=_DEFAULT_BKG_LOC.clone)
+    bkg_cov: torch.Tensor = field(default_factory=_DEFAULT_BKG_COV.clone)
     sig_frac: float = 0.3
     param_dim: int = 0
 
@@ -86,7 +86,9 @@ class ParameterisedGaussian:
     ) -> ToyDataset:
         """Draw a Poisson-fluctuated dataset at the given *theta*."""
         n_total = int(torch.poisson(torch.tensor(float(n_expected))).item())
-        n_sig = int(Binomial(n_total, self.sig_frac).sample().item())
+        n_sig = int(
+            Binomial(n_total, probs=torch.tensor(float(self.sig_frac))).sample().item()
+        )
         n_bkg = n_total - n_sig
 
         sig = self.sig_at(theta)

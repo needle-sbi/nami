@@ -1,16 +1,27 @@
+"""MLP velocity field for flow-matching and related transports.
+
+Consumed by :class:`FlowMatching` and (via :class:`Velocity` target)
+any Process expecting a vector-valued field over the event shape.
+
+References
+----------
+- Lipman et al., *Flow Matching for Generative Modeling*, 2022
+  (arXiv:2210.02747).
+"""
+
 from __future__ import annotations
 
 import torch
 
-from ..components import MLPBackbone, ScalarTimeEmbedding
-from ..core.specs import (
+from nami.components import MLPBackbone, ScalarTimeEmbedding
+from nami.core.specs import (
     event_numel,
     flatten_event,
     unflatten_event,
     validate_shapes,
 )
-from ._common import normalise_event_shape, validate_context
-from .base import VectorField
+from nami.fields._common import normalise_event_shape, validate_context
+from nami.fields.base import VectorField
 
 
 class VelocityField(VectorField):

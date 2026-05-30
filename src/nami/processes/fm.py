@@ -1,25 +1,95 @@
+"""Flow-Matching process: velocity-field ODE sampling and log-density.
+
+Wraps a velocity field plus base distribution plus ODE solver, with
+optional augmented-state integration for change-of-variables
+log-density. Only the Velocity target is supported here; converting
+score / epsilon to velocity needs a schedule the FM process does not
+carry.
+
+References
+----------
+- Lipman et al., *Flow Matching for Generative Modeling*, 2022
+  (arXiv:2210.02747).
+- Liu et al., *Rectified Flow*, 2022 (arXiv:2209.03003).
+- Chen et al., *Neural Ordinary Differential Equations*, 2018
+  (arXiv:1806.07366) — augmented-state log-density.
+- Grathwohl et al., *FFJORD*, 2018 (arXiv:1810.01367) — divergence
+  estimator integration into the augmented state.
+"""
+
 from __future__ import annotations
 
 import torch
 
-from ..distributions.base import expand_distribution, has_rsample
-from ..lazy import (
+from nami.distributions.base import expand_distribution, has_rsample
+from nami.fields._common import require_event_ndim
+from nami.interpolants.linear import velocity_prediction
+from nami.lazy import (
     LazyDistribution,
     LazyField,
+    LazyProcess,
     UnconditionalDistribution,
     UnconditionalField,
 )
+from nami.parameterizations import Parameterization, Velocity
+from nami.processes._common import (
+    ProcessRuntimeMixin,
+    TransformedField,
+    cast_time,
+    resolve_event_ndim,
+    validate_base_event_ndim,
+)
 
 
-class FlowMatching(LazyDistribution):
+class FlowMatching(LazyProcess):
+    r"""Flow-matching process driven by a :class:`Parameterization`.
+
+    Args:
+        field: Velocity field.
+        base: Base distribution or lazy base distribution.
+        solver: ODE solver.
+        parameterization (Parameterization | None): Velocity target and output
+            projection. Defaults to :func:`velocity_prediction`.
+        t0 (float): Initial integration time.
+        t1 (float): Final integration time.
+        event_ndim (int | None): Event rank fallback when the field does not
+            expose ``event_ndim``.
+        validate_args (bool): Whether to validate target and event shapes.
+
+    Unlike :class:`~nami.processes.diffusion.Diffusion`, FM has no
+    algebraic dispatch over multiple targets — it only supports
+    :class:`~nami.parameterizations.Velocity`, because converting score
+    or ``\epsilon`` to velocity requires a schedule the FM Process does not carry.
+    The ``parameterization`` kwarg therefore exists primarily for API
+    consistency with ``Diffusion`` and to provide the
+    ``output_transform`` slot, so a trained field whose raw output
+    needs projection (e.g. through a constraint) can be sampled
+    without a wrapper class.
+
+    The default, ``velocity_prediction()``, has identity ``output_transform``.
+
+    .. note::
+
+       ``output_transform`` is applied inside the integration path
+       (``sample`` / ``rsample`` / ``log_prob``).  Estimator-based
+       ``log_prob`` automatically differentiates the *transformed*
+       velocity (via the internal ``TransformedField`` adapter) so
+       the change-of-variables identity holds for any
+       ``output_transform``.  The bundled ``call_and_divergence`` field
+       method path rejects non-identity transforms with an explicit
+       error — its divergence is for the raw output and would mix two
+       different velocities in the density bookkeeping.
+    """
+
     def __init__(
         self,
         field,
         base,
         solver,
         *,
-        t0: float = 1.0,
-        t1: float = 0.0,
+        parameterization: Parameterization | None = None,
+        t0: float = 0.0,
+        t1: float = 1.0,
         event_ndim: int | None = None,
         validate_args: bool = True,
     ):
@@ -33,6 +103,9 @@ class FlowMatching(LazyDistribution):
             else UnconditionalDistribution(base)
         )
         self.solver = solver
+        self.parameterization = (
+            parameterization if parameterization is not None else velocity_prediction()
+        )
         self.t0 = float(t0)
         self.t1 = float(t1)
         self.event_ndim = event_ndim
@@ -45,22 +118,35 @@ class FlowMatching(LazyDistribution):
         if c is not None:
             base = expand_distribution(base, tuple(c.shape[:-1]))
 
-        # Use explicit None check to support event_ndim=0 (scalar events)
-        event_ndim = getattr(field, "event_ndim", None)
-        if event_ndim is None:
-            event_ndim = self.event_ndim
-        if event_ndim is None:
-            msg = "event_ndim must be provided or exposed by field"
-            raise ValueError(msg)
+        event_ndim = resolve_event_ndim(field, self.event_ndim)
 
-        if self.validate_args and len(base.event_shape) != event_ndim:
-            msg = "base.event_shape does not match field.event_ndim"
-            raise ValueError(msg)
+        if self.validate_args:
+            if not isinstance(self.parameterization, Parameterization):
+                msg = (
+                    "parameterization must be a "
+                    "nami.parameterizations.Parameterization instance"
+                )
+                raise TypeError(msg)
+            if not isinstance(self.parameterization.target, Velocity):
+                msg = (
+                    "FlowMatching supports only the Velocity target; got "
+                    f"{type(self.parameterization.target).__name__}.  "
+                    "Use Diffusion for Score / Epsilon / X0 targets — "
+                    "those conversions require a NoiseSchedule that the "
+                    "FM Process does not carry."
+                )
+                raise TypeError(msg)
+            validate_base_event_ndim(
+                base,
+                event_ndim,
+                message="base.event_shape does not match field.event_ndim",
+            )
 
         return FlowMatchingProcess(
             field=field,
             base=base,
             solver=self.solver,
+            parameterization=self.parameterization,
             t0=self.t0,
             t1=self.t1,
             context=c,
@@ -68,21 +154,25 @@ class FlowMatching(LazyDistribution):
         )
 
 
-class FlowMatchingProcess:
+class FlowMatchingProcess(ProcessRuntimeMixin):
     def __init__(
         self,
         field,
         base: torch.distributions.Distribution,
         solver,
         *,
-        t0: float = 1.0,
-        t1: float = 0.0,
+        parameterization: Parameterization | None = None,
+        t0: float = 0.0,
+        t1: float = 1.0,
         context: torch.Tensor | None = None,
         validate_args: bool = True,
     ):
         self._field = field
         self._base = base
         self._solver = solver
+        self._parameterization = (
+            parameterization if parameterization is not None else velocity_prediction()
+        )
         self._t0 = float(t0)
         self._t1 = float(t1)
         self._context = context
@@ -103,31 +193,6 @@ class FlowMatchingProcess:
     @property
     def batch_shape(self) -> tuple[int, ...]:
         return tuple(self._base.batch_shape)
-
-    def _cast_time(self, t: float | torch.Tensor, like: torch.Tensor) -> torch.Tensor:
-        return torch.as_tensor(t, device=like.device, dtype=like.dtype)
-
-    def _expand_context(
-        self, c: torch.Tensor | None, target: torch.Tensor
-    ) -> torch.Tensor | None:
-        """Expand context to match target's sample dimensions."""
-        if c is None:
-            return None
-        # c has shape: batch_shape + (context_dim,)
-        # target has shape: sample_shape + batch_shape + event_shape
-        # We need c to have shape: sample_shape + batch_shape + (context_dim,)
-        event_ndim = len(self.event_shape)
-        # Number of leading sample dims to prepend:
-        #   target.ndim = len(sample) + len(batch) + event_ndim
-        #   c.ndim      = len(batch) + 1  (the +1 is context_dim)
-        #   n_expand    = len(sample) = target.ndim - event_ndim - c.ndim + 1
-        n_expand = target.ndim - event_ndim - c.ndim + 1
-        if n_expand > 0:
-            for _ in range(n_expand):
-                c = c.unsqueeze(0)
-            # target.shape[:target.ndim - event_ndim] == sample_shape + batch_shape
-            c = c.expand(*target.shape[: target.ndim - event_ndim], c.shape[-1])
-        return c
 
     def _integrate(self, f, x0: torch.Tensor, *, t0: float, t1: float) -> torch.Tensor:
         kwargs = {}
@@ -156,32 +221,151 @@ class FlowMatchingProcess:
             f_aug, x0, logp0, t0=t0, t1=t1, **kwargs
         )
 
-    def sample(self, sample_shape=()) -> torch.Tensor:
-        z = self._base.sample(sample_shape)
+    def _velocity(
+        self, x: torch.Tensor, t: torch.Tensor, context: torch.Tensor | None
+    ) -> torch.Tensor:
+        """Evaluate the transformed velocity field.
+
+        Args:
+            x (torch.Tensor): State tensor.
+            t (torch.Tensor): Time tensor.
+            context (torch.Tensor | None): Optional conditioning tensor.
+
+        Returns:
+            torch.Tensor: ``output_transform(field(x, t, context))``.
+        """
+        return self._parameterization.output_transform(self._field(x, t, context))
+
+    def _transformed_field(self):
+        r"""Create an adapter for divergence estimation.
+
+        Returns:
+            TransformedField: Callable whose output is the transformed velocity
+            used by the integrator.
+
+        The change-of-variables identity
+
+        .. math::
+
+           \partial_t \log p_t(x) = -\nabla_x \cdot v(x,t)
+
+        requires the divergence of the same velocity that advances the state.
+        """
+        return TransformedField(self._field, self._parameterization.output_transform)
+
+    def _call_and_divergence(
+        self,
+        x: torch.Tensor,
+        t: torch.Tensor,
+        context: torch.Tensor | None,
+        *,
+        estimator=None,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        if estimator is not None:
+            transformed = self._transformed_field()
+            v = transformed(x, t, context)
+            div = estimator(transformed, x, t, context)
+            return v, div
+
+        call_and_divergence = getattr(self._field, "call_and_divergence", None)
+        if call_and_divergence is None:
+            msg = (
+                "density evaluation requires either `estimator=...` or a field "
+                "implementing `call_and_divergence(x, t, c)`"
+            )
+            raise TypeError(msg)
+
+        # The custom call_and_divergence path is incompatible with a
+        # non-identity output_transform: the field's bundled divergence
+        # is for the raw output, not the transformed one.  Force an
+        # explicit estimator in that case.
+        if not self._parameterization.is_identity_transform:
+            msg = (
+                "density evaluation with a non-identity output_transform "
+                "requires `estimator=...`; the field's bundled "
+                "`call_and_divergence` returns the divergence of the raw "
+                "output, not of the transformed velocity, and using it "
+                "would yield density dynamics inconsistent with the "
+                "integrated drift."
+            )
+            raise TypeError(msg)
+
+        try:
+            return call_and_divergence(x, t, context)
+        except NotImplementedError:
+            msg = (
+                "density evaluation requires either `estimator=...` or a field "
+                "implementing `call_and_divergence(x, t, c)`"
+            )
+            raise TypeError(msg) from None
+
+    def _sample_base(self, sample_shape=(), *, reparameterized: bool) -> torch.Tensor:
+        if reparameterized:
+            if not has_rsample(self._base):
+                msg = "base distribution does not support rsample"
+                raise NotImplementedError(msg)
+            if not getattr(self._solver, "supports_rsample", False):
+                msg = "solver does not support rsample"
+                raise NotImplementedError(msg)
+            return self._base.rsample(sample_shape)
+        return self._base.sample(sample_shape)
+
+    def _sample_path(
+        self,
+        z: torch.Tensor,
+        *,
+        context: torch.Tensor | None,
+        return_logp: bool,
+        estimator=None,
+    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
+        if not return_logp:
+
+            def f(x, t):
+                tt = cast_time(t, x)
+                return self._velocity(x, tt, context)
+
+            return self._integrate(f, z, t0=self._t0, t1=self._t1)
+
+        logp0 = self._base.log_prob(z)
+
+        def f_aug(xi, t):
+            tt = cast_time(t, xi)
+            v, div = self._call_and_divergence(xi, tt, context, estimator=estimator)
+            return v, -div
+
+        return self._integrate_augmented(f_aug, z, logp0, t0=self._t0, t1=self._t1)
+
+    def sample(
+        self,
+        sample_shape=(),
+        *,
+        return_logp: bool = False,
+        estimator=None,
+    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
+        z = self._sample_base(sample_shape, reparameterized=False)
         context = self._expand_context(self._context, z)
+        return self._sample_path(
+            z,
+            context=context,
+            return_logp=return_logp,
+            estimator=estimator,
+        )
 
-        def f(x, t):
-            tt = self._cast_time(t, x)
-            return self._field(x, tt, context)
-
-        return self._integrate(f, z, t0=self._t0, t1=self._t1)
-
-    def rsample(self, sample_shape=()) -> torch.Tensor:
-        if not has_rsample(self._base):
-            msg = "base distribution does not support rsample"
-            raise NotImplementedError(msg)
-        if not getattr(self._solver, "supports_rsample", False):
-            msg = "solver does not support rsample"
-            raise NotImplementedError(msg)
-
-        z = self._base.rsample(sample_shape)
+    def rsample(
+        self,
+        sample_shape=(),
+        *,
+        return_logp: bool = False,
+        estimator=None,
+    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
+        z = self._sample_base(sample_shape, reparameterized=True)
         context = self._expand_context(self._context, z)
-
-        def f(x, t):
-            tt = self._cast_time(t, x)
-            return self._field(x, tt, context)
-
-        return self._integrate(f, z, t0=self._t0, t1=self._t1)
+        return self._sample_path(
+            z,
+            context=context,
+            return_logp=return_logp,
+            estimator=estimator,
+        )
 
     def log_prob(self, x: torch.Tensor, *, estimator=None) -> torch.Tensor:
         """Evaluate log-density via change of variables.
@@ -192,36 +376,15 @@ class FlowMatchingProcess:
         exact traces are deterministic but can be expensive, while
         Hutchinson-style estimators scale better but add stochasticity.
         """
-        event_ndim = getattr(self._field, "event_ndim", None)
-        if event_ndim is None:
-            msg = "field.event_ndim is required"
-            raise ValueError(msg)
+        event_ndim = require_event_ndim(self._field)
         lead = x.shape[:-event_ndim] if event_ndim else x.shape
         logp0 = torch.zeros(lead, device=x.device, dtype=x.dtype)
         context = self._expand_context(self._context, x)
 
         def f_aug(xi, t):
-            tt = self._cast_time(t, xi)
-            if estimator is not None:
-                v = self._field(xi, tt, context)
-                div = estimator(self._field, xi, tt, context)
-            else:
-                call_and_divergence = getattr(self._field, "call_and_divergence", None)
-                if call_and_divergence is None:
-                    msg = (
-                        "log_prob requires either `estimator=...` or a field "
-                        "implementing `call_and_divergence(x, t, c)`"
-                    )
-                    raise TypeError(msg)
-                try:
-                    v, div = call_and_divergence(xi, tt, context)
-                except NotImplementedError:
-                    msg = (
-                        "log_prob requires either `estimator=...` or a field "
-                        "implementing `call_and_divergence(x, t, c)`"
-                    )
-                    raise TypeError(msg) from None
+            tt = cast_time(t, xi)
+            v, div = self._call_and_divergence(xi, tt, context, estimator=estimator)
             return v, -div
 
         z, delta = self._integrate_augmented(f_aug, x, logp0, t0=self._t1, t1=self._t0)
-        return self._base.log_prob(z) + delta
+        return self._base.log_prob(z) - delta

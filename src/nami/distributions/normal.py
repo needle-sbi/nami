@@ -1,16 +1,26 @@
+"""Standard and diagonal Normal base distributions.
+
+``StandardNormal`` is the default source distribution for transport
+processes; ``DiagonalNormal`` lets callers parameterise per-coordinate
+mean and scale (e.g. learned base distributions, posterior priors).
+"""
+
 from __future__ import annotations
 
 from typing import ClassVar
 
 import torch
 from torch.distributions import Distribution, Independent, Normal
+from torch.types import _size
 
-from ..core.specs import as_tuple
+from nami.core.specs import as_tuple
 
 _EMPTY_SIZE = torch.Size()
 
 
 class StandardNormal(Distribution):
+    """Isotropic ``N(0, I)`` over ``event_shape`` with explicit batch shape."""
+
     has_rsample = True
     arg_constraints: ClassVar[
         dict[str, object]
@@ -40,10 +50,10 @@ class StandardNormal(Distribution):
             validate_args=validate_args,
         )
 
-    def sample(self, sample_shape: torch.Size = _EMPTY_SIZE) -> torch.Tensor:
+    def sample(self, sample_shape: _size = _EMPTY_SIZE) -> torch.Tensor:
         return self._base.sample(sample_shape)
 
-    def rsample(self, sample_shape: torch.Size = _EMPTY_SIZE) -> torch.Tensor:
+    def rsample(self, sample_shape: _size = _EMPTY_SIZE) -> torch.Tensor:
         return self._base.rsample(sample_shape)
 
     def log_prob(self, value: torch.Tensor) -> torch.Tensor:
@@ -58,7 +68,7 @@ class StandardNormal(Distribution):
         return self._base.variance
 
     def expand(
-        self, batch_shape: torch.Size, _instance: Distribution | None = None
+        self, batch_shape: _size, _instance: Distribution | None = None
     ) -> StandardNormal:
         base = self._base.expand(batch_shape)
         new = self.__class__.__new__(self.__class__)
@@ -72,6 +82,8 @@ class StandardNormal(Distribution):
 
 
 class DiagonalNormal(Distribution):
+    """Diagonal Gaussian with per-coordinate ``loc`` and ``scale``."""
+
     has_rsample = True
     arg_constraints: ClassVar[dict[str, object]] = {}
 
@@ -94,10 +106,10 @@ class DiagonalNormal(Distribution):
             validate_args=validate_args,
         )
 
-    def sample(self, sample_shape: torch.Size = _EMPTY_SIZE) -> torch.Tensor:
+    def sample(self, sample_shape: _size = _EMPTY_SIZE) -> torch.Tensor:
         return self._base.sample(sample_shape)
 
-    def rsample(self, sample_shape: torch.Size = _EMPTY_SIZE) -> torch.Tensor:
+    def rsample(self, sample_shape: _size = _EMPTY_SIZE) -> torch.Tensor:
         return self._base.rsample(sample_shape)
 
     def log_prob(self, value: torch.Tensor) -> torch.Tensor:
@@ -112,7 +124,7 @@ class DiagonalNormal(Distribution):
         return self._base.variance
 
     def expand(
-        self, batch_shape: torch.Size, _instance: Distribution | None = None
+        self, batch_shape: _size, _instance: Distribution | None = None
     ) -> DiagonalNormal:
         base = self._base.expand(batch_shape)
         new = self.__class__.__new__(self.__class__)

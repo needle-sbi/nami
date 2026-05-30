@@ -1,9 +1,13 @@
+"""Classic fourth-order Runge-Kutta fixed-step ODE solver."""
+
 from __future__ import annotations
 
 import torch
 
 
 class RK4:
+    """Fourth-order Runge-Kutta solver with augmented-state log-density pass."""
+
     requires_steps = True
     supports_rsample = True
     is_sde = False
@@ -25,6 +29,7 @@ class RK4:
         rtol: float = 1e-5,  # unused
         steps: int | None = None,
     ) -> torch.Tensor:
+        """Integrate ``dx/dt = f(x, t)`` from ``t0`` to ``t1`` with RK4."""
         _ = atol, rtol
         steps = int(steps or self.steps)
         if steps <= 0:
@@ -56,6 +61,7 @@ class RK4:
         rtol: float = 1e-5,  # unused
         steps: int | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Joint RK4 integration of state and log-density."""
         _ = atol, rtol
         steps = int(steps or self.steps)
         if steps <= 0:

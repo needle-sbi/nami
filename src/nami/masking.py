@@ -1,15 +1,23 @@
 """
-Mask convention
----------------
-``1 = real object``, ``0 = padding``.  Masks have shape ``(..., N)`` where
-*N* is the object (first event) dimension.
+Masked flow matching for variable-cardinality inputs.
+
+Mask convention: ``1 = real object``, ``0 = padding``.  Masks have shape
+``(..., N)`` where *N* is the object (first event) dimension.
+
+TODO: better incoporate into main api, move to losses
 """
 
 from __future__ import annotations
 
 import torch
 
-from .paths.linear import LinearPath
+from nami.interpolants.linear import LinearInterpolant
+from nami.interpolants.protocol import Interpolant
+from nami.losses._common import (
+    leading_shape,
+    sample_t,
+)
+from nami.parameterizations import Parameterization, Velocity
 
 
 def _expand_mask(mask: torch.Tensor, x: torch.Tensor, event_ndim: int) -> torch.Tensor:
@@ -41,26 +49,27 @@ def _expand_mask(mask: torch.Tensor, x: torch.Tensor, event_ndim: int) -> torch.
 
 def masked_fm_loss(
     field,
-    x_target: torch.Tensor,
-    x_source: torch.Tensor,
     mask: torch.Tensor,
+    *,
+    x_noise: torch.Tensor,
+    x_data: torch.Tensor,
     t: torch.Tensor | None = None,
     c: torch.Tensor | None = None,
-    *,
-    path=None,
+    interpolant: Interpolant | None = None,
+    parameterization: Parameterization | None = None,
     reduction: str = "mean",
 ) -> torch.Tensor:
-    """Flow matching loss computed only over real (unmasked) objects.
+    """Flow-matching loss computed only over real (unmasked) objects.
 
-    Like :func:`~nami.losses.fm.fm_loss` but padded objects — positions where
-    ``mask == 0`` — are excluded from the loss.
+    Padded positions (``mask == 0``) are excluded from the per-sample
+    MSE; the average is taken over real objects only.
 
     Parameters
     ----------
     field : nn.Module
         Velocity field.  Must expose an ``event_ndim`` attribute >= 2.
-    x_target, x_source : Tensor
-        Target and source tensors, each ``lead + event_shape``.
+    x_noise, x_data : Tensor
+        Source and target tensors, each ``lead + event_shape``.
     mask : Tensor
         Binary mask, ``lead + (N,)`` where *N* is the first event dim.
         ``1 = real``, ``0 = padding``.
@@ -68,8 +77,13 @@ def masked_fm_loss(
         Per-sample time values (``lead``).  Uniform random if *None*.
     c : Tensor, optional
         Conditioning context forwarded to the field.
-    path : nami.paths.base.ProbabilityPath, optional
-        Defaults to :class:`~nami.paths.linear.LinearPath`.
+    interpolant : Interpolant, optional
+        Defaults to :class:`~nami.interpolants.linear.LinearInterpolant`.
+        Any interpolant supporting ``Velocity`` is accepted.
+    parameterization : Parameterization, optional
+        Defaults to ``Parameterization(target=Velocity())``.  Must be
+        a Velocity parameterization — masking only makes sense for
+        per-object velocity regression.
     reduction : ``'mean'`` | ``'sum'`` | ``'none'``
 
     Returns
@@ -85,28 +99,32 @@ def masked_fm_loss(
         msg = "masked_fm_loss requires event_ndim >= 2 (objects x features)"
         raise ValueError(msg)
 
-    if path is None:
-        path = LinearPath()
+    if interpolant is None:
+        interpolant = LinearInterpolant()
+    if parameterization is None:
+        parameterization = Parameterization(target=Velocity())
+    if not isinstance(parameterization.target, Velocity):
+        msg = (
+            "masked_fm_loss requires a Velocity target — masking is "
+            "applied to the per-object squared error of velocity "
+            "regression."
+        )
+        raise TypeError(msg)
 
-    lead = x_target.shape[:-event_ndim]
+    lead = leading_shape(x_data, event_ndim)
+    t = sample_t(x_data, lead, t, eps_t=0.0)
 
-    if t is None:
-        dtype = x_target.dtype if x_target.dtype.is_floating_point else torch.float32
-        t = torch.rand(lead, device=x_target.device, dtype=dtype)
-    elif t.shape != lead:
-        t = t.expand(lead)
+    state = interpolant.sample(x_noise, x_data, t)
+    target = interpolant.target(parameterization.target, state)
+    prediction = parameterization.output_transform(field(state.xt, t, c))
 
-    xt = path.sample_xt(x_target, x_source, t)
-    ut = path.target_ut(x_target, x_source, t)
-    vt = field(xt, t, c)
-
-    sq_err = (vt - ut).pow(2)  # lead + event_shape
+    sq_err = (prediction - target).pow(2)  # lead + event_shape
 
     mask_f = mask.float()
     mask_exp = _expand_mask(mask_f, sq_err, event_ndim)  # lead + (N, 1, ...)
     sq_err = sq_err * mask_exp
 
-    # Per-object MSE: collapse feature dims -> lead + (N,)
+    # Per-object MSE: collapse feature dims to ``lead + (N,)``.
     n_objects = sq_err.shape[len(lead)]
     sq_err_flat = sq_err.reshape(*lead, n_objects, -1)
     per_object = sq_err_flat.mean(dim=-1)
@@ -133,8 +151,8 @@ def masked_sample(
     *,
     sample_shape: tuple[int, ...] = (),
     c: torch.Tensor | None = None,
-    t0: float = 1.0,
-    t1: float = 0.0,
+    t0: float = 0.0,
+    t1: float = 1.0,
 ) -> torch.Tensor:
     """Sample from a flow matching model with variable-cardinality masking.
 
@@ -157,9 +175,10 @@ def masked_sample(
     c : Tensor, optional
         Conditioning context forwarded to the field.
     t0 : float
-        Integration start (default ``1.0``, noise end).
+        Integration start (default ``0.0``, noise endpoint in nami's
+        FM convention).
     t1 : float
-        Integration end (default ``0.0``, data end).
+        Integration end (default ``1.0``, data endpoint).
 
     Returns
     -------

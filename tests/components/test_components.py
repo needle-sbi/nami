@@ -4,6 +4,7 @@ import pytest
 import torch
 
 from nami.components import (
+    BasisEmbedding,
     MLPBackbone,
     ScalarTimeEmbedding,
     SinusoidalTimeEmbedding,
@@ -44,6 +45,7 @@ def test_get_activation_supports_extended_registry(name: str):
 def test_get_activation_unknown_raises():
     with pytest.raises(ValueError, match="Unknown activation"):
         get_activation("nonexistent")
+
 
 # ---------------------------------------------------------
 # MLP
@@ -99,7 +101,9 @@ def test_scalar_and_sinusoidal_time_embeddings_match_leading_shape():
     leading_shape = (2, 3, 4)
     t = torch.rand(2, 3, 4)
 
-    scalar = ScalarTimeEmbedding()(t, leading_shape=leading_shape, device=t.device, dtype=t.dtype)
+    scalar = ScalarTimeEmbedding()(
+        t, leading_shape=leading_shape, device=t.device, dtype=t.dtype
+    )
     sinusoidal = SinusoidalTimeEmbedding(7)(
         t,
         leading_shape=leading_shape,
@@ -144,6 +148,15 @@ def test_sinusoidal_max_period_non_positive_raises():
 def test_sinusoidal_out_dim_property():
     emb = SinusoidalTimeEmbedding(16)
     assert emb.out_dim == 16
+
+
+def test_basis_embedding_adds_token_axis():
+    emb = BasisEmbedding(n_basis=5, emb_dim=7)
+    k = torch.tensor([0, 3])
+
+    out = emb(k)
+
+    assert out.shape == (2, 1, 7)
 
 
 # ---------------------------------------------------------

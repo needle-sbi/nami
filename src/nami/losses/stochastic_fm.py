@@ -1,57 +1,78 @@
+r"""Stochastic flow-matching loss.
+
+Trains a velocity field on a stochastic linear interpolant (Albergo &
+Vanden-Eijnden, *Building Normalizing Flows with Stochastic
+Interpolants*, 2023; Albergo, Boffi & Vanden-Eijnden, *Stochastic
+Interpolants: A Unifying Framework*, 2023, arXiv:2303.08797):
+
+.. math::
+
+   x_t = (1-t)x_{\mathrm{noise}} + t x_{\mathrm{data}} + \gamma(t)z,
+   \qquad
+   u_t = x_{\mathrm{data}} - x_{\mathrm{noise}} + \dot{\gamma}(t)z.
+"""
+
 from __future__ import annotations
 
 import torch
 
-from ..interpolants.gamma import BrownianGamma, GammaSchedule
-from ..paths.linear import LinearPath
-from ._common import (
-    expand_like_time,
-    leading_shape,
-    per_sample_mse,
-    prepare_time,
-    reduce_loss,
-    require_event_ndim,
+from nami.interpolants.gamma import GammaSchedule
+from nami.interpolants.linear import (
+    StochasticLinearInterpolant,
+    velocity_prediction,
 )
+from nami.losses.regression import regression_loss
 
 
 def stochastic_fm_loss(
     field,
-    x_target: torch.Tensor,
-    x_source: torch.Tensor,
+    *,
+    x_noise: torch.Tensor,
+    x_data: torch.Tensor,
     t: torch.Tensor | None = None,
     c: torch.Tensor | None = None,
-    *,
-    path=None,
+    interpolant: StochasticLinearInterpolant | None = None,
     gamma: GammaSchedule | None = None,
     z: torch.Tensor | None = None,
     reduction: str = "mean",
 ) -> torch.Tensor:
-    """Flow matching loss for stochastic interpolants with additive Gaussian noise."""
-    event_ndim = require_event_ndim(field)
+    """Compute stochastic flow-matching loss.
 
-    if path is None:
-        path = LinearPath()
-    if gamma is None:
-        gamma = BrownianGamma()
+    Args:
+        field: Velocity field.
+        x_noise (torch.Tensor): Noise endpoint.
+        x_data (torch.Tensor): Data endpoint.
+        t (torch.Tensor | None): Optional time tensor.
+        c (torch.Tensor | None): Optional conditioning tensor.
+        interpolant (StochasticLinearInterpolant | None): Fully configured
+            stochastic interpolant.
+        gamma (GammaSchedule | None): Gamma schedule used to construct an
+            interpolant when ``interpolant`` is ``None``.
+        z (torch.Tensor | None): Optional latent noise shared by sampling and
+            target construction.
+        reduction (str): ``"mean"``, ``"sum"``, or ``"none"``.
 
-    lead = leading_shape(x_target, event_ndim)
-    t = prepare_time(x_target, lead, t)
-
-    xt_det = path.sample_xt(x_target, x_source, t)
-    ut_det = path.target_ut(x_target, x_source, t)
-
-    if z is None:
-        z = torch.randn_like(xt_det)
-    if tuple(z.shape) != tuple(xt_det.shape):
-        msg = "z must match the shape of path samples"
+    Returns:
+        torch.Tensor: Reduced stochastic flow-matching loss.
+    """
+    if interpolant is not None and gamma is not None:
+        msg = "pass either `interpolant` or `gamma`, not both"
         raise ValueError(msg)
+    if interpolant is None:
+        if gamma is None:
+            interpolant = StochasticLinearInterpolant()
+        else:
+            interpolant = StochasticLinearInterpolant(gamma=gamma)
 
-    gamma_t = expand_like_time(gamma.gamma(t), xt_det, event_ndim=event_ndim)
-    gamma_dot_t = expand_like_time(gamma.gamma_dot(t), xt_det, event_ndim=event_ndim)
-
-    xt = xt_det + gamma_t * z
-    ut = ut_det + gamma_dot_t * z
-    vt = field(xt, t, c)
-
-    mse = per_sample_mse(vt, ut, lead)
-    return reduce_loss(mse, reduction)
+    return regression_loss(
+        field,
+        x_noise=x_noise,
+        x_data=x_data,
+        t=t,
+        c=c,
+        interpolant=interpolant,
+        parameterization=velocity_prediction(),
+        z=z,
+        eps_t=0.0,
+        reduction=reduction,
+    )

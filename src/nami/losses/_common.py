@@ -2,22 +2,15 @@ from __future__ import annotations
 
 import torch
 
+from nami.fields._common import require_event_ndim
 
-def expand_like_time(
-    scale: torch.Tensor, target: torch.Tensor, event_ndim: int = 1
-) -> torch.Tensor:
-    lead_ndim = target.ndim - event_ndim
-    n_prepend = lead_ndim - scale.ndim
-    shape = (1,) * n_prepend + tuple(scale.shape) + (1,) * event_ndim
-    return scale.reshape(shape)
-
-
-def require_event_ndim(field) -> int:
-    event_ndim = getattr(field, "event_ndim", None)
-    if event_ndim is None:
-        msg = "field.event_ndim is required"
-        raise ValueError(msg)
-    return int(event_ndim)
+__all__ = [
+    "leading_shape",
+    "per_sample_mse",
+    "reduce_loss",
+    "require_event_ndim",
+    "sample_t",
+]
 
 
 def leading_shape(x: torch.Tensor, event_ndim: int) -> tuple[int, ...]:
@@ -26,17 +19,38 @@ def leading_shape(x: torch.Tensor, event_ndim: int) -> tuple[int, ...]:
     return tuple(x.shape)
 
 
-def prepare_time(
-    x_target: torch.Tensor,
+def sample_t(
+    x_data: torch.Tensor,
     lead: tuple[int, ...],
     t: torch.Tensor | None,
+    eps_t: float,
 ) -> torch.Tensor:
-    if t is None:
-        dtype = x_target.dtype if x_target.dtype.is_floating_point else torch.float32
-        return torch.rand(lead, device=x_target.device, dtype=dtype)
-    if tuple(t.shape) != lead:
-        return t.expand(lead)
-    return t
+    """Sample or broadcast time values.
+
+    Args:
+        x_data (torch.Tensor): Reference tensor used for device and dtype.
+        lead (tuple[int, ...]): Desired leading shape.
+        t (torch.Tensor | None): Optional explicit time tensor.
+        eps_t (float): Endpoint margin for automatic sampling.
+
+    Returns:
+        torch.Tensor: A tensor with shape ``lead``. If ``t`` is ``None``, values
+        are sampled from ``U[eps_t, 1 - eps_t]``. Explicit ``t`` values are
+        expanded but not clamped.
+    """
+    if t is not None:
+        if tuple(t.shape) != lead:
+            return t.expand(lead)
+        return t
+
+    dtype = x_data.dtype if x_data.dtype.is_floating_point else torch.float32
+    u = torch.rand(lead, device=x_data.device, dtype=dtype)
+    if eps_t == 0.0:
+        return u
+    if not 0.0 < eps_t < 0.5:
+        msg = "eps_t must be in (0, 0.5) or exactly 0 to disable clamping"
+        raise ValueError(msg)
+    return eps_t + (1.0 - 2.0 * eps_t) * u
 
 
 def per_sample_mse(

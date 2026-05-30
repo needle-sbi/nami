@@ -26,10 +26,10 @@ class GaussianMixture:
         Mean ``(d,)`` and covariance ``(d, d)`` of the background component.
     """
 
-    sig_loc: torch.Tensor = field(default_factory=lambda: _DEFAULT_SIG_LOC.clone())
-    sig_cov: torch.Tensor = field(default_factory=lambda: _DEFAULT_SIG_COV.clone())
-    bkg_loc: torch.Tensor = field(default_factory=lambda: _DEFAULT_BKG_LOC.clone())
-    bkg_cov: torch.Tensor = field(default_factory=lambda: _DEFAULT_BKG_COV.clone())
+    sig_loc: torch.Tensor = field(default_factory=_DEFAULT_SIG_LOC.clone)
+    sig_cov: torch.Tensor = field(default_factory=_DEFAULT_SIG_COV.clone)
+    bkg_loc: torch.Tensor = field(default_factory=_DEFAULT_BKG_LOC.clone)
+    bkg_cov: torch.Tensor = field(default_factory=_DEFAULT_BKG_COV.clone)
 
     @cached_property
     def sig(self) -> MultivariateNormal:
@@ -52,7 +52,9 @@ class GaussianMixture:
     ) -> ToyDataset:
         """Draw a Poisson-fluctuated dataset of signal + background events."""
         n_total = int(torch.poisson(torch.tensor(float(n_expected))).item())
-        n_sig = int(Binomial(n_total, sig_frac).sample().item())
+        n_sig = int(
+            Binomial(n_total, probs=torch.tensor(float(sig_frac))).sample().item()
+        )
         n_bkg = n_total - n_sig
 
         sig_data = self.sig.sample((n_sig,))
