@@ -4,6 +4,7 @@ import pytest
 import torch
 
 from nami.components import (
+    BasisEmbedding,
     MLPBackbone,
     ScalarTimeEmbedding,
     SinusoidalTimeEmbedding,
@@ -147,6 +148,15 @@ def test_sinusoidal_max_period_non_positive_raises():
 def test_sinusoidal_out_dim_property():
     emb = SinusoidalTimeEmbedding(16)
     assert emb.out_dim == 16
+
+
+def test_basis_embedding_adds_token_axis():
+    emb = BasisEmbedding(n_basis=5, emb_dim=7)
+    k = torch.tensor([0, 3])
+
+    out = emb(k)
+
+    assert out.shape == (2, 1, 7)
 
 
 # ---------------------------------------------------------
