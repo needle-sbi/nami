@@ -26,10 +26,10 @@ class GaussianMixture:
         Mean ``(d,)`` and covariance ``(d, d)`` of the background component.
     """
 
-    sig_loc: torch.Tensor = field(default_factory=lambda: _DEFAULT_SIG_LOC.clone())
-    sig_cov: torch.Tensor = field(default_factory=lambda: _DEFAULT_SIG_COV.clone())
-    bkg_loc: torch.Tensor = field(default_factory=lambda: _DEFAULT_BKG_LOC.clone())
-    bkg_cov: torch.Tensor = field(default_factory=lambda: _DEFAULT_BKG_COV.clone())
+    sig_loc: torch.Tensor = field(default_factory=_DEFAULT_SIG_LOC.clone)
+    sig_cov: torch.Tensor = field(default_factory=_DEFAULT_SIG_COV.clone)
+    bkg_loc: torch.Tensor = field(default_factory=_DEFAULT_BKG_LOC.clone)
+    bkg_cov: torch.Tensor = field(default_factory=_DEFAULT_BKG_COV.clone)
 
     @cached_property
     def sig(self) -> MultivariateNormal:

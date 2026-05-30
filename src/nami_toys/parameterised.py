@@ -35,10 +35,10 @@ class ParameterisedGaussian:
         Dimension of the mean vector that theta controls.
     """
 
-    sig_loc: torch.Tensor = field(default_factory=lambda: _DEFAULT_SIG_LOC.clone())
-    sig_cov: torch.Tensor = field(default_factory=lambda: _DEFAULT_SIG_COV.clone())
-    bkg_loc: torch.Tensor = field(default_factory=lambda: _DEFAULT_BKG_LOC.clone())
-    bkg_cov: torch.Tensor = field(default_factory=lambda: _DEFAULT_BKG_COV.clone())
+    sig_loc: torch.Tensor = field(default_factory=_DEFAULT_SIG_LOC.clone)
+    sig_cov: torch.Tensor = field(default_factory=_DEFAULT_SIG_COV.clone)
+    bkg_loc: torch.Tensor = field(default_factory=_DEFAULT_BKG_LOC.clone)
+    bkg_cov: torch.Tensor = field(default_factory=_DEFAULT_BKG_COV.clone)
     sig_frac: float = 0.3
     param_dim: int = 0
 
