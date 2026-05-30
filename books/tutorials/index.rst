@@ -7,4 +7,3 @@ Step-by-step notebook walkthroughs.
    :maxdepth: 1
 
    tutorial
-   consistency_flow_matching
