@@ -62,6 +62,38 @@ class GeneratorOperator:
         """
         return params
 
+    def decompose(self, params: torch.Tensor) -> dict[str, torch.Tensor]:
+        """Split packed parameters into named generator components.
+
+        The Conditional Generator Matching loss applies a per-component Bregman
+        divergence (see :meth:`default_divergence`) and sums the results, which
+        is the composition that keeps the GM gradient identity valid under
+        Markov superposition. The base implementation treats the whole tensor as
+        a single component.
+
+        Args:
+            params (torch.Tensor): Packed parameter tensor.
+
+        Returns:
+            dict[str, torch.Tensor]: Named components keyed identically to
+            :meth:`default_divergence`.
+        """
+        return {"all": params}
+
+    def default_divergence(self):
+        """Return the canonical Bregman divergence(s) for this operator.
+
+        Returns:
+            BregmanDivergence | dict[str, BregmanDivergence]: Either a single
+            divergence applied to every component, or a mapping keyed by the
+            same names as :meth:`decompose`. The base implementation returns
+            squared-``L_2`` (MSE), valid for Euclidean targets.
+        """
+        # deferred import to avoid a generators <-> losses import cycle.
+        from nami.losses.bregman import SquaredL2  # noqa: PLC0415
+
+        return SquaredL2()
+
     def validate_params(
         self, params: torch.Tensor, *, leading_shape: tuple[int, ...] | None = None
     ) -> None:
