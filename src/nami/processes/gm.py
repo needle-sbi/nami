@@ -290,6 +290,26 @@ class GeneratorMatchingProcess(ProcessRuntimeMixin):
             steps=int(steps),
         )
 
+    def _integrate_jump(self, x0: torch.Tensor, *, context) -> torch.Tensor:
+        jump_step = getattr(self._operator, "jump_step", None)
+        if jump_step is None:
+            msg = "jump runtime requires an operator exposing jump_step"
+            raise NotImplementedError(msg)
+        steps = getattr(self._solver, "steps", None)
+        if steps is None:
+            msg = "jump solver requires steps"
+            raise ValueError(msg)
+
+        def transition(x, t, dt):
+            # State is integer tokens; time stays a Python float and is cast to
+            # the field's float dtype inside its time embedding.
+            params = self._projected_params(x, t, context)
+            return jump_step(x, t, dt, params)
+
+        return self._solver.integrate(
+            transition, x0, t0=self._t0, t1=self._t1, steps=int(steps)
+        )
+
     def sample(self, sample_shape=()) -> torch.Tensor:
         x0 = self._base.sample(sample_shape)
         context = self._expand_context(self._context, x0)
@@ -297,6 +317,8 @@ class GeneratorMatchingProcess(ProcessRuntimeMixin):
             return self._integrate_ode(x0, context=context)
         if self._operator.runtime_kind == "sde":
             return self._integrate_sde(x0, context=context)
+        if self._operator.runtime_kind == "jump":
+            return self._integrate_jump(x0, context=context)
         msg = "jump runtime requires a compatible simulator"
         raise NotImplementedError(msg)
 
