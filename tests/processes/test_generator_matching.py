@@ -174,7 +174,10 @@ def test_generator_matching_context_expands_over_samples():
     assert sample.shape == (4, 3, 2)
 
 
-def test_generator_matching_jump_runtime_requires_simulator():
+def test_generator_matching_jump_runtime_requires_jump_step():
+    """A jump-kind operator that does not implement ``jump_step`` (here the bare
+    test ``_JumpOperator``) cannot be simulated.
+    """
     process = GeneratorMatching(
         _ZeroDrift(),
         RK4(steps=2),
@@ -184,7 +187,8 @@ def test_generator_matching_jump_runtime_requires_simulator():
     )()
 
     with pytest.raises(
-        NotImplementedError, match="jump runtime requires a compatible simulator"
+        NotImplementedError,
+        match="jump runtime requires an operator exposing jump_step",
     ):
         process.sample(sample_shape=(3,))
 

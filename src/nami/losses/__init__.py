@@ -17,15 +17,27 @@ et al., 2023), and Schrödinger-bridge matching
 from __future__ import annotations
 
 from nami.losses.action import action_matching_loss
+from nami.losses.bregman import (
+    BregmanDivergence,
+    ItakuraSaito,
+    KLDivergence,
+    SquaredL2,
+)
 from nami.losses.bridge import bridge_matching_loss
+from nami.losses.cgm import cgm_loss
 from nami.losses.consistency import consistency_loss
 from nami.losses.log_density import log_density_consistency_loss
 from nami.losses.regression import regression_loss
 from nami.losses.stochastic_fm import stochastic_fm_loss
 
 __all__ = [
+    "BregmanDivergence",
+    "ItakuraSaito",
+    "KLDivergence",
+    "SquaredL2",
     "action_matching_loss",
     "bridge_matching_loss",
+    "cgm_loss",
     "consistency_loss",
     "log_density_consistency_loss",
     "regression_loss",

@@ -28,13 +28,7 @@ from nami.core.specs import (
 )
 from nami.fields._common import normalise_event_shape, validate_context
 from nami.fields.base import VectorField
-
-_ACTIVATIONS = {
-    "silu": nn.SiLU,
-    "relu": nn.ReLU,
-    "gelu": nn.GELU,
-    "tanh": nn.Tanh,
-}
+from nami.components import get_activation
 
 
 class _AdaLNBlock(nn.Module):
@@ -47,12 +41,11 @@ class _AdaLNBlock(nn.Module):
 
     def __init__(self, hidden: int, mlp_ratio: float, activation: str, dropout: float):
         super().__init__()
-        act_cls = _ACTIVATIONS[activation]
         inner = int(hidden * mlp_ratio)
         self.norm = nn.LayerNorm(hidden, elementwise_affine=False)
         self.mlp = nn.Sequential(
             nn.Linear(hidden, inner),
-            act_cls(),
+            get_activation(activation),
             nn.Dropout(dropout) if dropout > 0 else nn.Identity(),
             nn.Linear(inner, hidden),
         )
@@ -93,7 +86,7 @@ class AdaLNVelocityField(VectorField):
         cond_hidden: Hidden width of the conditioning MLP that produces
             per-block (shift, scale, gate) triplets.
         mlp_ratio: Inner-to-hidden width ratio inside each block's MLP.
-        activation: Activation inside each block ('silu', 'relu', 'gelu', 'tanh').
+        activation: Activation inside each block.
         dropout: Dropout probability inside each block (0 disables).
     """
 
@@ -129,12 +122,11 @@ class AdaLNVelocityField(VectorField):
         if mlp_ratio <= 0:
             msg = f"mlp_ratio must be positive, got {mlp_ratio}"
             raise ValueError(msg)
-        if activation not in _ACTIVATIONS:
-            msg = (
-                f"unknown activation: {activation}; "
-                f"expected one of {sorted(_ACTIVATIONS)}"
-            )
-            raise ValueError(msg)
+        try:
+            get_activation(activation)
+        except ValueError as exc:
+            msg = f"unknown activation: {activation!r}"
+            raise ValueError(msg) from exc
 
         self.event_shape = normalise_event_shape(dim)
         self.condition_dim = int(condition_dim)
@@ -152,7 +144,7 @@ class AdaLNVelocityField(VectorField):
         cond_input_dim = time_features + self.condition_dim
         self.cond_mlp = nn.Sequential(
             nn.Linear(cond_input_dim, cond_hidden),
-            _ACTIVATIONS[activation](),
+            get_activation(activation),
             nn.Linear(cond_hidden, 3 * hidden * self.layers),
         )
         cond_out = self.cond_mlp[-1]

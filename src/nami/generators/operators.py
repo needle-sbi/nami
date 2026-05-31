@@ -13,12 +13,17 @@ References
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import torch
 import torch.nn.functional as F
 
 from nami.core.specs import validate_shapes
 from nami.fields._common import normalise_event_shape
 from nami.generators.base import GeneratorOperator
+
+if TYPE_CHECKING:
+    from nami.losses.bregman import BregmanDivergence
 
 
 class ItoGeneratorOperator(GeneratorOperator):
@@ -103,6 +108,23 @@ class ItoGeneratorOperator(GeneratorOperator):
             return drift
         projected_diffusion = F.softplus(diffusion) + self.min_scale
         return self.pack_params(drift=drift, diffusion=projected_diffusion)
+
+    def decompose(self, params: torch.Tensor) -> dict[str, torch.Tensor]:
+        drift, diffusion = self._split_params(params)
+        if diffusion is None:
+            return {"drift": drift}
+        return {"drift": drift, "diffusion": diffusion}
+
+    def default_divergence(self) -> dict[str, BregmanDivergence]:
+        # drift lives in R^d. The Gaussian-path diffusion
+        # coefficient is matched with squared-L2 as well: the conditional
+        # target can be zero (deterministic linear path), where the
+        # positive-orthant Itakura-Saito divergence is undefined.
+        from nami.losses.bregman import SquaredL2  # noqa: PLC0415
+
+        if self.diffusion_mode == "none":
+            return {"drift": SquaredL2()}
+        return {"drift": SquaredL2(), "diffusion": SquaredL2()}
 
     def drift(
         self,

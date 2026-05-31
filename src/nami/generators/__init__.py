@@ -13,10 +13,12 @@ References
 from __future__ import annotations
 
 from nami.generators.base import GeneratorOperator
+from nami.generators.ctmc import CTMCGeneratorOperator
 from nami.generators.operators import ItoGeneratorOperator
 from nami.generators.parameterizations import generator_prediction
 
 __all__ = [
+    "CTMCGeneratorOperator",
     "GeneratorOperator",
     "ItoGeneratorOperator",
     "generator_prediction",
