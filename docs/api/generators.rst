@@ -7,5 +7,6 @@ Generators
    :toctree: _generated
 
    base
+   ctmc
    operators
    parameterizations

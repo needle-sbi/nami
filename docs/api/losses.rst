@@ -7,7 +7,9 @@ Losses
    :toctree: _generated
 
    action
+   bregman
    bridge
+   cgm
    consistency
    log_density
    regression

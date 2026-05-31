@@ -37,6 +37,7 @@ from nami.interpolants.linear import (
     StochasticLinearInterpolant,
     velocity_prediction,
 )
+from nami.interpolants.masking import MaskingInterpolant
 from nami.interpolants.protocol import Interpolant, InterpolantState
 
 __all__ = [
@@ -48,6 +49,7 @@ __all__ = [
     "Interpolant",
     "InterpolantState",
     "LinearInterpolant",
+    "MaskingInterpolant",
     "ScaledBrownianGamma",
     "StochasticLinearInterpolant",
     "ZeroGamma",

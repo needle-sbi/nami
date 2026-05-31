@@ -9,6 +9,7 @@ TODO: write nice summary docstring for this file
 from __future__ import annotations
 
 from nami import diffusion as diffusion
+from nami.distributions.mask import AllMask
 from nami.distributions.normal import DiagonalNormal, StandardNormal
 from nami.divergence.exact import ExactDivergence
 from nami.divergence.hutchinson import HutchinsonDivergence
@@ -19,10 +20,12 @@ from nami.fields.composite import (
     MarkovizationDriftFromVelocityScore,
 )
 from nami.fields.consistency import LogDensityHead
+from nami.fields.ctmc import CTMCField
 from nami.fields.generator import GeneratorField
 from nami.fields.transformer_velocity import TransformerVelocityField
 from nami.fields.velocity import VelocityField
 from nami.generators.base import GeneratorOperator
+from nami.generators.ctmc import CTMCGeneratorOperator
 from nami.generators.operators import ItoGeneratorOperator
 from nami.generators.parameterizations import generator_prediction
 from nami.interpolants.bridge import BrownianBridgeInterpolant
@@ -45,7 +48,15 @@ from nami.interpolants.linear import (
     StochasticLinearInterpolant,
     velocity_prediction,
 )
+from nami.interpolants.masking import MaskingInterpolant
 from nami.losses.action import action_matching_loss, action_prediction
+from nami.losses.bregman import (
+    BregmanDivergence,
+    ItakuraSaito,
+    KLDivergence,
+    SquaredL2,
+)
+from nami.losses.cgm import cgm_loss
 from nami.losses.consistency import consistency_loss
 from nami.losses.log_density import log_density_consistency_loss
 from nami.losses.regression import regression_loss
@@ -70,6 +81,7 @@ from nami.schedules.ve import VESchedule
 from nami.schedules.vp import VPSchedule
 from nami.solvers.dpm import DPMSolverPP
 from nami.solvers.heun import Heun
+from nami.solvers.jump import TauLeapingSampler
 from nami.solvers.ode import RK4
 from nami.solvers.sde import EulerMaruyama
 
@@ -86,8 +98,12 @@ __all__ = [
     "ActionHead",
     "ActionMatching",
     "AdaLNVelocityField",
+    "AllMask",
+    "BregmanDivergence",
     "BrownianBridgeInterpolant",
     "BrownianGamma",
+    "CTMCField",
+    "CTMCGeneratorOperator",
     "ConsistencyFlowMatching",
     "CosineInterpolant",
     "DPMSolverPP",
@@ -107,15 +123,20 @@ __all__ = [
     "GeneratorParams",
     "Heun",
     "HutchinsonDivergence",
+    "ItakuraSaito",
     "ItoGeneratorOperator",
+    "KLDivergence",
     "LinearInterpolant",
     "LogDensityHead",
     "MarkovizationDriftFromVelocityScore",
+    "MaskingInterpolant",
     "Parameterization",
     "ScaledBrownianGamma",
     "Score",
+    "SquaredL2",
     "StandardNormal",
     "StochasticLinearInterpolant",
+    "TauLeapingSampler",
     "TransformerVelocityField",
     "VESchedule",
     "VPSchedule",
@@ -126,6 +147,7 @@ __all__ = [
     "__version__",
     "action_matching_loss",
     "action_prediction",
+    "cgm_loss",
     "consistency_loss",
     "epsilon_prediction",
     "generator_prediction",
