@@ -136,6 +136,37 @@ def test_ctmc_field_rejects_multi_axis_operator():
         CTMCField(op)
 
 
+def test_ctmc_field_rejects_negative_condition_dim():
+    op = CTMCGeneratorOperator(num_states=4, event_shape=(3,))
+    with pytest.raises(ValueError, match="condition_dim must be non-negative"):
+        CTMCField(op, condition_dim=-1)
+
+
+def test_ctmc_field_rejects_wrong_token_count():
+    op = CTMCGeneratorOperator(num_states=4, event_shape=(3,))
+    field = CTMCField(op, hidden=16, layers=2)
+    bad = torch.randint(0, op.vocab_size, (5, 2))  # 2 != num_tokens=3
+    with pytest.raises(ValueError, match="token coordinates"):
+        field(bad, torch.rand(5))
+
+
+def test_ctmc_field_conditional_forward_concats_context():
+    op = CTMCGeneratorOperator(num_states=4, event_shape=(3,))
+    field = CTMCField(op, condition_dim=2, hidden=16, layers=2)
+    x = torch.randint(0, op.vocab_size, (5, 3))
+    c = torch.randn(5, 2)
+    out = field(x, torch.rand(5), c)
+    assert out.shape == (5, 3, 4)
+
+
+def test_ctmc_field_backbone_dtype_falls_back_to_default():
+    """With a parameter-less backbone, the dtype probe yields the global default."""
+    op = CTMCGeneratorOperator(num_states=4, event_shape=(3,))
+    field = CTMCField(op, hidden=16, layers=2)
+    field.backbone = torch.nn.Sequential()  # no parameters to probe
+    assert field.backbone_dtype == torch.get_default_dtype()
+
+
 # --------------------------------------------------------------------------
 # Base distribution
 
@@ -161,6 +192,16 @@ def test_all_mask_base_expand():
 def test_tau_leaping_rejects_nonpositive_steps():
     with pytest.raises(ValueError, match="steps must be positive"):
         TauLeapingSampler(steps=0)
+
+
+def test_tau_leaping_integrate_rejects_nonpositive_step_override():
+    """A negative ``steps`` override is truthy, so it bypasses the ``or`` default
+    and must be rejected by ``integrate`` itself."""
+    sampler = TauLeapingSampler(steps=8)
+    with pytest.raises(ValueError, match="steps must be positive"):
+        sampler.integrate(
+            lambda *_args: None, torch.zeros(2, 3), t0=0.0, t1=1.0, steps=-1
+        )
 
 
 # --------------------------------------------------------------------------
@@ -247,6 +288,28 @@ def test_generator_matching_jump_requires_jump_step_operator():
         validate_args=False,
     )()
     with pytest.raises(NotImplementedError, match="jump_step"):
+        gm.sample(sample_shape=(2,))
+
+
+def test_generator_matching_jump_requires_solver_steps():
+    """A jump solver without a ``steps`` count fails clearly at sample time."""
+
+    class _NoStepSolver:
+        steps = None
+
+        def integrate(self, *_args, **_kwargs):  # pragma: no cover - never reached
+            raise AssertionError
+
+    op, field, _, param = _ctmc_setup()
+    gm = GeneratorMatching(
+        field,
+        _NoStepSolver(),
+        parameterization=param,
+        base=AllMask((3,), mask_index=op.mask_index),
+        event_shape=(3,),
+        validate_args=False,
+    )()
+    with pytest.raises(ValueError, match="jump solver requires steps"):
         gm.sample(sample_shape=(2,))
 
 

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import dataclasses
+
 import pytest
 import torch
 
@@ -130,6 +132,57 @@ def test_cgm_dict_divergence_missing_component_raises():
             parameterization=generator_prediction(op),
             divergence={"drift": SquaredL2()},  # missing "diffusion"
         )
+
+
+def test_cgm_single_divergence_applies_to_every_component():
+    """A bare (non-dict) ``divergence`` is reused for each component; with a
+    drift+diffusion op that reproduces the default per-component MSE sum."""
+    op = ItoGeneratorOperator((4,), diffusion="diagonal")
+    field = _field(4, op)
+    interp = BrownianBridgeInterpolant(sigma=0.3)
+    param = generator_prediction(op)
+    xn, xd, t = torch.randn(16, 4), torch.randn(16, 4), torch.rand(16)
+    z = torch.randn(16, 4)
+
+    shared = cgm_loss(
+        field,
+        x_noise=xn,
+        x_data=xd,
+        t=t,
+        interpolant=interp,
+        parameterization=param,
+        z=z,
+        divergence=SquaredL2(),
+    )
+    default = cgm_loss(
+        field,
+        x_noise=xn,
+        x_data=xd,
+        t=t,
+        interpolant=interp,
+        parameterization=param,
+        z=z,
+    )
+    assert torch.allclose(shared, default, atol=1e-6)
+
+
+def test_cgm_scalar_weighting_is_broadcast():
+    """A weighting that returns a scalar is expanded to the per-sample shape, so a
+    constant weight simply scales the loss."""
+    op = ItoGeneratorOperator((3,))
+    field = _field(3, op)
+    interp = LinearInterpolant()
+    xn, xd, t = torch.randn(8, 3), torch.randn(8, 3), torch.rand(8)
+    param = generator_prediction(op)
+    scaled = dataclasses.replace(param, weighting=lambda _t: torch.tensor(2.0))
+
+    base = cgm_loss(
+        field, x_noise=xn, x_data=xd, t=t, interpolant=interp, parameterization=param
+    )
+    out = cgm_loss(
+        field, x_noise=xn, x_data=xd, t=t, interpolant=interp, parameterization=scaled
+    )
+    assert torch.allclose(out, 2.0 * base, rtol=1e-5)
 
 
 def test_cgm_loss_is_differentiable():
