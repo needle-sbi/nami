@@ -8,3 +8,4 @@ Notebooks exploring generator matching and Itô-operator sampling.
 
    a_simple_generator
    conditional-generator-matching
+   cgm-inpainting
