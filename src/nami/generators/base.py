@@ -12,7 +12,12 @@ References
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import torch
+
+if TYPE_CHECKING:
+    from nami.losses.bregman import BregmanDivergence
 
 _RUNTIME_KINDS = {"ode", "sde", "jump"}
 
@@ -80,7 +85,9 @@ class GeneratorOperator:
         """
         return {"all": params}
 
-    def default_divergence(self):
+    def default_divergence(
+        self,
+    ) -> BregmanDivergence | dict[str, BregmanDivergence]:
         """Return the canonical Bregman divergence(s) for this operator.
 
         Returns:

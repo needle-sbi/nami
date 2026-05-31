@@ -67,7 +67,12 @@ class MaskingInterpolant:
             the boolean mask (``True`` where masked) for downstream use.
         """
         _ = x_noise
-        alpha_t = _broadcast_alpha(self.operator.alpha(t).to(x_data.device), x_data)
+        alpha = torch.as_tensor(
+            self.operator.alpha(t),
+            dtype=torch.get_default_dtype(),
+            device=x_data.device,
+        )
+        alpha_t = _broadcast_alpha(alpha, x_data)
         draw = torch.rand_like(alpha_t.expand_as(x_data)) if noise is None else noise
         masked = draw < alpha_t
         xt = torch.where(

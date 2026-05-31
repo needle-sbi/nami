@@ -38,6 +38,8 @@ the whole packed tensor by the component-averaging convention.
 
 from __future__ import annotations
 
+from typing import cast
+
 import torch
 
 from nami.interpolants.protocol import Interpolant
@@ -139,7 +141,9 @@ def cgm_loss(
     pred_parts = operator.decompose(prediction)
     target_parts = operator.decompose(target_value)
 
-    divergence = operator.default_divergence() if divergence is None else divergence
+    divergence_spec: BregmanDivergence | dict[str, BregmanDivergence] = (
+        operator.default_divergence() if divergence is None else divergence
+    )
 
     weight = parameterization.weighting(t)
 
@@ -150,7 +154,12 @@ def cgm_loss(
     # CTMC supervise only masked tokens without coupling the loss to the operator.
     per_sample = torch.zeros(lead, device=x_data.device, dtype=prediction.dtype)
     for name, pred_part in pred_parts.items():
-        d = divergence[name] if isinstance(divergence, dict) else divergence
+        if isinstance(divergence_spec, dict):
+            # ty drops the key/value types on isinstance(_, dict) narrowing, so
+            # recover them before indexing.
+            d = cast("dict[str, BregmanDivergence]", divergence_spec)[name]
+        else:
+            d = divergence_spec
         per_sample = per_sample + d(pred_part, target_parts[name], lead)
 
     if weight.shape != per_sample.shape:

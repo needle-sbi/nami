@@ -40,10 +40,15 @@ References
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import torch
 
 from nami.fields._common import normalise_event_shape
 from nami.generators.base import GeneratorOperator
+
+if TYPE_CHECKING:
+    from nami.losses.bregman import BregmanDivergence
 
 
 class CTMCGeneratorOperator(GeneratorOperator):
@@ -107,7 +112,7 @@ class CTMCGeneratorOperator(GeneratorOperator):
         # exposed as a single "rates" component matched with KL.
         return {"rates": params}
 
-    def default_divergence(self):
+    def default_divergence(self) -> dict[str, BregmanDivergence]:
         # Deferred import: losses -> interpolants -> masking -> generators.ctmc
         # would cycle back here at module-import time.
         from nami.losses.bregman import KLDivergence  # noqa: PLC0415
