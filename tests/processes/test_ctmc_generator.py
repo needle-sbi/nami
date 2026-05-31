@@ -179,8 +179,12 @@ def test_cgm_loss_on_ctmc_uses_kl_and_is_differentiable():
     x_data = torch.randint(0, op.num_states, (16, 3))
     x_noise = torch.full_like(x_data, op.mask_index)
     loss = cgm_loss(
-        field, x_noise=x_noise, x_data=x_data, interpolant=interp,
-        parameterization=param, eps_t=0.0,
+        field,
+        x_noise=x_noise,
+        x_data=x_data,
+        interpolant=interp,
+        parameterization=param,
+        eps_t=0.0,
     )
     assert torch.isfinite(loss)
     loss.backward()
@@ -193,8 +197,11 @@ def test_generator_matching_jump_sampling_smoke():
     op, field, _, param = _ctmc_setup()
     base = AllMask((3,), mask_index=op.mask_index)
     gm = GeneratorMatching(
-        field, TauLeapingSampler(steps=20), parameterization=param,
-        base=base, event_shape=(3,),
+        field,
+        TauLeapingSampler(steps=20),
+        parameterization=param,
+        base=base,
+        event_shape=(3,),
     )()
     s = gm.sample(sample_shape=(8,))
     assert s.shape == (8, 3)
@@ -232,9 +239,12 @@ def test_generator_matching_jump_requires_jump_step_operator():
 
     base = AllMask((2,), mask_index=0)
     gm = GeneratorMatching(
-        _Field(), TauLeapingSampler(steps=3),
-        parameterization=generator_prediction(op), base=base,
-        event_shape=(2,), validate_args=False,
+        _Field(),
+        TauLeapingSampler(steps=3),
+        parameterization=generator_prediction(op),
+        base=base,
+        event_shape=(2,),
+        validate_args=False,
     )()
     with pytest.raises(NotImplementedError, match="jump_step"):
         gm.sample(sample_shape=(2,))
@@ -245,8 +255,13 @@ def test_cgm_ctmc_reduction(reduction):
     op, field, interp, param = _ctmc_setup()
     x_data = torch.randint(0, op.num_states, (8, 3))
     out = cgm_loss(
-        field, x_noise=torch.full_like(x_data, op.mask_index), x_data=x_data,
-        interpolant=interp, parameterization=param, eps_t=0.0, reduction=reduction,
+        field,
+        x_noise=torch.full_like(x_data, op.mask_index),
+        x_data=x_data,
+        interpolant=interp,
+        parameterization=param,
+        eps_t=0.0,
+        reduction=reduction,
     )
     assert out.ndim == 0
 
@@ -276,8 +291,12 @@ def test_masking_ctmc_learns_marginal():
     for _ in range(300):
         xd = sample_data(512)
         loss = cgm_loss(
-            field, x_noise=torch.full_like(xd, op.mask_index), x_data=xd,
-            interpolant=interp, parameterization=param, eps_t=0.0,
+            field,
+            x_noise=torch.full_like(xd, op.mask_index),
+            x_data=xd,
+            interpolant=interp,
+            parameterization=param,
+            eps_t=0.0,
         )
         opt.zero_grad()
         loss.backward()
@@ -285,8 +304,11 @@ def test_masking_ctmc_learns_marginal():
 
     field.eval()
     gm = GeneratorMatching(
-        field, TauLeapingSampler(steps=50), parameterization=param,
-        base=AllMask((d,), mask_index=op.mask_index), event_shape=(d,),
+        field,
+        TauLeapingSampler(steps=50),
+        parameterization=param,
+        base=AllMask((d,), mask_index=op.mask_index),
+        event_shape=(d,),
     )()
     with torch.no_grad():
         s = gm.sample(sample_shape=(2000,))

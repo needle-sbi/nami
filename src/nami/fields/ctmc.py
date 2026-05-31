@@ -83,14 +83,12 @@ class CTMCField(VectorField):
         c: torch.Tensor | None = None,
     ) -> torch.Tensor:
         if x.shape[-1] != self.num_tokens:
-            msg = (
-                f"expected {self.num_tokens} token coordinates, got {x.shape[-1]}"
-            )
+            msg = f"expected {self.num_tokens} token coordinates, got {x.shape[-1]}"
             raise ValueError(msg)
         lead_shape = tuple(x.shape[:-1])
-        one_hot = torch.nn.functional.one_hot(
-            x.long(), num_classes=self.vocab_size
-        ).to(self.backbone_dtype)
+        one_hot = torch.nn.functional.one_hot(x.long(), num_classes=self.vocab_size).to(
+            self.backbone_dtype
+        )
         x_flat = one_hot.reshape(*lead_shape, self.num_tokens * self.vocab_size)
         t_features = self.time_embedding(
             t,

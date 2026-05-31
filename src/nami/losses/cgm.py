@@ -32,7 +32,7 @@ When ``divergence`` is left at ``None``, each component uses the operator's
 operator that is squared-``L_2`` throughout. For a drift-only (ODE) Itô operator
 there is a single component and the default CGM loss coincides exactly with
 ``regression_loss``. With a diffusion component the CGM loss sums the
-per-component MSEs, which differs from ``regression_loss``'s single MSE over 
+per-component MSEs, which differs from ``regression_loss``'s single MSE over
 the whole packed tensor by the component-averaging convention.
 """
 

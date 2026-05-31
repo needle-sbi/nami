@@ -54,12 +54,22 @@ def test_cgm_diffusion_sums_per_component():
     z = torch.randn(16, 4)
 
     reg = regression_loss(
-        field, x_noise=xn, x_data=xd, t=t, interpolant=interp,
-        parameterization=param, z=z,
+        field,
+        x_noise=xn,
+        x_data=xd,
+        t=t,
+        interpolant=interp,
+        parameterization=param,
+        z=z,
     )
     cgm = cgm_loss(
-        field, x_noise=xn, x_data=xd, t=t, interpolant=interp,
-        parameterization=param, z=z,
+        field,
+        x_noise=xn,
+        x_data=xd,
+        t=t,
+        interpolant=interp,
+        parameterization=param,
+        z=z,
     )
     assert torch.allclose(cgm, 2.0 * reg, rtol=1e-5)
 
@@ -87,13 +97,23 @@ def test_cgm_per_component_divergence_mapping():
     z = torch.randn(16, 4)
 
     full = cgm_loss(
-        field, x_noise=xn, x_data=xd, t=t, interpolant=interp,
-        parameterization=param, z=z,
+        field,
+        x_noise=xn,
+        x_data=xd,
+        t=t,
+        interpolant=interp,
+        parameterization=param,
+        z=z,
         divergence={"drift": SquaredL2(), "diffusion": SquaredL2()},
     )
     default = cgm_loss(
-        field, x_noise=xn, x_data=xd, t=t, interpolant=interp,
-        parameterization=param, z=z,
+        field,
+        x_noise=xn,
+        x_data=xd,
+        t=t,
+        interpolant=interp,
+        parameterization=param,
+        z=z,
     )
     assert torch.allclose(full, default, atol=1e-6)
 

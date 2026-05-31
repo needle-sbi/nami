@@ -187,7 +187,8 @@ def test_generator_matching_jump_runtime_requires_jump_step():
     )()
 
     with pytest.raises(
-        NotImplementedError, match="jump runtime requires an operator exposing jump_step"
+        NotImplementedError,
+        match="jump runtime requires an operator exposing jump_step",
     ):
         process.sample(sample_shape=(3,))
 

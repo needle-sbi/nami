@@ -52,12 +52,8 @@ class AllMask(Distribution):
         )
 
     def sample(self, sample_shape: _size = _EMPTY_SIZE) -> torch.Tensor:
-        shape = (
-            tuple(sample_shape) + self._batch_shape_ + self._event_shape_
-        )
-        return torch.full(
-            shape, self.mask_index, dtype=torch.long, device=self.device
-        )
+        shape = tuple(sample_shape) + self._batch_shape_ + self._event_shape_
+        return torch.full(shape, self.mask_index, dtype=torch.long, device=self.device)
 
     def expand(
         self, batch_shape: _size, _instance: Distribution | None = None
