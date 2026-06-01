@@ -15,3 +15,9 @@ References
 """
 
 from __future__ import annotations
+
+from nami.divergence.base import DivergenceEstimator
+from nami.divergence.exact import ExactDivergence
+from nami.divergence.hutchinson import HutchinsonDivergence
+
+__all__ = ["DivergenceEstimator", "ExactDivergence", "HutchinsonDivergence"]
