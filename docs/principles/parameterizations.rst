@@ -37,14 +37,15 @@ Switching at sampling time
 --------------------------
 
 A model trained under one parameterisation often needs to be *used* under
-another at sampling time. nami exposes a small family of transforms for
-exactly this purpose. :class:`~nami.ScoreFromEta` turns a model that
-predicts :math:`\eta = \gamma(t) \nabla \log p_t` into a score; analogously
-:class:`~nami.ScoreFromRawNoise` handles a raw-noise prediction.
+another at sampling time. nami exposes the relevant conversions directly.
+For diffusion quantities, the functions in :mod:`nami.diffusion`
+(:func:`~nami.diffusion.eps_to_score`, :func:`~nami.diffusion.score_to_eps`,
+:func:`~nami.diffusion.score_to_x0`, :func:`~nami.diffusion.x0_to_score`)
+map between :math:`\varepsilon`, score, and :math:`x_0`.
 :class:`~nami.DriftFromVelocityScore` combines a velocity head and a score
 head into an SDE drift suitable for reverse-time integration. For diffusion
-models the analogous conversion is :math:`\nabla \log p_t(x) = -
-\varepsilon_\theta / \sigma(t)`, and is handled internally by
+models the conversion :math:`\nabla \log p_t(x) = -
+\varepsilon_\theta / \sigma(t)` is handled internally by
 :class:`~nami.Diffusion` when you pass
 :func:`~nami.epsilon_prediction`, :func:`~nami.score_prediction`, or
 :func:`~nami.x0_prediction` as the ``parameterization`` argument.
@@ -58,22 +59,22 @@ common failure mode in practice.
 A small concrete example
 ------------------------
 
-For interpolant-style models, the most common conversion is from a noise
-or eta head to a score. The transforms are thin wrappers that you compose
-with the field at sampling time:
+For stochastic-interpolant models the most common need is to combine a
+velocity head and a score head into an SDE drift at sampling time.
+:class:`~nami.DriftFromVelocityScore` is a thin wrapper that you compose
+with the two fields:
 
 .. code-block:: python
 
    import nami
 
    gamma = nami.BrownianGamma()
-   score = nami.ScoreFromEta(eta_model, gamma)       # eta -> score
-   drift = nami.DriftFromVelocityScore(v_model, score, gamma)
+   drift = nami.DriftFromVelocityScore(v_model, score_model, gamma)
 
-The velocity field, the score-converting wrapper, and the drift wrapper
-remain orthogonal: you can swap any one without touching the others, which
-is the whole point of keeping parameterisations explicit rather than
-hard-wired into a single class.
+The velocity field, the score field, and the drift wrapper remain
+orthogonal: you can swap any one without touching the others, which is the
+whole point of keeping parameterisations explicit rather than hard-wired
+into a single class.
 
 When to use which
 -----------------
@@ -83,16 +84,16 @@ matching, predict a velocity (the consistency function is built from it).
 For diffusion-style training, predict :math:`\varepsilon` against the
 standard objective and let :class:`~nami.Diffusion` handle the conversion
 at sampling time. For stochastic interpolants where SDE sampling is wanted,
-train a velocity *and* a score (or use the raw-noise head together with
-:class:`~nami.ScoreFromRawNoise`). For generator matching, predict raw
+train a velocity *and* a score and combine them with
+:class:`~nami.DriftFromVelocityScore`. For generator matching, predict raw
 operator parameters and let the operator interpret them.
 
 See also
 --------
 
-- :doc:`core-abstractions` — what a field is, and what ``event_ndim``
+- :doc:`core-abstractions`: what a field is, and what ``event_ndim``
   controls.
-- :doc:`model-families` — how the choice of parameterisation interacts with
+- :doc:`model-families`: how the choice of parameterisation interacts with
   the choice of process.
-- :doc:`numerical-considerations` — when the choice of parameterisation
+- :doc:`numerical-considerations`: when the choice of parameterisation
   starts to interact with the choice of solver.

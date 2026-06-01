@@ -107,9 +107,9 @@ for that call only.
 See also
 --------
 
-- :doc:`core-abstractions` — where solvers and divergence estimators sit in
+- :doc:`core-abstractions`: where solvers and divergence estimators sit in
   the stack.
-- :doc:`parameterizations` — how the choice of parameterisation interacts
+- :doc:`parameterizations`: how the choice of parameterisation interacts
   with the SDE/ODE distinction.
-- :doc:`model-families` — which family each numerical choice is most
+- :doc:`model-families`: which family each numerical choice is most
   relevant to.
