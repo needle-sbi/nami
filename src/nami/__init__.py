@@ -91,71 +91,89 @@ except ModuleNotFoundError:
     __version__ = "0+unknown"
 
 
-__all__ = [
-    "RK4",
-    "X0",
-    "Action",
-    "ActionHead",
-    "ActionMatching",
+# __all__ is grouped by the layer each symbol belongs to, so:
+# (Field -> Interpolant + Parameterization -> Loss -> Process + Solver),
+__all__ = [  # noqa: RUF022  (deliberately grouped by layer, not alphabetised)
+    # Fields: something that learns f(x, t, c)
+    "VelocityField",  # standard field to use
     "AdaLNVelocityField",
-    "AllMask",
-    "BregmanDivergence",
-    "BrownianBridgeInterpolant",
-    "BrownianGamma",
-    "CTMCField",
-    "CTMCGeneratorOperator",
-    "ConsistencyFlowMatching",
-    "CosineInterpolant",
-    "DPMSolverPP",
-    "DiagonalNormal",
-    "Diffusion",
-    "DriftFromVelocityScore",
-    "EDMSchedule",
-    "Epsilon",
-    "EulerMaruyama",
-    "ExactDivergence",
-    "FlowMatching",
-    "GammaSchedule",
-    "GaussianInterpolant",
-    "GeneratorField",
-    "GeneratorMatching",
-    "GeneratorOperator",
-    "GeneratorParams",
-    "Heun",
-    "HutchinsonDivergence",
-    "ItakuraSaito",
-    "ItoGeneratorOperator",
-    "KLDivergence",
-    "LinearInterpolant",
-    "LogDensityHead",
-    "MarkovizationDriftFromVelocityScore",
-    "MaskingInterpolant",
-    "Parameterization",
-    "ScaledBrownianGamma",
-    "Score",
-    "SquaredL2",
-    "StandardNormal",
-    "StochasticLinearInterpolant",
-    "TauLeapingSampler",
     "TransformerVelocityField",
-    "VESchedule",
-    "VPSchedule",
-    "VPrediction",
-    "Velocity",
-    "VelocityField",
+    "LogDensityHead",  # one-step log-density head
+    # more advanced fields: generator matching / CTMC / action / score-drift composites
+    "GeneratorField",
+    "CTMCField",
+    "ActionHead",
+    "DriftFromVelocityScore",
+    "MarkovizationDriftFromVelocityScore",
+    # Base distributions (source / t=0) for the process
+    "StandardNormal",
+    "DiagonalNormal",
+    "AllMask",  # discrete / masking transports
+    # Interpolants: the path between source and data
+    "LinearInterpolant",  # standard interpolant to use
+    "CosineInterpolant",
+    "StochasticLinearInterpolant",
+    "GaussianInterpolant",
+    "BrownianBridgeInterpolant",
+    "MaskingInterpolant",  # discrete / CTMC
+    # gamma schedules for stochastic interpolants
+    "BrownianGamma",
     "ZeroGamma",
-    "__version__",
-    "action_matching_loss",
-    "action_prediction",
-    "cgm_loss",
-    "consistency_loss",
+    "ScaledBrownianGamma",
+    "GammaSchedule",
+    # Parameterizations: what the field predicts
+    # factories (tie a field output to a training target)
+    "velocity_prediction",  # standard parameterization to use
     "epsilon_prediction",
-    "generator_prediction",
-    "log_density_consistency_loss",
-    "regression_loss",
     "score_prediction",
-    "stochastic_fm_loss",
-    "v_prediction",
-    "velocity_prediction",
     "x0_prediction",
+    "v_prediction",
+    "generator_prediction",  # generator matching
+    "action_prediction",  # action matching
+    # target markers (the types the factories produce) for the parameterizations
+    "Velocity",
+    "Epsilon",
+    "Score",
+    "X0",
+    "VPrediction",
+    "GeneratorParams",
+    "Action",
+    "Parameterization",
+    # Losses: pure training objectives
+    "regression_loss",  # standard loss to use
+    "consistency_loss",
+    "stochastic_fm_loss",
+    "log_density_consistency_loss",
+    "cgm_loss",  # conditional generator matching
+    "action_matching_loss",
+    # Bregman divergences (loss geometry for generator matching)
+    "BregmanDivergence",
+    "KLDivergence",
+    "SquaredL2",
+    "ItakuraSaito",
+    # Processes: sampling/likelihood(density)
+    "FlowMatching",  # standard process to use
+    "Diffusion",
+    "ConsistencyFlowMatching",
+    "GeneratorMatching",  # generator matching
+    "ActionMatching",
+    # Solvers: numerical schemes for the process
+    "RK4",  # solver to use for ODEs
+    "Heun",  # second-order solver to use for ODEs
+    "EulerMaruyama",  # solver to use for SDEs
+    "DPMSolverPP",  # fast solver for diffusion ODEs
+    "TauLeapingSampler",  # solver to use for discrete / CTMC
+    # Diffusion noise schedules
+    "VPSchedule",
+    "VESchedule",
+    "EDMSchedule",
+    # Divergence estimators (for log_prob)
+    "HutchinsonDivergence",  # for high-dimensional estimator
+    "ExactDivergence",  # for low-dimensional estimator
+    # Generator operators (advanced: generator matching)
+    "GeneratorOperator",
+    "ItoGeneratorOperator",
+    "CTMCGeneratorOperator",
+    # Meta: version information
+    "__version__",
 ]
