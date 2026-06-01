@@ -260,7 +260,7 @@ forward pass.
    import torch, nami
 
    field = nami.VelocityField(dim=8)
-   h_head = nami.ConsistencyHead(dim=8, hidden=128, layers=2)
+   h_head = nami.LogDensityHead(dim=8, hidden=128, layers=2)
    x_data = torch.randn(32, 8)
    x_noise = torch.randn_like(x_data)
 
@@ -570,8 +570,9 @@ lazy process. The operator's ``runtime_kind`` determines integration:
 .. code-block:: python
 
    gm = nami.GeneratorMatching(
-       field, op,
+       field,
        nami.RK4(steps=50),
+       parameterization=nami.generator_prediction(op),
        event_shape=(8,),
    )
    samples = gm().sample((64,))
@@ -614,7 +615,7 @@ Training
 
 .. code-block:: python
 
-   loss = nami.bridge_matching_loss(
+   loss = nami.losses.bridge_matching_loss(
        flow_field, score_field,
        x_noise=x_noise, x_data=x_data,
        interpolant=nami.BrownianBridgeInterpolant(),
@@ -629,11 +630,9 @@ Sampling
 After training, reconstruct the drift from the two fields and sample with a
 standard :class:`~nami.FlowMatching` or :class:`~nami.Diffusion` process.
 
-**Key components**: :func:`~nami.bridge_matching_loss`,
+**Key components**: :func:`~nami.losses.bridge_matching_loss`,
 :class:`~nami.BrownianBridgeInterpolant`,
-:class:`~nami.DriftFromVelocityScore`,
-:class:`~nami.ScoreFromEta`,
-:class:`~nami.ScoreFromRawNoise`.
+:class:`~nami.DriftFromVelocityScore`.
 
 
 Choosing a model
@@ -662,7 +661,7 @@ Choosing a model
      - ``regression_loss`` + ``generator_prediction``
      - ``GeneratorMatching``
    * - Schrodinger bridge (flow + score)
-     - ``bridge_matching_loss``
+     - ``losses.bridge_matching_loss``
      - ``FlowMatching`` / ``Diffusion``
 
 
