@@ -168,7 +168,7 @@ Each workflow composes the same primitives differently.
      - :class:`~nami.Diffusion`
      - :class:`~nami.EulerMaruyama` / :class:`~nami.DPMSolverPP`
    * - Generator matching
-     - :func:`~nami.gm_loss` / :func:`~nami.cgm_loss`
+     - :func:`~nami.regression_loss` / :func:`~nami.cgm_loss`
      - :class:`~nami.GeneratorMatching`
      - :class:`~nami.RK4` / :class:`~nami.EulerMaruyama`
 
@@ -200,7 +200,8 @@ Not sure which workflow fits your problem? Use this decision guide:
      Training uses an external denoising objective; nami handles sampling.
 
    - **"I want to learn drift and diffusion jointly (operator-centric)."**
-     Use :func:`~nami.gm_loss` + :class:`~nami.GeneratorMatching`.
+     Use :func:`~nami.regression_loss` with :func:`~nami.generator_prediction`
+     (or :func:`~nami.cgm_loss`) + :class:`~nami.GeneratorMatching`.
      Generator matching subsumes the other models as special cases, but this is
      still a research-oriented part of the library.
 

@@ -14,8 +14,8 @@ Every workflow in the library is built from the same primitive: a path
 objective regresses against a path-derived target. The differences between
 the families are differences in *what* the field predicts, *what target*
 the loss compares it to, and *what process* uses the trained field at
-inference time. The primitives — interpolants, schedules, solvers,
-distributions — are shared verbatim.
+inference time. The primitives (interpolants, schedules, solvers,
+distributions) are shared verbatim.
 
 Flow matching
 -------------
@@ -27,8 +27,8 @@ interpolant:
 
 .. math::
 
-   X_t = (1-t)\,x_{\mathrm{target}} + t\,x_{\mathrm{source}},
-   \qquad u_t = x_{\mathrm{source}} - x_{\mathrm{target}},
+   X_t = (1-t)\,x_{\mathrm{source}} + t\,x_{\mathrm{target}},
+   \qquad u_t = x_{\mathrm{target}} - x_{\mathrm{source}},
 
 and the loss regresses :math:`v_\theta(X_t, t)` against this constant
 conditional velocity. Sampling integrates the learned ODE from the source
@@ -149,9 +149,9 @@ operator parameters) sets the parameterisation. The loss
 bridges, operator-pairing for generator matching) sets *how* the prediction
 is identified from data. And what the process does at inference time
 (integrate an ODE, integrate an SDE, evaluate a one-step consistency
-function) sets the runtime cost and the kind of output. Everything else —
+function) sets the runtime cost and the kind of output. Everything else,
 the distribution interface, the solver protocol, the lazy-binding
-mechanism, the divergence estimators — is shared. If you find yourself
+mechanism, the divergence estimators, is shared. If you find yourself
 writing custom plumbing to switch between two families, that is usually a
 sign that something belongs in one of these four axes instead.
 
@@ -164,7 +164,7 @@ in this space live on the loss axis rather than the field-output axis.
 See also
 --------
 
-- :doc:`core-abstractions` — the primitives all the families share.
-- :doc:`parameterizations` — the second axis: what the field predicts.
-- :doc:`numerical-considerations` — the third axis: how the process
+- :doc:`core-abstractions`: the primitives all the families share.
+- :doc:`parameterizations`: the second axis: what the field predicts.
+- :doc:`numerical-considerations`: the third axis: how the process
   integrates.

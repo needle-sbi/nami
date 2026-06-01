@@ -9,9 +9,11 @@ This follows the bridge-matching approach of Tong et al.
 
    import nami
 
-   loss = nami.bridge_matching_loss(
-       flow_field, score_field,
-       x_noise=x_noise, x_data=x_data,
+   loss = nami.losses.bridge_matching_loss(
+       flow_field, 
+       score_field,
+       x_noise=x_noise, 
+       x_data=x_data,
        interpolant=nami.BrownianBridgeInterpolant(),
    )
    loss.backward()
@@ -19,7 +21,5 @@ This follows the bridge-matching approach of Tong et al.
 After training, reconstruct the SDE drift from the two fields and sample
 with a standard :class:`~nami.FlowMatching` or :class:`~nami.Diffusion`
 process. The reconstruction uses
-:class:`~nami.DriftFromVelocityScore`; related helpers
-(:class:`~nami.ScoreFromEta`, :class:`~nami.ScoreFromRawNoise`) cover the
-case where the score field is parameterised through an interpolant
-quantity rather than predicted directly.
+:class:`~nami.DriftFromVelocityScore`, which combines the velocity and
+score heads into the probability-flow / SDE drift.

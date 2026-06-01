@@ -12,7 +12,7 @@
 
 Nami is a library for flow-style generative models, with a focus on composable transport-map workflows and SBI applications.
 
-The full guide, examples, tutorials, and API reference live in the [documentation](https://levisamuelevans.github.io/nami/).
+See the [documentation](https://levisamuelevans.github.io/nami/) for a full guide, examples, tutorials, and API reference.
 
 ## Quick Start
 
@@ -30,6 +30,6 @@ Guidelines for contributing will soon be added once the project is more stable. 
 
 ---
 
-This project is supported by HelmholtzAI and DESY.
+This project is supported by HelmholtzAI and DESY as part of the [NEEDLE project](https://needle-sbi.github.io/), funded under grant number XXX (TODO: add grant number).
 
 <img src="/docs/_static/institutes/Helmholtz-Logo-Blue-RGB.png" alt="HelmholtzAI" width="160"/> &nbsp;
