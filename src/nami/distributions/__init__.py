@@ -5,3 +5,8 @@ Thin wrappers around ``torch.distributions`` that expose the
 """
 
 from __future__ import annotations
+
+from nami.distributions.mask import AllMask
+from nami.distributions.normal import DiagonalNormal, StandardNormal
+
+__all__ = ["AllMask", "DiagonalNormal", "StandardNormal"]
