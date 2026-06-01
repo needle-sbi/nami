@@ -111,8 +111,8 @@ Generator matching
 
     process = nami.GeneratorMatching(
         field,
-        operator,
         nami.EulerMaruyama(steps=64),
+        parameterization=nami.generator_prediction(operator),
         event_shape=(2,),
     )
     samples = process(context).sample((128,))
@@ -194,31 +194,26 @@ the SDE. Both halves live in nami: ``regression_loss`` trains the
 Parameterisation transforms
 ----------------------------
 
-Convert between interpolant score-related parameterisations, velocity, and
-drift representations. These are useful when you have a model trained with
-one interpolant parameterisation but need another for sampling.
+Convert between diffusion parameterisations and combine velocity and score
+heads into a drift. These are useful when you have a model trained with one
+parameterisation but need another for sampling.
 
 .. code-block:: python
 
    import nami
 
-   # If the model predicts eta = gamma(t) * score(x, t)
-   score = nami.ScoreFromEta(eta_model, nami.BrownianGamma())
-
-   # If the model predicts the raw Gaussian noise z in x_t = I_t + gamma(t) z
-   score_from_noise = nami.ScoreFromRawNoise(noise_model, nami.BrownianGamma())
+   # Diffusion conversions between eps, score, and x0 (pure tensor functions)
+   score = nami.diffusion.eps_to_score(eps, sigma)
+   eps   = nami.diffusion.score_to_eps(score, sigma)
+   x0    = nami.diffusion.score_to_x0(x, score, sigma, alpha)
 
    # Combine velocity + score into an SDE drift
-   drift = nami.DriftFromVelocityScore(v_model, score, nami.BrownianGamma())
-
-   # Construct the mirror correction term used in backward-SDE formulas
-   mirror_v = nami.MirrorVelocityFromScore(score, nami.BrownianGamma())
+   drift = nami.DriftFromVelocityScore(v_model, score_model, nami.BrownianGamma())
 
 .. note::
 
    For diffusion :math:`\varepsilon`-prediction, use
    :class:`~nami.Diffusion` with
-   ``parameterization=nami.epsilon_prediction(schedule=schedule)``
-   rather than these interpolant wrappers. Diffusion uses :math:`-\varepsilon/\sigma`,
-   while ``ScoreFromEta`` and ``ScoreFromRawNoise`` use interpolant-specific
-   :math:`\gamma(t)`.
+   ``parameterization=nami.epsilon_prediction(schedule=schedule)``, which
+   applies :math:`-\varepsilon/\sigma` internally — you rarely need to
+   convert by hand.
