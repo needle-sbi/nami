@@ -142,14 +142,14 @@ interpolant parameterisations, and SDE drift :math:`f`.
 
    * - Component
      - Definition
-   * - :class:`~nami.ScoreFromEta`
-     - :math:`\nabla \log p_t(x) = \eta_\theta(x, t) / \gamma(t)` for an interpolant parameterisation with :math:`\eta_\theta = \gamma(t)\,\nabla \log p_t`.
-   * - :class:`~nami.ScoreFromRawNoise`
-     - :math:`\nabla \log p_t(x) = -z_\theta(x, t) / \gamma(t)` when the model predicts the raw additive Gaussian noise in :math:`X_t = I_t + \gamma(t)\,z`.
+   * - :func:`~nami.diffusion.eps_to_score` / :func:`~nami.diffusion.score_to_eps`
+     - :math:`\nabla \log p_t(x) = -\varepsilon_\theta(x, t) / \sigma(t)` and its inverse.
+   * - :func:`~nami.diffusion.score_to_x0` / :func:`~nami.diffusion.x0_to_score`
+     - Convert between a score and a clean-sample (:math:`x_0`) prediction given :math:`\alpha(t), \sigma(t)`.
    * - :class:`~nami.DriftFromVelocityScore`
      - :math:`f_t(x) = v_t(x) - \gamma(t)\gamma'(t)\nabla \log p_t(x)`.
-   * - :class:`~nami.MirrorVelocityFromScore`
-     - :math:`m_t(x) = \gamma(t)\gamma'(t)\nabla\log p_t(x)`. Mirror correction term used in backward-SDE formulas.
+   * - :class:`~nami.MarkovizationDriftFromVelocityScore`
+     - Markovised probability-flow drift from separate velocity and score heads.
 
 .. note::
 
