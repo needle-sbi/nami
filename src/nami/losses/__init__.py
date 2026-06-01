@@ -16,7 +16,7 @@ et al., 2023), and Schrödinger-bridge matching
 
 from __future__ import annotations
 
-from nami.losses.action import action_matching_loss
+from nami.losses.action import action_matching_loss, action_prediction
 from nami.losses.bregman import (
     BregmanDivergence,
     ItakuraSaito,
@@ -36,6 +36,7 @@ __all__ = [
     "KLDivergence",
     "SquaredL2",
     "action_matching_loss",
+    "action_prediction",
     "bridge_matching_loss",
     "cgm_loss",
     "consistency_loss",
