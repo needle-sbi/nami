@@ -31,7 +31,7 @@ to :math:`t=1`.
 
    dim = 8
    field = nami.VelocityField(dim=dim)               # neural net predicting v(x, t)
-   base = nami.StandardNormal(event_shape=(dim,))     # source distribution at t=1
+   base = nami.StandardNormal(event_shape=(dim,))     # source distribution at t=0
    solver = nami.RK4(steps=50)                        # ODE integrator for sampling
    optim = torch.optim.Adam(field.parameters(), lr=1e-3)
 
@@ -149,7 +149,7 @@ To get **one-step log-densities**, add a log-prob head:
 
 .. code-block:: python
 
-   h_head = nami.ConsistencyHead(dim=dim)
+   h_head = nami.LogDensityHead(dim=dim)
    optim_h = torch.optim.Adam(
        list(field.parameters()) + list(h_head.parameters()), lr=1e-3,
    )
@@ -197,7 +197,7 @@ Everything else is identical — just swap the loss function:
 .. code-block:: python
 
    loss = nami.stochastic_fm_loss(
-       field, x_data, x_noise, gamma=nami.BrownianGamma(),
+       field, x_noise=x_noise, x_data=x_data, gamma=nami.BrownianGamma(),
    )
 
 .. admonition:: What This Does
@@ -256,7 +256,7 @@ regression. Here we use a deterministic path (drift only, ODE sampling).
    # The operator defines the functional form of the generator
    operator = nami.ItoGeneratorOperator(event_shape=(dim,), diffusion="none")
    # The field predicts the operator's parameters from (x, t)
-   field = nami.GeneratorField(dim=dim, param_shape=operator.parameter_shape)
+   field = nami.GeneratorField(dim, operator=operator)
    optim = torch.optim.Adam(field.parameters(), lr=1e-3)
 
    interpolant = nami.LinearInterpolant()
@@ -277,8 +277,8 @@ regression. Here we use a deterministic path (drift only, ODE sampling).
        optim.step()
 
    gm = nami.GeneratorMatching(
-       field, operator, nami.RK4(steps=50),
-       event_shape=(dim,),
+       field, nami.RK4(steps=50),
+       parameterization=parameterization, event_shape=(dim,),
    )
    samples = gm(None).sample((128,))
 
