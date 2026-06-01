@@ -10,7 +10,7 @@ recipe. In local nami experiments, consistency training is best treated as
 an experimental one-step approximation layer on top of a strong flow-matching
 baseline. The original paper (Yang et al., 2024) trains from scratch with
 EMA targets and additional schedule details that nami does not currently
-ship.
+include.
 
 .. code-block:: python
 
@@ -68,7 +68,7 @@ To get one-step log-densities, add a log-prob head:
 
 .. code-block:: python
 
-   h_head = nami.ConsistencyHead(dim=dim)
+   h_head = nami.LogDensityHead(dim=dim)
    loss_h = nami.log_density_consistency_loss(
        field, h_head,
        x_noise=x_noise, x_data=x_data,
