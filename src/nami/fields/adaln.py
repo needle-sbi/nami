@@ -19,7 +19,7 @@ from __future__ import annotations
 import torch
 from torch import nn
 
-from nami.components import SinusoidalTimeEmbedding
+from nami.components import SinusoidalTimeEmbedding, get_activation
 from nami.core.specs import (
     event_numel,
     flatten_event,
@@ -28,7 +28,6 @@ from nami.core.specs import (
 )
 from nami.fields._common import normalise_event_shape, validate_context
 from nami.fields.base import VectorField
-from nami.components import get_activation
 
 
 class _AdaLNBlock(nn.Module):
