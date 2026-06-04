@@ -8,6 +8,7 @@ from nami.distributions.normal import StandardNormal
 from nami.interpolants import CosineInterpolant, LinearInterpolant, velocity_prediction
 from nami.losses.regression import regression_loss
 from nami.masking import _expand_mask, masked_fm_loss, masked_sample
+from nami.parameterizations import Parameterization, Score
 from nami.solvers.ode import RK4
 
 
@@ -277,6 +278,18 @@ class TestMaskedFmLoss:
         mask_int[:, 7:] = 0
         loss = masked_fm_loss(field, mask_int, x_noise=x_noise, x_data=x_data)
         assert loss.shape == ()
+
+    def test_non_velocity_target_rejected(self, setup):
+        """Masking only makes sense for per-object velocity regression."""
+        field, x_data, x_noise, mask = setup
+        with pytest.raises(TypeError, match="Velocity target"):
+            masked_fm_loss(
+                field,
+                mask,
+                x_noise=x_noise,
+                x_data=x_data,
+                parameterization=Parameterization(target=Score()),
+            )
 
 
 # masked_sample

@@ -425,3 +425,48 @@ def test_z_argument_shares_noise_across_trajectory_pair() -> None:
     # at substantially more than numerical noise.
     rel_diff = (loss_a - loss_no_z).abs() / loss_a.abs().clamp_min(1e-12)
     assert rel_diff.max() > 1e-3
+
+
+def test_forward_consistency_target_field_receives_no_gradient() -> None:
+    """Forward consistency (``target_time=1.0``) with a ``target_field``:
+    the anchor is the tt-side and uses the target network under
+    ``no_grad`` — gradient flows only through the online field.
+
+    Companion to the reverse-consistency (``target_time=0.0``) test
+    above; pins the anchor-side selection for the data endpoint.
+    """
+
+    class _ScaledField(nn.Module):
+        event_ndim = 1
+
+        def __init__(self, init: float):
+            super().__init__()
+            self.alpha = nn.Parameter(torch.tensor(init, dtype=torch.float64))
+
+        def forward(self, x, t, c=None):  # noqa: ARG002
+            return self.alpha * (-0.5 * x + 0.1 * t.unsqueeze(-1))
+
+    torch.manual_seed(0)
+    online = _ScaledField(init=1.0)
+    target = _ScaledField(init=0.95)
+    x_data = torch.randn(8, 3, dtype=torch.float64)
+    x_noise = torch.randn(8, 3, dtype=torch.float64)
+    t = torch.rand(8, dtype=torch.float64).clamp(max=0.9)
+
+    loss = consistency_loss(
+        online,
+        x_data=x_data,
+        x_noise=x_noise,
+        t=t,
+        interpolant=LinearInterpolant(),
+        parameterization=velocity_prediction(),
+        target_field=target,
+        target_time=1.0,
+        delta=0.05,
+        eps_t=0.0,
+    )
+    loss.backward()
+
+    assert online.alpha.grad is not None
+    assert online.alpha.grad.abs().item() > 0
+    assert target.alpha.grad is None

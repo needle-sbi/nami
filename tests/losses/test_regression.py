@@ -344,3 +344,54 @@ def test_output_transform_is_applied(
     )
     # And the zero-field case is correctly equal because ±0 are the same.
     assert torch.allclose(loss_id, loss_neg)
+
+
+def test_invalid_reduction_rejected(
+    interpolant: GaussianInterpolant,
+    schedule: VPSchedule,
+) -> None:
+    torch.manual_seed(0)
+    x_data = torch.randn(8, 3)
+    x_noise = torch.randn(8, 3)
+    field = _ConsistentEpsField(torch.zeros_like(x_data))
+
+    with pytest.raises(ValueError, match="reduction must be"):
+        regression_loss(
+            field,
+            x_data=x_data,
+            x_noise=x_noise,
+            interpolant=interpolant,
+            parameterization=epsilon_prediction(schedule),
+            reduction="median",
+        )
+
+
+def test_scalar_weighting_broadcasts_to_per_sample_mse(
+    interpolant: GaussianInterpolant,
+    schedule: VPSchedule,
+) -> None:
+    """A weighting that returns a 0-d tensor is expanded across the batch."""
+    torch.manual_seed(0)
+    x_data = torch.randn(8, 3, dtype=torch.float64)
+    x_noise = torch.randn(8, 3, dtype=torch.float64)
+    t = 0.05 + 0.9 * torch.rand(8, dtype=torch.float64)
+    field = _ConsistentEpsField(torch.zeros_like(x_data)).to(dtype=torch.float64)
+
+    p_unit = epsilon_prediction(schedule)
+    p_scalar = Parameterization(
+        target=Epsilon(),
+        weighting=lambda t: torch.tensor(2.0, dtype=t.dtype),
+    )
+
+    common = {
+        "x_data": x_data,
+        "x_noise": x_noise,
+        "t": t,
+        "interpolant": interpolant,
+        "reduction": "none",
+    }
+    unweighted = regression_loss(field, parameterization=p_unit, **common)
+    weighted = regression_loss(field, parameterization=p_scalar, **common)
+
+    assert weighted.shape == unweighted.shape
+    assert torch.allclose(weighted, 2.0 * unweighted)
