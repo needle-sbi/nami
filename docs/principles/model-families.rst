@@ -1,7 +1,7 @@
 Model families as views of one object
 =====================================
 
-nami covers flow matching, diffusion, consistency flow matching, and
+Nami covers flow matching, diffusion, consistency flow matching, and
 generator matching. From a distance these look like four separate methods;
 from close up, they are four views of the same transport-map object. This
 essay walks through what each view emphasises and what genuinely differs.
@@ -99,12 +99,10 @@ Brownian-bridge path with a diagonal-diffusion operator is a full Itô
 diffusion model. The point of the framework is twofold. It provides the
 language in which "what is the difference between these methods?" has a
 precise answer: a path, an operator, a parameterisation, a loss. And it
-provides an extension point: new operators — non-diagonal diffusion, jump
+provides an extension point: new operators, non-diagonal diffusion, jump
 processes, anything expressible as a linear pairing with a basis of
-derivatives — drop in without rewriting the loss API or the process
-protocol. Most everyday problems do not need this generality, and flow
-matching has nicer training dynamics for the cases that fit it; but the
-framework is there for the cases that do.
+derivatives, can be dropped in without rewriting the loss API or the process
+protocol.
 
 Schrödinger bridge matching
 ---------------------------
@@ -112,14 +110,14 @@ Schrödinger bridge matching
 Bridge matching is the fifth family. Where flow matching and diffusion both
 transport a *fixed* source distribution onto the target, bridge matching
 learns the dynamics of a stochastic bridge between two distributions whose
-endpoints are coupled — most naturally, a forward diffusion bridge that
+endpoints are coupled, most naturally a forward diffusion bridge that
 respects a given coupling, in the spirit of the static Schrödinger bridge
 problem. It is the right family when the relationship between source and
 target is not "noise to data" but a genuine joint distribution: paired
 samples, optimal-transport couplings, or domain-translation tasks where
 both endpoints carry structure.
 
-In nami the workflow trains separate velocity and score heads on
+In Nami, the workflow trains separate velocity and score heads on
 Brownian-bridge path samples. The velocity head regresses the bridge's
 conditional drift; the score head regresses :math:`\nabla \log p_t` on the
 same path. At sampling time, :class:`~nami.DriftFromVelocityScore` combines
@@ -130,13 +128,13 @@ bridge-matching approach of Tong et al. and is closely related to the
 diffusion Schrödinger bridge matching of Shi et al. and to Peluchetti's
 bridge-mixture transports.
 
-What bridge matching makes visible — and what the other families hide — is
-that the *coupling* between source and target is a modelling choice in its
+What bridge matching makes visible, and what the other families hide, is
+that the coupling between source and target is a modelling choice in its
 own right. Flow matching and diffusion implicitly assume an independent
 coupling :math:`(x_{\mathrm{source}}, x_{\mathrm{target}}) \sim
 p_{\mathrm{source}} \otimes p_{\mathrm{target}}`; bridge matching lets the
-joint be whatever the problem actually has. The same primitives —
-interpolants, schedules, solvers — apply unchanged.
+joint be whatever the problem actually has. The same primitives,
+interpolants, schedules, solvers, apply unchanged.
 
 What actually differs
 ---------------------
@@ -146,7 +144,7 @@ Across the families, four things actually vary. The path
 intermediate marginals. What the field predicts (velocity, score, eps, x0,
 operator parameters) sets the parameterisation. The loss
 (regression-of-conditional-target, self-consistency, joint regression for
-bridges, operator-pairing for generator matching) sets *how* the prediction
+bridges, operator-pairing for generator matching) sets how the prediction
 is identified from data. And what the process does at inference time
 (integrate an ODE, integrate an SDE, evaluate a one-step consistency
 function) sets the runtime cost and the kind of output. Everything else,
@@ -156,8 +154,8 @@ writing custom plumbing to switch between two families, that is usually a
 sign that something belongs in one of these four axes instead.
 
 The loss axis deserves emphasis because it is the easiest to overlook: a
-consistency model and a flow-matching model can predict *the same*
-velocity, trained against *different* objectives, and produce very
+consistency model and a flow-matching model can predict the same
+velocity, trained against different objectives, and produce very
 different sampling behaviour. Many of the interesting research directions
 in this space live on the loss axis rather than the field-output axis.
 

@@ -1,13 +1,13 @@
 Parameterizations
 =================
 
-A field in nami predicts *something*, but there is more than one useful
+A field in Nami predicts something, but there is more than one useful
 choice of what that something is. The same transport map can be specified by
 its velocity, by the score of its intermediate marginals, by the raw
 Gaussian noise added to an interpolant, by the clean-data target, or by a
 vector of operator parameters that an explicit operator object later
-interprets. These are not different methods — they are different
-parameterisations of one object — and nami lets you switch among them by
+interprets. These are not different methods, they are different
+parameterisations of one object, and Nami lets you switch among them by
 changing what the field predicts and which loss you regress it with.
 
 Why several parameterisations exist
@@ -21,8 +21,8 @@ parameterisation is what most pretrained diffusion checkpoints actually
 predict, and is numerically well-behaved when the schedule is variance-
 preserving. A clean-data (``X0``) head can be more stable when the noise
 level is high. A "V"-prediction blends velocity and noise terms in a way
-that is robust across schedules. And a generator-parameters head — the
-``GeneratorParams`` target — predicts an opaque vector that an operator
+that is robust across schedules. And a generator-parameters head, the
+``GeneratorParams`` target, predicts an opaque vector that an operator
 later linearly pairs with a basis of derivatives, which is what makes the
 generator-matching framework able to express drift, drift-plus-diffusion,
 and jump processes in one objective.
