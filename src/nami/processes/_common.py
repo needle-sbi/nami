@@ -214,21 +214,21 @@ def eager_validate_base_event_shape(
     """Fail at bind time when field and base shapes mismatch.
 
     Intended for process constructors.
-    
+
     If both the field and the base expose a concrete ``event_shape``
-    (the unconditional case), a mismatch raises immediately rather than surviving 
+    (the unconditional case), a mismatch raises immediately rather than surviving
     until ``sample()``.
-    
+
     It is a deliberate no-op when either side is conditional, its shape is not
     knowable without a context, so lazy/conditional workflows are unaffected.
     """
     field_shape = _static_event_shape(field)
     base_shape = _static_event_shape(base)
-    
+
     # no need to check when either side is conditional
     if field_shape is None or base_shape is None:
         return
-    
+
     # mismatch raises immediately
     if field_shape != base_shape:
         msg = f"{message}: field {field_shape} != base {base_shape}"
