@@ -111,3 +111,35 @@ def test_log_prob_is_differentiable_with_exact_create_graph_estimator():
 
     assert field.scale.grad is not None
     assert torch.isfinite(field.scale.grad)
+
+
+def test_hutchinson_gaussian_probe_is_unbiased_for_identity_field():
+    """With ``v(x) = x`` the true divergence is the event size D.
+
+    The Gaussian-probe estimate per sample is ``\\epsilon^T \\epsilon`` (a
+    chi-squared variable with mean D), so the batch mean must
+    concentrate near D — pinning that ``probe="gaussian"`` draws an
+    actual Gaussian probe rather than silently falling back to
+    Rademacher (whose per-sample estimate would be exactly D).
+    """
+
+    class _IdentityField(nn.Module):
+        event_ndim = 1
+
+        def forward(self, x, t, c=None):
+            _ = t, c
+            return x
+
+    torch.manual_seed(0)
+    estimator = HutchinsonDivergence(probe="gaussian")
+    x = torch.randn(2000, 4)
+    t = torch.zeros(2000)
+
+    div = estimator(_IdentityField(), x, t, None)
+
+    assert div.shape == (2000,)
+    # Gaussian probe: per-sample estimates fluctuate (unlike Rademacher,
+    # which is exactly D for the identity Jacobian)...
+    assert div.std() > 0.5
+    # ...but stay unbiased.
+    assert abs(div.mean().item() - 4.0) < 0.3
