@@ -329,8 +329,10 @@ class GeneratorMatchingProcess(ProcessRuntimeMixin):
             return self._integrate_sde(x0, context=context)
         if self._operator.runtime_kind == "jump":
             return self._integrate_jump(x0, context=context)
-        msg = "jump runtime requires a compatible simulator"
-        raise NotImplementedError(msg)
+        # GeneratorOperator.__init__ validates runtime_kind, so this is
+        # unreachable unless a subclass subverts the property.
+        msg = f"unsupported runtime kind {self._operator.runtime_kind!r}"  # pragma: no cover
+        raise NotImplementedError(msg)  # pragma: no cover
 
     def rsample(self, sample_shape=()) -> torch.Tensor:
         if self._operator.runtime_kind != "ode":
