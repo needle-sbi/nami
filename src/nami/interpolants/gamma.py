@@ -23,11 +23,11 @@ class GammaSchedule:
 
     def gamma(self, t: torch.Tensor) -> torch.Tensor:
         """Noise scale ``\\gamma(t)``."""
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover - abstract stub
 
     def gamma_dot(self, t: torch.Tensor) -> torch.Tensor:
         """Time derivative ``\\dot{\\gamma}(t)``."""
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover - abstract stub
 
     def gamma_gamma_dot(self, t: torch.Tensor) -> torch.Tensor:
         """Convenience product ``\\gamma(t) \\dot{\\gamma}(t)``.

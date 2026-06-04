@@ -145,7 +145,7 @@ class MarkovizationDriftFromVelocityScore(nn.Module):
         if self._diffusion2_fn is not None:
             return self._diffusion2_fn(t)
         diffusion2_const = self._diffusion2_const
-        if diffusion2_const is None:
+        if diffusion2_const is None:  # pragma: no cover - constructor invariant
             msg = "diffusion2 constant is unexpectedly unset"
             raise RuntimeError(msg)
         return torch.full_like(t, diffusion2_const)
