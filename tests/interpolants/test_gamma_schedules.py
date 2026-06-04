@@ -3,7 +3,31 @@ from __future__ import annotations
 import pytest
 import torch
 
-from nami.interpolants.gamma import BrownianGamma, ScaledBrownianGamma, ZeroGamma
+from nami.interpolants.gamma import (
+    BrownianGamma,
+    GammaSchedule,
+    ScaledBrownianGamma,
+    ZeroGamma,
+)
+
+
+class _AffineGamma(GammaSchedule):
+    """Minimal subclass relying on the base-class default product."""
+
+    def gamma(self, t: torch.Tensor) -> torch.Tensor:
+        return t
+
+    def gamma_dot(self, t: torch.Tensor) -> torch.Tensor:
+        return torch.ones_like(t)
+
+
+class TestGammaScheduleDefault:
+    def test_default_product_multiplies_gamma_and_gamma_dot(self):
+        """Subclasses without a closed-form override get gamma * gamma_dot."""
+        schedule = _AffineGamma()
+        t = torch.linspace(0.1, 0.9, 9)
+
+        assert torch.allclose(schedule.gamma_gamma_dot(t), t)
 
 
 class TestZeroGamma:
