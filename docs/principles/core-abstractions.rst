@@ -105,6 +105,70 @@ sample times batch. Most users never have to think about this — it is
 plumbing that lets the same field handle conditional and unconditional
 calls without reshape boilerplate.
 
+``event_ndim`` answers exactly one question: counting from the right, where
+does a single data point begin? Everything to its left — however many
+axes — is leading (sample times batch); nami never has to distinguish the
+two when peeling off the event. Concretely, a field's ``forward`` flattens
+only the trailing ``event_ndim`` axes and treats the rest as one leading
+block::
+
+    x_flat = flatten_event(x, self.event_ndim)   # collapses the last event_ndim axes
+    lead   = x_flat.shape[:-1]                    # all remaining axes, together
+
+Worked example
+~~~~~~~~~~~~~~
+
+Suppose ``x`` has shape ``(32, 500, 2)`` and one data point is a 2-vector.
+Then ``event_shape = (2,)`` and ``event_ndim = 1`` — one axis forms a
+sample, and the leading ``(32, 500)`` is sample times batch. nami does not
+care how you split that leading block into "32 samples" vs "500 batch";
+only ``event_ndim`` matters.
+
+The same tensor *rank* can imply different ``event_ndim``, which is why the
+property cannot be inferred from the shape alone and must be declared:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 20 30 20
+
+   * - Your data point is…
+     - ``event_shape``
+     - a tensor might look like
+     - ``event_ndim``
+   * - a scalar
+     - ``()``
+     - ``(32, 500)``
+     - ``0``
+   * - a 2-vector
+     - ``(2,)``
+     - ``(32, 500, 2)``
+     - ``1``
+   * - a 5-vector
+     - ``(5,)``
+     - ``(64, 5)``
+     - ``1``
+   * - a 3×8×8 image
+     - ``(3, 8, 8)``
+     - ``(32, 500, 3, 8, 8)``
+     - ``3``
+
+Note the last two rows of leading dims differ in count yet ``event_ndim``
+ignores that, and note that ``(32, 500, 2)`` and ``(32, 500, 3, 8, 8)`` are
+distinguished only by where the event begins — given a bare tensor, nami
+genuinely cannot tell whether ``(32, 500, 2)`` is ``(32, 500)`` leading ×
+``(2,)`` events or ``(32,)`` leading × ``(500, 2)`` events. Declaring
+``event_ndim`` is the field author resolving that ambiguity.
+
+When a field *does* expose a concrete ``event_shape`` (not just an
+``event_ndim``), nami validates the full shape against the base
+distribution at process-construction time, so a mismatch such as
+``VelocityField(8)`` paired with ``StandardNormal((4,))`` raises
+immediately rather than surviving until ``sample()`` — both have rank
+``1``, so a rank-only check would miss it. Genuinely conditional fields,
+whose shape is unknown until a context is bound, skip this eager check and
+fall back to the rank check at bind time. Pass ``validate_args=False`` to a
+process to opt out of validation entirely.
+
 Within a process, ``x_data`` is the endpoint at :math:`t=1` and ``x_noise``
 is the endpoint at :math:`t=0`; sampling integrates from :math:`t=0` up to
 :math:`t=1`. This is a library-level choice that keeps flow matching,
