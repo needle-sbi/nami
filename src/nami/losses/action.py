@@ -75,10 +75,8 @@ def _grad_x_s(
     """
     xt = xt.detach().requires_grad_(True)
     s = field(xt, t, c)
-    if s.shape != xt.shape[: xt.ndim - (xt.ndim - s.ndim)]:
-        # ActionHead returns ``(*lead,)``; anything else is the wrong
-        # head shape and would silently sum across event dims below.
-        pass  # message-only; the real check is shape consistency below!!
+    # ActionHead returns ``(*lead,)``; a wrong head shape is caught by the
+    # grad-vs-velocity shape check in ``action_matching_loss``.
     (grad_s,) = torch.autograd.grad(
         outputs=s.sum(),
         inputs=xt,
