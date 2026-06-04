@@ -162,10 +162,9 @@ whose shape is unknown until a context is bound, skip this eager check and
 fall back to the rank check at bind time. Pass ``validate_args=False`` to a
 process to opt out of validation entirely.
 
-``event_ndim`` answers exactly one question: counting from the right, where
-does a single data point begin? Everything to its left — however many
-axes — is leading (sample times batch); nami never has to distinguish the
-two when peeling off the event. Concretely, a field's ``forward`` flattens
+``event_ndim`` is used to inform where a single data point begins, when counting from the right.
+Everything to its left, however many axes, is leading (sample times batch). Nami never has to 
+distinguish the two when peeling off the event dimensions. Concretely, a field's ``forward`` flattens
 only the trailing ``event_ndim`` axes and treats the rest as one leading
 block::
 
@@ -176,19 +175,19 @@ Worked example
 ~~~~~~~~~~~~~~
 
 Suppose ``x`` has shape ``(32, 500, 2)`` and one data point is a 2-vector.
-Then ``event_shape = (2,)`` and ``event_ndim = 1`` — one axis forms a
-sample, and the leading ``(32, 500)`` is sample times batch. nami does not
-care how you split that leading block into "32 samples" vs "500 batch";
+Then ``event_shape = (2,)`` and ``event_ndim = 1``. One axis forms a
+sample, and the leading ``(32, 500)`` is sample times batch. Nami does not
+care how that leading block is split into "32 samples" vs "500 batch";
 only ``event_ndim`` matters.
 
-The same tensor *rank* can imply different ``event_ndim``, which is why the
+The same tensor rank can imply different ``event_ndim``, which is why the
 property cannot be inferred from the shape alone and must be declared:
 
 .. list-table::
    :header-rows: 1
    :widths: 30 20 30 20
 
-   * - Your data point is…
+   * - Your data point is
      - ``event_shape``
      - a tensor might look like
      - ``event_ndim``
@@ -204,23 +203,23 @@ property cannot be inferred from the shape alone and must be declared:
      - ``(5,)``
      - ``(64, 5)``
      - ``1``
-   * - a 3×8×8 image
+   * - a 3 x 8 x 8 image
      - ``(3, 8, 8)``
      - ``(32, 500, 3, 8, 8)``
      - ``3``
 
 Note the last two rows of leading dims differ in count yet ``event_ndim``
 ignores that, and note that ``(32, 500, 2)`` and ``(32, 500, 3, 8, 8)`` are
-distinguished only by where the event begins — given a bare tensor, nami
-genuinely cannot tell whether ``(32, 500, 2)`` is ``(32, 500)`` leading ×
-``(2,)`` events or ``(32,)`` leading × ``(500, 2)`` events. Declaring
+distinguished only by where the event begins. For some bare tensor, nami
+genuinely cannot tell whether ``(32, 500, 2)`` is ``(32, 500)`` leading x
+``(2,)`` events or ``(32,)`` leading x ``(500, 2)`` events. Declaring
 ``event_ndim`` is the field author resolving that ambiguity.
 
-When a field *does* expose a concrete ``event_shape`` (not just an
+When a field does expose a concrete ``event_shape`` (not just an
 ``event_ndim``), nami validates the full shape against the base
 distribution at process-construction time, so a mismatch such as
 ``VelocityField(8)`` paired with ``StandardNormal((4,))`` raises
-immediately rather than surviving until ``sample()`` — both have rank
+immediately rather than surviving until ``sample()``; both have rank
 ``1``, so a rank-only check would miss it. Genuinely conditional fields,
 whose shape is unknown until a context is bound, skip this eager check and
 fall back to the rank check at bind time. Pass ``validate_args=False`` to a
