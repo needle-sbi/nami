@@ -15,7 +15,7 @@ from __future__ import annotations
 import torch
 
 from nami.components import MLPBackbone, ScalarTimeEmbedding
-from nami.core.specs import event_numel, flatten_event, validate_shapes
+from nami.core.specs import TensorSpec, flatten_event, validate_shapes
 from nami.fields._common import normalise_event_shape, validate_context
 from nami.fields.base import VectorField
 
@@ -40,7 +40,7 @@ class GeneratorField(VectorField):
             msg = f"condition_dim must be non-negative, got {condition_dim}"
             raise ValueError(msg)
 
-        self.event_shape = normalise_event_shape(dim)
+        self.spec = TensorSpec(normalise_event_shape(dim))
         if tuple(operator.event_shape) != self.event_shape:
             msg = (
                 f"operator.event_shape must match dim: expected {self.event_shape}, "
@@ -50,9 +50,7 @@ class GeneratorField(VectorField):
 
         self.operator = operator
         self.condition_dim = int(condition_dim)
-        self.flat_dim = event_numel(self.event_shape)
-        self.parameter_shape = tuple(operator.parameter_shape)
-        self.parameter_dim = event_numel(self.parameter_shape)
+        self.param_spec = TensorSpec(tuple(operator.parameter_shape))
         self.time_embedding = ScalarTimeEmbedding()
         self.backbone = MLPBackbone(
             self.flat_dim + 1 + self.condition_dim,
@@ -65,8 +63,24 @@ class GeneratorField(VectorField):
         )
 
     @property
+    def event_shape(self) -> tuple[int, ...]:
+        return self.spec.event_shape
+
+    @property
     def event_ndim(self) -> int:
-        return len(self.event_shape)
+        return self.spec.event_ndim
+
+    @property
+    def flat_dim(self) -> int:
+        return self.spec.numel
+
+    @property
+    def parameter_shape(self) -> tuple[int, ...]:
+        return self.param_spec.event_shape
+
+    @property
+    def parameter_dim(self) -> int:
+        return self.param_spec.numel
 
     def forward(
         self,
@@ -74,7 +88,7 @@ class GeneratorField(VectorField):
         t: torch.Tensor,
         c: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        validate_shapes(x, self.event_ndim, expected_event_shape=self.event_shape)
+        validate_shapes(x, self.spec)
         x_flat = flatten_event(x, self.event_ndim)
         lead_shape = tuple(x_flat.shape[:-1])
         t_features = self.time_embedding(

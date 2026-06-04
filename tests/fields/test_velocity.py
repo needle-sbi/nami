@@ -4,6 +4,7 @@ import pytest
 import torch
 
 from nami import VelocityField
+from nami.core.specs import TensorSpec
 
 
 def test_velocity_field_supports_tuple_event_shape():
@@ -80,3 +81,15 @@ def test_velocity_field_validates_context_leading_shape():
 def test_velocity_field_rejects_negative_condition_dim():
     with pytest.raises(ValueError, match="condition_dim must be non-negative"):
         VelocityField(3, condition_dim=-1, hidden=16, layers=1)
+
+
+def test_velocity_field_exposes_tensor_spec():
+    # The spec is the single source of shape truth; the legacy attributes
+    # must stay consistent with it.
+    field = VelocityField((2, 3), hidden=16, layers=1)
+
+    assert isinstance(field.spec, TensorSpec)
+    assert field.spec.event_shape == (2, 3)
+    assert field.event_shape == (2, 3)
+    assert field.event_ndim == field.spec.event_ndim == 2
+    assert field.flat_dim == field.spec.numel == 6
