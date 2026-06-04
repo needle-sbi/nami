@@ -473,3 +473,60 @@ def test_custom_output_transform_changes_samples():
         "output_transform appears not to be applied, the Process is "
         "calling op.project directly behind the parameterization"
     )
+
+
+def test_generator_matching_operator_property_returns_carried_operator():
+    operator = ItoGeneratorOperator((3,))
+    lazy = GeneratorMatching(
+        _ZeroDrift(),
+        RK4(steps=2),
+        parameterization=generator_prediction(operator),
+        event_shape=(3,),
+    )
+
+    assert lazy.operator is operator
+
+
+def test_generator_matching_rejects_non_parameterization_instance():
+    lazy = GeneratorMatching(
+        _ZeroDrift(),
+        RK4(steps=2),
+        parameterization="generator",  # type: ignore[arg-type]
+        event_shape=(3,),
+    )
+
+    with pytest.raises(TypeError, match="Parameterization instance"):
+        lazy()
+
+
+def test_generator_matching_process_exposes_components():
+    operator = ItoGeneratorOperator((3,))
+    parameterization = generator_prediction(operator)
+    field = _ZeroDrift()
+    process = GeneratorMatching(
+        field,
+        RK4(steps=2),
+        parameterization=parameterization,
+        event_shape=(3,),
+    )()
+
+    assert process.field is field
+    assert process.parameterization is parameterization
+    assert process.operator is operator
+
+
+def test_generator_matching_expands_explicit_base_over_context():
+    operator = ItoGeneratorOperator((3,))
+    base = StandardNormal(event_shape=(3,))
+    context = torch.randn(5, 2)
+    process = GeneratorMatching(
+        _ContextDrift(),
+        RK4(steps=2),
+        parameterization=generator_prediction(operator),
+        base=base,
+    )(context)
+
+    assert process.batch_shape == (5,)
+    sample = process.sample()
+    assert sample.shape == (5, 3)
+    assert torch.isfinite(sample).all()
