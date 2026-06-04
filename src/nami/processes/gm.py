@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import torch
 
+from nami.core.specs import TensorSpec
 from nami.distributions.base import expand_distribution, has_rsample
 from nami.distributions.normal import StandardNormal
 from nami.fields._common import require_event_ndim
@@ -27,7 +28,9 @@ from nami.parameterizations import GeneratorParams, Parameterization
 from nami.processes._common import (
     ProcessRuntimeMixin,
     cast_time,
+    eager_validate_base_event_shape,
     model_device_dtype,
+    resolve_event_shape_override,
     validate_base_event_ndim,
 )
 
@@ -46,7 +49,9 @@ class GeneratorMatching(LazyProcess):
             Optional base distribution. If ``None``, a standard normal base is
             constructed from ``event_shape`` or the operator event shape.
         event_shape (tuple[int, ...] | None): Event shape used when creating a
-            default base distribution.
+            default base distribution. Mutually exclusive with ``spec``.
+        spec (TensorSpec | None): Event specification supplying the event
+            shape. Mutually exclusive with ``event_shape``.
         validate_args (bool): Whether to validate target and event-shape
             compatibility.
 
@@ -65,6 +70,7 @@ class GeneratorMatching(LazyProcess):
         t1: float = 1.0,
         base: LazyDistribution | torch.distributions.Distribution | None = None,
         event_shape: tuple[int, ...] | None = None,
+        spec: TensorSpec | None = None,
         validate_args: bool = True,
     ):
         super().__init__()
@@ -80,8 +86,11 @@ class GeneratorMatching(LazyProcess):
             if base is None or isinstance(base, LazyDistribution)
             else UnconditionalDistribution(base)
         )
-        self.event_shape = event_shape
+        self.event_shape = resolve_event_shape_override(spec, event_shape)
         self.validate_args = bool(validate_args)
+
+        if self.validate_args:
+            eager_validate_base_event_shape(self.field, self.base)
 
     @property
     def operator(self):
@@ -151,6 +160,7 @@ class GeneratorMatching(LazyProcess):
             validate_base_event_ndim(
                 base,
                 event_ndim,
+                field_event_shape=getattr(field, "event_shape", None),
                 message="field.event_ndim does not match base.event_shape",
             )
             if tuple(operator.event_shape) != event_shape:

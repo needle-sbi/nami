@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import torch
 
+from nami.core.specs import TensorSpec
 from nami.diffusion import (
     eps_to_score,
     expand_like,
@@ -38,7 +39,9 @@ from nami.parameterizations import X0, Epsilon, Parameterization, Score, VPredic
 from nami.processes._common import (
     ProcessRuntimeMixin,
     cast_time,
+    eager_validate_base_event_shape,
     model_device_dtype,
+    resolve_event_shape_override,
     validate_base_event_ndim,
 )
 
@@ -59,7 +62,10 @@ class Diffusion(LazyProcess):
         base (LazyDistribution | torch.distributions.Distribution | None):
             Optional base distribution.
         event_shape (tuple[int, ...] | None): Event shape used when creating a
-            default base distribution.
+            default base distribution. Mutually exclusive with ``spec``.
+        spec (TensorSpec | None): Event specification supplying the event
+            shape, and a dtype for the default base distribution when the
+            model exposes none. Mutually exclusive with ``event_shape``.
         validate_args (bool): Whether to validate target and event-shape
             compatibility.
 
@@ -80,6 +86,7 @@ class Diffusion(LazyProcess):
         t1: float = 0.0,
         base: LazyDistribution | torch.distributions.Distribution | None = None,
         event_shape: tuple[int, ...] | None = None,
+        spec: TensorSpec | None = None,
         validate_args: bool = True,
     ):
         super().__init__()
@@ -96,8 +103,12 @@ class Diffusion(LazyProcess):
             if base is None or isinstance(base, LazyDistribution)
             else UnconditionalDistribution(base)
         )
-        self.event_shape = event_shape
+        self.event_shape = resolve_event_shape_override(spec, event_shape)
+        self._base_dtype = spec.dtype if spec is not None else None
         self.validate_args = bool(validate_args)
+
+        if self.validate_args:
+            eager_validate_base_event_shape(self.model, self.base)
 
     def forward(self, c: torch.Tensor | None = None) -> DiffusionProcess:
         model = self.model(c)
@@ -107,7 +118,13 @@ class Diffusion(LazyProcess):
             if self.event_shape is None:
                 msg = "event_shape is required when base is None"
                 raise ValueError(msg)
+            # TODO: cross-check self.event_shape against model.event_shape here.
+            # The eager bind-time validation only fires when a concrete base is
+            # supplied; in the base=None path the base is built from event_shape,
+            # so a model/event_shape mismatch still slips through to sample().
             device, dtype = model_device_dtype(model)
+            if dtype is None:
+                dtype = self._base_dtype
             batch_shape = tuple(c.shape[:-1]) if c is not None else ()
             base = StandardNormal(
                 self.event_shape, batch_shape=batch_shape, device=device, dtype=dtype
@@ -141,6 +158,7 @@ class Diffusion(LazyProcess):
                 validate_base_event_ndim(
                     base,
                     int(event_ndim),
+                    field_event_shape=getattr(model, "event_shape", None),
                     message="model.event_ndim does not match base.event_shape",
                 )
 

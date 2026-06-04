@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import torch
 
+from nami.core.specs import TensorSpec
+
 
 def cast_time(t: float | torch.Tensor, like: torch.Tensor) -> torch.Tensor:
     """Cast time values to match a reference tensor.
@@ -77,6 +79,54 @@ def model_device_dtype(
     return None, None
 
 
+def resolve_event_ndim_override(
+    spec: TensorSpec | None, event_ndim: int | None
+) -> int | None:
+    """Resolve an event-rank constructor override from a spec or explicit rank.
+
+    Args:
+        spec (TensorSpec | None): Event specification, when supplied.
+        event_ndim (int | None): Explicit event rank, when supplied.
+
+    Returns:
+        int | None: The resolved rank, or ``None`` when neither is given.
+
+    Raises:
+        ValueError: If both ``spec`` and ``event_ndim`` are given.
+    """
+    if spec is not None and event_ndim is not None:
+        msg = "pass either spec or event_ndim, not both"
+        raise ValueError(msg)
+    if spec is not None:
+        return spec.event_ndim
+    return event_ndim
+
+
+def resolve_event_shape_override(
+    spec: TensorSpec | None, event_shape: tuple[int, ...] | None
+) -> tuple[int, ...] | None:
+    """Resolve an event-shape constructor override from a spec or explicit shape.
+
+    Args:
+        spec (TensorSpec | None): Event specification, when supplied.
+        event_shape (tuple[int, ...] | None): Explicit event shape, when
+            supplied.
+
+    Returns:
+        tuple[int, ...] | None: The resolved shape, or ``None`` when neither
+        is given.
+
+    Raises:
+        ValueError: If both ``spec`` and ``event_shape`` are given.
+    """
+    if spec is not None and event_shape is not None:
+        msg = "pass either spec or event_shape, not both"
+        raise ValueError(msg)
+    if spec is not None:
+        return spec.event_shape
+    return event_shape
+
+
 def resolve_event_ndim(field, fallback: int | None = None) -> int:
     """Resolve the event rank for a field.
 
@@ -101,20 +151,88 @@ def validate_base_event_ndim(
     base: torch.distributions.Distribution,
     event_ndim: int,
     *,
+    field_event_shape: tuple[int, ...] | None = None,
     message: str = "field.event_ndim does not match base.event_shape",
 ) -> None:
-    """Validate a base distribution event rank.
+    """Validate a base distribution event rank, and shape when known.
+
+    The rank check (``len(base.event_shape) == event_ndim``) always runs.
+    When ``field_event_shape`` is supplied — i.e. the field exposes a
+    concrete event shape rather than only a rank — the full tuples are
+    compared as well, so a ``(2,)`` field paired with a ``(4,)`` base is
+    rejected even though both have rank ``1``.
 
     Args:
         base (torch.distributions.Distribution): Base distribution.
         event_ndim (int): Expected event rank.
+        field_event_shape (tuple[int, ...] | None): The field's concrete
+            event shape, when it exposes one. ``None`` falls back to the
+            rank-only check.
         message (str): Error message used on mismatch.
 
     Raises:
-        ValueError: If ``len(base.event_shape) != event_ndim``.
+        ValueError: If the base event rank differs from ``event_ndim``, or
+            if ``field_event_shape`` is given and differs from
+            ``base.event_shape``.
     """
-    if len(base.event_shape) != event_ndim:
+    base_shape = tuple(base.event_shape)
+    if len(base_shape) != event_ndim:
         raise ValueError(message)
+    if field_event_shape is not None and tuple(field_event_shape) != base_shape:
+        msg = (
+            f"{message}: field event_shape {tuple(field_event_shape)} "
+            f"!= base event_shape {base_shape}"
+        )
+        raise ValueError(msg)
+
+
+def _static_event_shape(obj: object) -> tuple[int, ...] | None:
+    """Best-effort concrete ``event_shape`` behind a field or its lazy wrapper.
+
+    Unwraps the ``Unconditional*`` adapters (which hold the concrete object
+    in ``_field`` / ``_dist``) by duck typing, so no import of
+    :mod:`nami.lazy` is needed. Returns ``None`` when no concrete shape is
+    reachable — the genuinely conditional case, where the shape is unknown
+    until a context is bound.
+    """
+    if obj is None:
+        return None
+    inner = getattr(obj, "_field", None)
+    if inner is None:
+        inner = getattr(obj, "_dist", None)
+    target = obj if inner is None else inner
+    shape = getattr(target, "event_shape", None)
+    return None if shape is None else tuple(shape)
+
+
+def eager_validate_base_event_shape(
+    field: object,
+    base: object,
+    *,
+    message: str = "field.event_shape does not match base.event_shape",
+) -> None:
+    """Fail at bind time when field and base shapes mismatch.
+
+    Intended for process constructors.
+    
+    If both the field and the base expose a concrete ``event_shape``
+    (the unconditional case), a mismatch raises immediately rather than surviving 
+    until ``sample()``.
+    
+    It is a deliberate no-op when either side is conditional, its shape is not
+    knowable without a context, so lazy/conditional workflows are unaffected.
+    """
+    field_shape = _static_event_shape(field)
+    base_shape = _static_event_shape(base)
+    
+    # no need to check when either side is conditional
+    if field_shape is None or base_shape is None:
+        return
+    
+    # mismatch raises immediately
+    if field_shape != base_shape:
+        msg = f"{message}: field {field_shape} != base {base_shape}"
+        raise ValueError(msg)
 
 
 class TransformedField:
