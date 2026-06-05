@@ -87,7 +87,7 @@ from nami.solvers.sde import EulerMaruyama
 
 try:
     from nami._version import version as __version__
-except ModuleNotFoundError:
+except ModuleNotFoundError:  # pragma: no cover - build-metadata fallback
     __version__ = "0+unknown"
 
 

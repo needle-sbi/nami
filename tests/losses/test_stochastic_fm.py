@@ -4,7 +4,11 @@ import pytest
 import torch
 from torch import nn
 
-from nami.interpolants import LinearInterpolant, velocity_prediction
+from nami.interpolants import (
+    LinearInterpolant,
+    StochasticLinearInterpolant,
+    velocity_prediction,
+)
 from nami.interpolants.gamma import BrownianGamma, ZeroGamma
 from nami.losses.regression import regression_loss
 from nami.losses.stochastic_fm import stochastic_fm_loss
@@ -99,6 +103,33 @@ class TestStochasticFmLoss:
         assert loss_mean.shape == ()
         assert torch.isclose(loss_sum, loss_none.sum())
         assert torch.isclose(loss_mean, loss_none.mean())
+
+    def test_interpolant_and_gamma_together_rejected(self):
+        """`interpolant` and `gamma` are mutually exclusive constructors."""
+        field = ZeroField()
+        x_data = torch.randn(4, 3)
+        x_noise = torch.randn(4, 3)
+
+        with pytest.raises(ValueError, match="not both"):
+            stochastic_fm_loss(
+                field,
+                x_data=x_data,
+                x_noise=x_noise,
+                interpolant=StochasticLinearInterpolant(),
+                gamma=BrownianGamma(),
+            )
+
+    def test_defaults_to_brownian_stochastic_interpolant(self):
+        """With neither interpolant nor gamma, the AVE default applies."""
+        torch.manual_seed(0)
+        field = ZeroField()
+        x_data = torch.randn(4, 3)
+        x_noise = torch.randn(4, 3)
+
+        loss = stochastic_fm_loss(field, x_data=x_data, x_noise=x_noise)
+
+        assert loss.shape == ()
+        assert torch.isfinite(loss)
 
     def test_invalid_noise_shape_raises(self):
         """A wrong-shaped z fails inside the interpolant's sample step,

@@ -42,3 +42,27 @@ def test_operators_expose_consistent_tensor_spec():
     assert isinstance(ctmc.spec, TensorSpec)
     assert ctmc.spec.event_shape == ctmc.event_shape == (4,)
     assert ctmc.parameter_shape == (4, 5)
+
+
+class _ShapedOperator(GeneratorOperator):
+    """Concrete operator relying on the base-class ``spec`` derivation."""
+
+    def __init__(self):
+        super().__init__(runtime_kind="ode")
+
+    @property
+    def event_shape(self) -> tuple[int, ...]:
+        return (3,)
+
+
+def test_base_spec_derives_from_event_shape():
+    """Without an override, ``spec`` wraps the subclass's event_shape."""
+    op = _ShapedOperator()
+    assert op.spec == TensorSpec((3,))
+
+
+def test_base_project_is_identity():
+    """The default projection leaves raw parameters untouched."""
+    op = _MinimalOperator()
+    params = torch.randn(4, 3)
+    assert op.project(params) is params

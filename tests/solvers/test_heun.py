@@ -141,3 +141,32 @@ class TestHeunIntegrateAugmented:
 
         assert torch.allclose(x1, expected_x, rtol=1e-2)
         assert torch.allclose(logp1, expected_logp, rtol=1e-2)
+
+
+class TestHeunStepOverrides:
+    """Step-count overrides passed to the integrate calls."""
+
+    def test_integrate_rejects_negative_steps_override(self):
+        heun = Heun(steps=4)
+
+        with pytest.raises(ValueError, match="steps must be positive"):
+            heun.integrate(
+                lambda x, _t: torch.zeros_like(x),
+                torch.ones(3),
+                t0=0.0,
+                t1=1.0,
+                steps=-1,
+            )
+
+    def test_integrate_augmented_rejects_negative_steps_override(self):
+        heun = Heun(steps=4)
+
+        with pytest.raises(ValueError, match="steps must be positive"):
+            heun.integrate_augmented(
+                lambda x, _t: (torch.zeros_like(x), torch.zeros(x.shape[0])),
+                torch.ones(3, 2),
+                torch.zeros(3),
+                t0=0.0,
+                t1=1.0,
+                steps=-1,
+            )

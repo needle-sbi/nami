@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import pytest
 import torch
+from torch.distributions import Bernoulli, Independent
 
 from nami import (
     RK4,
     ConsistencyFlowMatching,
     ExactDivergence,
+    Parameterization,
+    Score,
     StandardNormal,
 )
 
@@ -238,3 +241,47 @@ def test_cfm_log_prob_no_h_head_no_solver_raises():
 
     with pytest.raises(ValueError, match="log_prob requires a solver"):
         process.log_prob(x)
+
+
+# ---------------------------------------------------------------------------
+# Validation and runtime-process accessors
+# ---------------------------------------------------------------------------
+
+
+def test_cfm_rejects_non_parameterization_instance():
+    lazy = ConsistencyFlowMatching(
+        _PlainField(),
+        StandardNormal(event_shape=(2,)),
+        parameterization="velocity",  # type: ignore[arg-type]
+    )
+
+    with pytest.raises(TypeError, match="Parameterization instance"):
+        lazy()
+
+
+def test_cfm_rejects_non_velocity_target():
+    lazy = ConsistencyFlowMatching(
+        _PlainField(),
+        StandardNormal(event_shape=(2,)),
+        parameterization=Parameterization(target=Score()),
+    )
+
+    with pytest.raises(TypeError, match="only the Velocity"):
+        lazy()
+
+
+def test_cfm_process_exposes_field_and_base():
+    field = _PlainField()
+    base = StandardNormal(event_shape=(2,))
+    process = ConsistencyFlowMatching(field, base)()
+
+    assert process.field is field
+    assert process.base is base
+
+
+def test_cfm_rsample_rejects_non_reparameterized_base():
+    base = Independent(Bernoulli(probs=torch.full((2,), 0.5)), 1)
+    process = ConsistencyFlowMatching(_PlainField(), base)()
+
+    with pytest.raises(NotImplementedError, match="does not support rsample"):
+        process.rsample(sample_shape=(3,))

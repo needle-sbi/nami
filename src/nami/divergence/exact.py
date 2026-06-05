@@ -34,7 +34,9 @@ class ExactDivergence(DivergenceEstimator):
         self, field, x: torch.Tensor, t: torch.Tensor, c: torch.Tensor | None
     ) -> torch.Tensor:
         spec = getattr(field, "spec", None)
-        event_ndim = spec.event_ndim if spec is not None else getattr(field, "event_ndim", None)
+        event_ndim = (
+            spec.event_ndim if spec is not None else getattr(field, "event_ndim", None)
+        )
         if event_ndim is None:
             msg = "field.event_ndim is required for divergence"
             raise ValueError(msg)

@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 import torch
 
+from nami.generators import ItoGeneratorOperator
 from nami.interpolants import (
     GaussianInterpolant,
     InterpolantState,
@@ -12,7 +13,7 @@ from nami.interpolants import (
     score_prediction,
     x0_prediction,
 )
-from nami.parameterizations import X0, Epsilon, Score, Velocity
+from nami.parameterizations import X0, Epsilon, GeneratorParams, Score, Velocity
 from nami.schedules.vp import VPSchedule
 
 
@@ -33,6 +34,22 @@ def batch() -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     x_noise = torch.randn(8, 3)
     t = torch.rand(8)
     return x_data, x_noise, t
+
+
+# ---------------------------------------------------------------------------
+# Constructor
+# ---------------------------------------------------------------------------
+
+
+def test_constructor_rejects_non_schedule_argument() -> None:
+    """The common first-use trap ``GaussianInterpolant(4)`` fails eagerly.
+
+    ``__post_init__`` catches the wrong-type schedule with an actionable
+    message instead of failing later inside ``sample`` with
+    ``'int' object has no attribute 'alpha'``.
+    """
+    with pytest.raises(TypeError, match="NoiseSchedule"):
+        GaussianInterpolant(schedule=4)  # type: ignore[arg-type]
 
 
 # ---------------------------------------------------------------------------
@@ -197,6 +214,21 @@ def test_target_velocity_raises_until_schedule_derivatives_exist(
     state = interpolant.sample(x_noise, x_data, t)
     with pytest.raises(NotImplementedError, match="derivatives"):
         interpolant.target(Velocity(), state)
+
+
+def test_target_generator_params_raises(
+    interpolant: GaussianInterpolant,
+    batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor],
+) -> None:
+    """GeneratorParams is the wrong shape for a Gaussian path.
+
+    Operator targets belong on operator-aware interpolants; this pins
+    that GaussianInterpolant refuses them rather than guessing.
+    """
+    x_data, x_noise, t = batch
+    state = interpolant.sample(x_noise, x_data, t)
+    with pytest.raises(NotImplementedError, match="GeneratorParams"):
+        interpolant.target(GeneratorParams(ItoGeneratorOperator((3,))), state)
 
 
 # ---------------------------------------------------------------------------

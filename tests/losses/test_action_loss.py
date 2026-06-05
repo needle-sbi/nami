@@ -26,6 +26,7 @@ from nami import (
     action_matching_loss,
     action_prediction,
 )
+from nami.interpolants import InterpolantState
 
 
 class _PerfectLinearAction(nn.Module):
@@ -157,3 +158,66 @@ def test_action_loss_handles_stochastic_linear_interpolant_with_explicit_z() -> 
         z=z,
     )
     assert torch.allclose(loss1, loss2, atol=1e-12, rtol=1e-12)
+
+
+def test_action_loss_rejects_gradient_velocity_shape_mismatch() -> None:
+    """An interpolant whose Action target has the wrong shape fails loudly.
+
+    ``\\nabla_x s`` always has ``x_t``'s shape; if the interpolant's
+    conditional velocity disagrees, silent broadcasting would corrupt
+    the MSE — the loss pins an explicit ValueError instead.
+    """
+
+    class _WrongShapeInterpolant:
+        def sample(self, x_noise, x_data, t, *, noise=None):
+            _ = noise
+            return InterpolantState(
+                xt=x_data, x_data=x_data, x_noise=x_noise, t=t, noise=None
+            )
+
+        def target(self, target, state):
+            _ = target
+            return torch.zeros(state.x_data.shape[0], 5)  # wrong event dim
+
+    torch.manual_seed(0)
+    field = ActionHead(dim=3)
+    x_data = torch.randn(8, 3)
+    x_noise = torch.randn(8, 3)
+
+    with pytest.raises(ValueError, match="shape mismatch"):
+        action_matching_loss(
+            field,
+            x_data=x_data,
+            x_noise=x_noise,
+            t=torch.rand(8),
+            interpolant=_WrongShapeInterpolant(),
+        )
+
+
+def test_action_loss_scalar_weighting_broadcasts() -> None:
+    """A 0-d weighting tensor is expanded across the per-sample MSE."""
+    torch.manual_seed(0)
+    field = ActionHead(dim=3)
+    x_data = torch.randn(8, 3)
+    x_noise = torch.randn(8, 3)
+    t = torch.rand(8)
+
+    common = {
+        "x_data": x_data,
+        "x_noise": x_noise,
+        "t": t,
+        "interpolant": LinearInterpolant(),
+        "reduction": "none",
+    }
+    unweighted = action_matching_loss(field, **common)
+    weighted = action_matching_loss(
+        field,
+        parameterization=Parameterization(
+            target=Action(),
+            weighting=lambda t: torch.tensor(2.0, dtype=t.dtype),
+        ),
+        **common,
+    )
+
+    assert weighted.shape == unweighted.shape
+    assert torch.allclose(weighted, 2.0 * unweighted)

@@ -77,6 +77,19 @@ def test_markovization_accepts_callable_diffusion2() -> None:
     assert torch.allclose(actual, coeff.expand_as(x))
 
 
+def test_composite_fields_expose_velocity_head_event_ndim() -> None:
+    """Both composites report the velocity head's event_ndim for shape checks."""
+    velocity = _ConstantField(0.0)
+    score = _ConstantField(0.0)
+    gamma = BrownianGamma()
+
+    drift = DriftFromVelocityScore(velocity, score, gamma)
+    markov = MarkovizationDriftFromVelocityScore(velocity, score, gamma, diffusion2=1.0)
+
+    assert drift.event_ndim == 1
+    assert markov.event_ndim == 1
+
+
 def test_two_head_field_rejects_event_ndim_mismatch() -> None:
     velocity = _ConstantField(0.0)
     score = _ConstantField(0.0)

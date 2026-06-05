@@ -79,5 +79,6 @@ def test_all_mask_accepts_spec() -> None:
 
     assert dist.sample().shape == (4,)
     assert (dist.sample() == 5).all()
+    assert dist.spec.event_shape == (4,)
     with pytest.raises(ValueError, match="not both"):
         AllMask((4,), spec=TensorSpec((4,)), mask_index=5)

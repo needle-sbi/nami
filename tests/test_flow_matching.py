@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 import torch
 from torch import nn
+from torch.distributions import Bernoulli, Independent
 
 from nami import (
     RK4,
@@ -375,3 +376,87 @@ def test_construction_accepts_spec_for_event_ndim():
             event_ndim=1,
             spec=TensorSpec((4,)),
         )
+
+
+# ---------------------------------------------------------------------------
+# Runtime-process accessors and solver-capability guards
+# ---------------------------------------------------------------------------
+
+
+class _StepsLessSolver:
+    """Solver advertising requires_steps without carrying a steps value."""
+
+    requires_steps = True
+    supports_rsample = True
+    steps = None
+
+    def integrate(self, *_args, **_kwargs):
+        msg = "integrate should not be reached without steps"
+        raise AssertionError(msg)
+
+    def integrate_augmented(self, *_args, **_kwargs):
+        msg = "integrate_augmented should not be reached without steps"
+        raise AssertionError(msg)
+
+
+class _PlainOnlySolver:
+    """Solver with plain integration only — no augmented path, no rsample."""
+
+    requires_steps = False
+    supports_rsample = False
+
+    def integrate(self, f, x0, *, t0, t1):
+        return x0 + (t1 - t0) * f(x0, t0)
+
+
+def test_process_exposes_field_and_base() -> None:
+    field = PlainField()
+    base = StandardNormal(event_shape=(2,))
+    process = FlowMatching(field, base, RK4(steps=2))()
+
+    assert process.field is field
+    assert process.base is base
+
+
+def test_sample_rejects_steps_solver_without_steps() -> None:
+    process = FlowMatching(
+        PlainField(), StandardNormal(event_shape=(2,)), _StepsLessSolver()
+    )()
+
+    with pytest.raises(ValueError, match="solver requires steps"):
+        process.sample(sample_shape=(3,))
+
+
+def test_log_prob_rejects_steps_solver_without_steps() -> None:
+    process = FlowMatching(
+        PlainField(), StandardNormal(event_shape=(2,)), _StepsLessSolver()
+    )()
+
+    with pytest.raises(ValueError, match="solver requires steps"):
+        process.log_prob(torch.zeros(3, 2), estimator=ExactDivergence())
+
+
+def test_log_prob_rejects_solver_without_augmented_integration() -> None:
+    process = FlowMatching(
+        PlainField(), StandardNormal(event_shape=(2,)), _PlainOnlySolver()
+    )()
+
+    with pytest.raises(NotImplementedError, match="augmented integration"):
+        process.log_prob(torch.zeros(3, 2), estimator=ExactDivergence())
+
+
+def test_rsample_rejects_non_reparameterized_base() -> None:
+    base = Independent(Bernoulli(probs=torch.full((2,), 0.5)), 1)
+    process = FlowMatching(PlainField(), base, RK4(steps=2))()
+
+    with pytest.raises(NotImplementedError, match="base distribution does not support"):
+        process.rsample(sample_shape=(3,))
+
+
+def test_rsample_rejects_solver_without_rsample_support() -> None:
+    process = FlowMatching(
+        PlainField(), StandardNormal(event_shape=(2,)), _PlainOnlySolver()
+    )()
+
+    with pytest.raises(NotImplementedError, match="solver does not support rsample"):
+        process.rsample(sample_shape=(3,))
