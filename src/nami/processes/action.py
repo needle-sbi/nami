@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import torch
 
+from nami.core.specs import TensorSpec
 from nami.distributions.base import expand_distribution, has_rsample
 from nami.lazy import (
     LazyDistribution,
@@ -35,7 +36,9 @@ from nami.parameterizations import Action, Parameterization
 from nami.processes._common import (
     ProcessRuntimeMixin,
     cast_time,
+    eager_validate_base_event_shape,
     resolve_event_ndim,
+    resolve_event_ndim_override,
     validate_base_event_ndim,
 )
 
@@ -74,7 +77,11 @@ class ActionMatching(LazyProcess):
         Time endpoints for integration.  ``t0=0.0, t1=1.0`` matches the
         flow-matching convention (noise to data).
     event_ndim
-        Optional override for the field's event rank.
+        Optional override for the field's event rank.  Mutually
+        exclusive with ``spec``.
+    spec
+        Optional :class:`TensorSpec` supplying the event rank.
+        Mutually exclusive with ``event_ndim``.
     """
 
     def __init__(
@@ -87,6 +94,7 @@ class ActionMatching(LazyProcess):
         t0: float = 0.0,
         t1: float = 1.0,
         event_ndim: int | None = None,
+        spec: TensorSpec | None = None,
         validate_args: bool = True,
     ):
         super().__init__()
@@ -106,8 +114,11 @@ class ActionMatching(LazyProcess):
         )
         self.t0 = float(t0)
         self.t1 = float(t1)
-        self.event_ndim = event_ndim
+        self.event_ndim = resolve_event_ndim_override(spec, event_ndim)
         self.validate_args = bool(validate_args)
+
+        if self.validate_args:
+            eager_validate_base_event_shape(self.field, self.base)
 
     def forward(self, c: torch.Tensor | None = None) -> ActionMatchingProcess:
         field = self.field(c)
@@ -136,6 +147,7 @@ class ActionMatching(LazyProcess):
             validate_base_event_ndim(
                 base,
                 event_ndim,
+                field_event_shape=getattr(field, "event_shape", None),
                 message="base.event_shape does not match field.event_ndim",
             )
 

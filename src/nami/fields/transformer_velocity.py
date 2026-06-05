@@ -19,7 +19,7 @@ import torch
 from torch import nn
 
 from nami.components import SinusoidalTimeEmbedding, TransformerBackbone
-from nami.core.specs import event_numel, flatten_event, unflatten_event, validate_shapes
+from nami.core.specs import TensorSpec, flatten_event, unflatten_event, validate_shapes
 from nami.fields._common import normalise_event_shape, validate_context
 from nami.fields.base import VectorField
 
@@ -57,9 +57,8 @@ class TransformerVelocityField(VectorField):
             msg = f"condition_dim must be non-negative, got {condition_dim}"
             raise ValueError(msg)
 
-        self.event_shape = normalise_event_shape(dim)
+        self.spec = TensorSpec(normalise_event_shape(dim))
         self.condition_dim = int(condition_dim)
-        self.flat_dim = event_numel(self.event_shape)
         self.time_embedding = SinusoidalTimeEmbedding(time_dim)
         self.input_proj = nn.Linear(1 + time_dim, model_dim)
         self.backbone = TransformerBackbone(
@@ -77,8 +76,16 @@ class TransformerVelocityField(VectorField):
         )
 
     @property
+    def event_shape(self) -> tuple[int, ...]:
+        return self.spec.event_shape
+
+    @property
     def event_ndim(self) -> int:
-        return len(self.event_shape)
+        return self.spec.event_ndim
+
+    @property
+    def flat_dim(self) -> int:
+        return self.spec.numel
 
     def _context_tokens(
         self,
@@ -96,7 +103,7 @@ class TransformerVelocityField(VectorField):
         t: torch.Tensor,
         c: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        validate_shapes(x, self.event_ndim, expected_event_shape=self.event_shape)
+        validate_shapes(x, self.spec)
         x_flat = flatten_event(x, self.event_ndim)
         lead_shape = tuple(x_flat.shape[:-1])
 

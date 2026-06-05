@@ -44,6 +44,7 @@ from typing import TYPE_CHECKING
 
 import torch
 
+from nami.core.specs import TensorSpec
 from nami.fields._common import normalise_event_shape
 from nami.generators.base import GeneratorOperator
 
@@ -75,18 +76,22 @@ class CTMCGeneratorOperator(GeneratorOperator):
             msg = f"num_states must be at least 2, got {num_states}"
             raise ValueError(msg)
         self.num_states = int(num_states)
-        self._event_shape = normalise_event_shape(event_shape)
+        self._spec = TensorSpec(normalise_event_shape(event_shape))
         self.eps = float(eps)
         super().__init__(runtime_kind="jump")
 
     @property
+    def spec(self) -> TensorSpec:
+        return self._spec
+
+    @property
     def event_shape(self) -> tuple[int, ...]:
-        return self._event_shape
+        return self._spec.event_shape
 
     @property
     def parameter_shape(self) -> tuple[int, ...]:
         # one categorical distribution over the K data tokens per coordinate.
-        return (*self._event_shape, self.num_states)
+        return (*self.event_shape, self.num_states)
 
     @property
     def mask_index(self) -> int:

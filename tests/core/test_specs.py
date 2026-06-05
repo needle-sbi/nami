@@ -183,6 +183,23 @@ def test_validate_shapes_ndim_errors(sample_tensor_4d, event_ndim, match):
         validate_shapes(sample_tensor_4d, event_ndim=event_ndim)
 
 
+def test_validate_shapes_accepts_spec(sample_tensor_4d):
+    spec = TensorSpec(event_shape=(4, 5))
+    validate_shapes(sample_tensor_4d, spec, batch_shape=(2, 3))
+
+
+def test_validate_shapes_spec_event_error(sample_tensor_4d):
+    spec = TensorSpec(event_shape=(4, 4))
+    with pytest.raises(ValueError, match="event_shape mismatch"):
+        validate_shapes(sample_tensor_4d, spec)
+
+
+def test_validate_shapes_spec_dtype_error(sample_tensor_4d):
+    spec = TensorSpec(event_shape=(4, 5), dtype=torch.float64)
+    with pytest.raises(TypeError, match="dtype mismatch"):
+        validate_shapes(sample_tensor_4d, spec)
+
+
 # TensorSpec tests
 
 

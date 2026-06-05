@@ -13,7 +13,7 @@ import torch
 from torch.distributions import Distribution
 from torch.types import _size
 
-from nami.core.specs import as_tuple
+from nami.core.specs import TensorSpec, as_tuple
 
 _EMPTY_SIZE = torch.Size()
 
@@ -22,8 +22,10 @@ class AllMask(Distribution):
     """Degenerate base that returns the all-mask token state.
 
     Args:
-        event_shape (tuple[int, ...] | int): Shape of a single event (token
-            coordinates).
+        event_shape (tuple[int, ...] | int | None): Shape of a single event
+            (token coordinates). Mutually exclusive with ``spec``.
+        spec (TensorSpec | None): Event specification supplying
+            ``event_shape``. Mutually exclusive with ``event_shape``.
         mask_index (int): Vocabulary index of the absorbing mask token.
         batch_shape (tuple[int, ...] | int | None): Optional batch shape.
         device (torch.device | None): Device for sampled tensors.
@@ -34,14 +36,26 @@ class AllMask(Distribution):
 
     def __init__(
         self,
-        event_shape: tuple[int, ...] | int,
+        event_shape: tuple[int, ...] | int | None = None,
         *,
+        spec: TensorSpec | None = None,
         mask_index: int,
         batch_shape: tuple[int, ...] | int | None = None,
         device: torch.device | None = None,
         validate_args: bool = False,
     ):
-        self._event_shape_ = as_tuple(event_shape)
+        if spec is not None:
+            if event_shape is not None:
+                msg = "pass either spec or event_shape, not both"
+                raise ValueError(msg)
+        elif event_shape is None:
+            msg = "either event_shape or spec is required"
+            raise ValueError(msg)
+        else:
+            spec = TensorSpec(as_tuple(event_shape))
+
+        self._spec = spec
+        self._event_shape_ = spec.event_shape
         self._batch_shape_ = as_tuple(batch_shape)
         self.mask_index = int(mask_index)
         self.device = device
@@ -50,6 +64,10 @@ class AllMask(Distribution):
             event_shape=torch.Size(self._event_shape_),
             validate_args=validate_args,
         )
+
+    @property
+    def spec(self) -> TensorSpec:
+        return self._spec
 
     def sample(self, sample_shape: _size = _EMPTY_SIZE) -> torch.Tensor:
         shape = tuple(sample_shape) + self._batch_shape_ + self._event_shape_

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import torch
 
+from nami.core.specs import TensorSpec
 from nami.distributions.base import expand_distribution, has_rsample
 from nami.interpolants.linear import velocity_prediction
 from nami.lazy import (
@@ -28,7 +29,9 @@ from nami.parameterizations import Parameterization, Velocity
 from nami.processes._common import (
     ProcessRuntimeMixin,
     cast_time,
+    eager_validate_base_event_shape,
     resolve_event_ndim,
+    resolve_event_ndim_override,
     validate_base_event_ndim,
 )
 from nami.processes.fm import FlowMatchingProcess
@@ -61,7 +64,9 @@ class ConsistencyFlowMatching(LazyProcess):
         t0 (float): Source time, usually the noise endpoint.
         t1 (float): Target time, usually the data endpoint.
         event_ndim (int | None): Event rank fallback when the field does not
-            expose ``event_ndim``.
+            expose ``event_ndim``. Mutually exclusive with ``spec``.
+        spec (TensorSpec | None): Event specification supplying the event
+            rank. Mutually exclusive with ``event_ndim``.
         validate_args (bool): Whether to validate target and event-shape
             compatibility.
     """
@@ -77,6 +82,7 @@ class ConsistencyFlowMatching(LazyProcess):
         t0: float = 0.0,
         t1: float = 1.0,
         event_ndim: int | None = None,
+        spec: TensorSpec | None = None,
         validate_args: bool = True,
     ):
         super().__init__()
@@ -95,8 +101,11 @@ class ConsistencyFlowMatching(LazyProcess):
         self.h_head = h_head
         self.t0 = float(t0)
         self.t1 = float(t1)
-        self.event_ndim = event_ndim
+        self.event_ndim = resolve_event_ndim_override(spec, event_ndim)
         self.validate_args = bool(validate_args)
+
+        if self.validate_args:
+            eager_validate_base_event_shape(self.field, self.base)
 
     def forward(self, c: torch.Tensor | None = None) -> ConsistencyFlowMatchingProcess:
         field = self.field(c)
@@ -126,6 +135,7 @@ class ConsistencyFlowMatching(LazyProcess):
             validate_base_event_ndim(
                 base,
                 event_ndim,
+                field_event_shape=getattr(field, "event_shape", None),
                 message="base.event_shape does not match field.event_ndim",
             )
 

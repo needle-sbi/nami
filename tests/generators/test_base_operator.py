@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import torch
 
+from nami.core.specs import TensorSpec
 from nami.generators.base import GeneratorOperator
+from nami.generators.ctmc import CTMCGeneratorOperator
+from nami.generators.operators import ItoGeneratorOperator
 from nami.losses.bregman import SquaredL2
 
 
@@ -26,3 +29,16 @@ def test_base_default_divergence_is_squared_l2():
     """A Euclidean operator defaults to squared-L2 (MSE)."""
     op = _MinimalOperator()
     assert isinstance(op.default_divergence(), SquaredL2)
+
+
+def test_operators_expose_consistent_tensor_spec():
+    """``spec`` is the single source of shape truth for operators."""
+    ito = ItoGeneratorOperator((2, 3), diffusion="diagonal")
+    assert isinstance(ito.spec, TensorSpec)
+    assert ito.spec.event_shape == ito.event_shape == (2, 3)
+    assert ito.spec.event_ndim == ito.event_ndim == 2
+
+    ctmc = CTMCGeneratorOperator(5, (4,))
+    assert isinstance(ctmc.spec, TensorSpec)
+    assert ctmc.spec.event_shape == ctmc.event_shape == (4,)
+    assert ctmc.parameter_shape == (4, 5)

@@ -15,6 +15,7 @@ import pytest
 import torch
 
 from nami import StandardNormal
+from nami.core.specs import TensorSpec
 from nami.processes import (
     ConsistencyFlowMatchingProcess,
     DiffusionProcess,
@@ -25,9 +26,12 @@ from nami.processes._common import (
     ProcessRuntimeMixin,
     TransformedField,
     cast_time,
+    eager_validate_base_event_shape,
     expand_context,
     model_device_dtype,
     resolve_event_ndim,
+    resolve_event_ndim_override,
+    resolve_event_shape_override,
     validate_base_event_ndim,
 )
 
@@ -109,6 +113,25 @@ def test_validate_base_event_ndim_rejects_mismatch() -> None:
         validate_base_event_ndim(base, 2)
 
 
+def test_validate_base_event_ndim_rejects_full_shape_mismatch() -> None:
+    # Same rank (1), different concrete shape: rank-only would pass, the
+    # full-shape check must reject.
+    base = StandardNormal(event_shape=(4,))
+    validate_base_event_ndim(base, 1, field_event_shape=(4,))
+    with pytest.raises(ValueError, match=r"\(8,\) != base event_shape \(4,\)"):
+        validate_base_event_ndim(base, 1, field_event_shape=(8,))
+
+
+def test_eager_validate_base_event_shape_noop_when_shape_unknown() -> None:
+    # A field exposing only event_ndim (no concrete event_shape) cannot be
+    # checked at bind time; the helper must stay silent rather than guess.
+    class _RankOnlyField:
+        event_ndim = 1
+
+    eager_validate_base_event_shape(_RankOnlyField(), StandardNormal(event_shape=(4,)))
+    eager_validate_base_event_shape(_RankOnlyField(), None)
+
+
 # ---------------------------------------------------------------------------
 # TransformedField adapter
 
@@ -167,3 +190,29 @@ def test_runtime_mixin_expand_context_dispatches_to_pure_helper() -> None:
     expected = expand_context(c, target, event_ndim=1)
     actual = proc._expand_context(c, target)
     assert torch.equal(actual, expected)
+
+
+# ---------------------------------------------------------------------------
+# resolve_event_ndim_override / resolve_event_shape_override
+
+
+def test_resolve_event_ndim_override_prefers_spec() -> None:
+    assert resolve_event_ndim_override(TensorSpec((2, 3)), None) == 2
+    assert resolve_event_ndim_override(None, 1) == 1
+    assert resolve_event_ndim_override(None, None) is None
+
+
+def test_resolve_event_ndim_override_rejects_both() -> None:
+    with pytest.raises(ValueError, match="not both"):
+        resolve_event_ndim_override(TensorSpec((2,)), 1)
+
+
+def test_resolve_event_shape_override_prefers_spec() -> None:
+    assert resolve_event_shape_override(TensorSpec((2, 3)), None) == (2, 3)
+    assert resolve_event_shape_override(None, (4,)) == (4,)
+    assert resolve_event_shape_override(None, None) is None
+
+
+def test_resolve_event_shape_override_rejects_both() -> None:
+    with pytest.raises(ValueError, match="not both"):
+        resolve_event_shape_override(TensorSpec((2,)), (2,))

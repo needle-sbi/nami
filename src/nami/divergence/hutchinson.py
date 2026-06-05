@@ -45,7 +45,8 @@ class HutchinsonDivergence(DivergenceEstimator):
     def __call__(
         self, field, x: torch.Tensor, t: torch.Tensor, c: torch.Tensor | None
     ) -> torch.Tensor:
-        event_ndim = getattr(field, "event_ndim", None)
+        spec = getattr(field, "spec", None)
+        event_ndim = spec.event_ndim if spec is not None else getattr(field, "event_ndim", None)
         if event_ndim is None:
             msg = "field.event_ndim is required for divergence"
             raise ValueError(msg)

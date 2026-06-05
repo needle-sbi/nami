@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 import torch
 import torch.nn.functional as F
 
-from nami.core.specs import validate_shapes
+from nami.core.specs import TensorSpec, validate_shapes
 from nami.fields._common import normalise_event_shape
 from nami.generators.base import GeneratorOperator
 
@@ -54,14 +54,18 @@ class ItoGeneratorOperator(GeneratorOperator):
             msg = f"min_scale must be non-negative, got {min_scale}"
             raise ValueError(msg)
 
-        self._event_shape = normalise_event_shape(event_shape)
+        self._spec = TensorSpec(normalise_event_shape(event_shape))
         self.diffusion_mode = diffusion
         self.min_scale = float(min_scale)
         super().__init__(runtime_kind="ode" if diffusion == "none" else "sde")
 
     @property
+    def spec(self) -> TensorSpec:
+        return self._spec
+
+    @property
     def event_shape(self) -> tuple[int, ...]:
-        return self._event_shape
+        return self._spec.event_shape
 
     @property
     def parameter_shape(self) -> tuple[int, ...]:
@@ -84,7 +88,7 @@ class ItoGeneratorOperator(GeneratorOperator):
         drift: torch.Tensor,
         diffusion: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        validate_shapes(drift, self.event_ndim, expected_event_shape=self.event_shape)
+        validate_shapes(drift, self.spec)
         if self.diffusion_mode == "none":
             if diffusion is not None:
                 msg = "diffusion parameters are not used when diffusion='none'"
@@ -94,11 +98,7 @@ class ItoGeneratorOperator(GeneratorOperator):
         if diffusion is None:
             msg = "diffusion tensor is required when diffusion='diagonal'"
             raise ValueError(msg)
-        validate_shapes(
-            diffusion,
-            self.event_ndim,
-            expected_event_shape=self.event_shape,
-        )
+        validate_shapes(diffusion, self.spec)
         return torch.stack((drift, diffusion), dim=-(self.event_ndim + 1))
 
     def project(self, params: torch.Tensor) -> torch.Tensor:

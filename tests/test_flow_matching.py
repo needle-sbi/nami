@@ -14,7 +14,9 @@ from nami import (
     Velocity,
     velocity_prediction,
 )
+from nami.core.specs import TensorSpec
 from nami.fields.base import VectorField
+from nami.fields.velocity import VelocityField
 from nami.lazy import LazyDistribution, LazyProcess, UnconditionalDistribution
 
 
@@ -36,6 +38,29 @@ class BaseVectorField(VectorField):
     def forward(self, x, t, c=None):
         _ = t, c
         return x
+
+
+def test_construction_rejects_field_base_event_shape_mismatch():
+    # A concrete field/base shape mismatch must fail fast at construction,
+    # not survive until sample().  Both have event_ndim == 1, so a rank-only
+    # check would let this through.
+    with pytest.raises(ValueError, match=r"event_shape"):
+        FlowMatching(
+            VelocityField(8),
+            StandardNormal(event_shape=(4,)),
+            RK4(steps=2),
+        )
+
+
+def test_construction_allows_matching_event_shape():
+    # Matching shapes construct cleanly; validate_args=False bypasses the check.
+    FlowMatching(VelocityField(8), StandardNormal(event_shape=(8,)), RK4(steps=2))
+    FlowMatching(
+        VelocityField(8),
+        StandardNormal(event_shape=(4,)),
+        RK4(steps=2),
+        validate_args=False,
+    )
 
 
 def test_log_prob_without_divergence_path_raises_clean_error():
@@ -330,3 +355,23 @@ def test_legacy_string_parameterization_kwarg_does_not_exist():
 
     with pytest.raises(TypeError, match="Parameterization"):
         process()
+
+
+def test_construction_accepts_spec_for_event_ndim():
+    # A TensorSpec can stand in for the explicit event_ndim fallback.
+    fm = FlowMatching(
+        PlainField(),
+        StandardNormal(event_shape=(4,)),
+        RK4(steps=2),
+        spec=TensorSpec((4,)),
+    )
+    assert fm.event_ndim == 1
+
+    with pytest.raises(ValueError, match="not both"):
+        FlowMatching(
+            PlainField(),
+            StandardNormal(event_shape=(4,)),
+            RK4(steps=2),
+            event_ndim=1,
+            spec=TensorSpec((4,)),
+        )

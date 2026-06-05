@@ -13,13 +13,26 @@ import torch
 from torch.distributions import Distribution, Independent, Normal
 from torch.types import _size
 
-from nami.core.specs import as_tuple
+from nami.core.specs import TensorSpec, as_tuple
 
 _EMPTY_SIZE = torch.Size()
 
 
 class StandardNormal(Distribution):
-    """Isotropic ``N(0, I)`` over ``event_shape`` with explicit batch shape."""
+    """Isotropic ``N(0, I)`` over ``event_shape`` with explicit batch shape.
+
+    Args:
+        event_shape (tuple[int, ...] | int | None): Shape of a single event.
+            Mutually exclusive with ``spec``.
+        spec (TensorSpec | None): Event specification supplying both
+            ``event_shape`` and ``dtype``. Mutually exclusive with the
+            explicit ``event_shape`` / ``dtype`` arguments.
+        batch_shape (tuple[int, ...] | int | None): Optional batch shape.
+        device (torch.device | None): Device for the distribution tensors.
+        dtype (torch.dtype | None): Tensor dtype. Mutually exclusive with
+            ``spec``.
+        validate_args (bool): Whether torch validates arguments.
+    """
 
     has_rsample = True
     arg_constraints: ClassVar[
@@ -28,15 +41,28 @@ class StandardNormal(Distribution):
 
     def __init__(
         self,
-        event_shape: tuple[int, ...] | int,
+        event_shape: tuple[int, ...] | int | None = None,
         *,
+        spec: TensorSpec | None = None,
         batch_shape: tuple[int, ...] | int | None = None,
         device: torch.device | None = None,
         dtype: torch.dtype | None = None,
         validate_args: bool = True,
     ):
-        self._event_shape = as_tuple(event_shape)
+        if spec is not None:
+            if event_shape is not None or dtype is not None:
+                msg = "pass either spec or explicit event_shape/dtype, not both"
+                raise ValueError(msg)
+        elif event_shape is None:
+            msg = "either event_shape or spec is required"
+            raise ValueError(msg)
+        else:
+            spec = TensorSpec(as_tuple(event_shape), dtype=dtype)
+
+        self._spec = spec
+        self._event_shape = spec.event_shape
         self._batch_shape = as_tuple(batch_shape)
+        dtype = spec.dtype
         shape = self._batch_shape + self._event_shape
         loc = torch.zeros(shape, device=device, dtype=dtype)
         scale = torch.ones(shape, device=device, dtype=dtype)
@@ -67,6 +93,10 @@ class StandardNormal(Distribution):
     def variance(self) -> torch.Tensor:
         return self._base.variance
 
+    @property
+    def spec(self) -> TensorSpec:
+        return self._spec
+
     def expand(
         self, batch_shape: _size, _instance: Distribution | None = None
     ) -> StandardNormal:
@@ -75,6 +105,7 @@ class StandardNormal(Distribution):
         Distribution.__init__(
             new, base.batch_shape, base.event_shape, validate_args=False
         )
+        new._spec = self._spec
         new._event_shape = self._event_shape
         new._batch_shape = tuple(batch_shape)
         new._base = base
@@ -99,7 +130,10 @@ class DiagonalNormal(Distribution):
         if event_ndim:
             base = Independent(base, event_ndim)
         self._base = base
-        self.event_ndim = event_ndim
+        self._spec = TensorSpec(
+            tuple(loc.shape[-event_ndim:]) if event_ndim else (),
+            dtype=loc.dtype,
+        )
         super().__init__(
             batch_shape=base.batch_shape,
             event_shape=base.event_shape,
@@ -123,6 +157,14 @@ class DiagonalNormal(Distribution):
     def variance(self) -> torch.Tensor:
         return self._base.variance
 
+    @property
+    def spec(self) -> TensorSpec:
+        return self._spec
+
+    @property
+    def event_ndim(self) -> int:
+        return self._spec.event_ndim
+
     def expand(
         self, batch_shape: _size, _instance: Distribution | None = None
     ) -> DiagonalNormal:
@@ -132,5 +174,5 @@ class DiagonalNormal(Distribution):
             new, base.batch_shape, base.event_shape, validate_args=False
         )
         new._base = base
-        new.event_ndim = self.event_ndim
+        new._spec = self._spec
         return new

@@ -6,10 +6,9 @@ training and sampling. The naive way to do this is to branch: pass context
 when present, omit it when absent, and write each call site twice.
 ``LazyProcess`` and ``LazyDistribution`` exist so that you do not have to.
 
-The idea is to separate the moment a process is *configured* — when its
-field, distribution, and solver are decided — from the moment it is *bound*
-to a concrete piece of context. Configuration happens once, usually at
-training-script construction time. Binding happens at each call to the
+The idea is to separate the moment a process is configured, e.g. when its
+field, distribution, and solver are decided, from the moment it is bound
+to a concrete piece of context. Binding happens at each call site to the
 runtime object. The field's own signature does not change; the lazy wrapper
 absorbs the conditioning step so that the same sampling code runs whether
 context is present, absent, or different on every call.
@@ -34,9 +33,8 @@ entry point.
 
 Without lazy binding, conditional and unconditional execution often forces
 extra branching into training or sampling code. With it, the field defines
-*how* context enters the network and the process defines *when* that context
-is bound for sampling or likelihood evaluation, and the two responsibilities
-no longer leak into each other.
+how context enters the network and the process defines when that context
+is bound for sampling or likelihood evaluation.
 
 .. note::
 
@@ -65,10 +63,10 @@ inferred from the bound context. Fixed sources like
 Conceptually
 ------------
 
-The split is a design statement: the field is a pure function of
-``(x, t, c)``; the loss is a pure function of ``(field, x_noise, x_data)``;
-the lazy process is a small protocol that says "here is everything you need
-to sample once you tell me what to condition on".
+The field is a pure function of ``(x, t, c)``; the loss is a pure 
+function of ``(field, x_noise, x_data)``; the lazy process is a small 
+protocol that interfaces the sampling process once a condition is specified.
+
 
 See also
 --------

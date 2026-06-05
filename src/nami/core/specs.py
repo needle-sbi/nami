@@ -107,7 +107,7 @@ def unflatten_event(x: torch.Tensor, event_shape: tuple[int, ...]) -> torch.Tens
 
 def validate_shapes(
     tensor: torch.Tensor,
-    event_ndim: int,
+    event_ndim: int | TensorSpec,
     expected_event_shape: tuple[int, ...] | None = None,
     batch_shape: tuple[int, ...] | None = None,
 ) -> None:
@@ -115,13 +115,25 @@ def validate_shapes(
 
     Args:
         tensor (torch.Tensor): Tensor to validate.
-        event_ndim (int): Number of trailing event dimensions.
+        event_ndim (int | TensorSpec): Number of trailing event dimensions,
+            or a :class:`TensorSpec` supplying both the event rank and the
+            expected event shape (and dtype, when constrained).
         expected_event_shape (tuple[int, ...] | None): Expected event shape.
+            Ignored when a :class:`TensorSpec` is given.
         batch_shape (tuple[int, ...] | None): Expected leading shape.
 
     Raises:
         ValueError: If ``event_ndim`` is invalid or a shape check fails.
+        TypeError: If a spec constrains dtype and the tensor dtype differs.
     """
+    if isinstance(event_ndim, TensorSpec):
+        spec = event_ndim
+        if spec.dtype is not None and tensor.dtype != spec.dtype:
+            msg = f"dtype mismatch: expected {spec.dtype}, got {tensor.dtype}"
+            raise TypeError(msg)
+        event_ndim = spec.event_ndim
+        expected_event_shape = spec.event_shape
+
     if event_ndim < 0:
         msg = "event_ndim must be >= 0"
         raise ValueError(msg)

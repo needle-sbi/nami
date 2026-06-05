@@ -16,6 +16,8 @@ from typing import TYPE_CHECKING
 
 import torch
 
+from nami.core.specs import TensorSpec
+
 if TYPE_CHECKING:
     from nami.losses.bregman import BregmanDivergence
 
@@ -45,12 +47,17 @@ class GeneratorOperator:
         return self._runtime_kind
 
     @property
+    def spec(self) -> TensorSpec:
+        """Event specification; the single source of shape truth."""
+        return TensorSpec(self.event_shape)
+
+    @property
     def event_shape(self) -> tuple[int, ...]:
         raise NotImplementedError
 
     @property
     def event_ndim(self) -> int:
-        return len(self.event_shape)
+        return self.spec.event_ndim
 
     @property
     def parameter_shape(self) -> tuple[int, ...]:
