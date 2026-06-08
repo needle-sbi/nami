@@ -22,6 +22,7 @@ from nami.fields.composite import (
 from nami.fields.consistency import LogDensityHead
 from nami.fields.ctmc import CTMCField
 from nami.fields.generator import GeneratorField
+from nami.fields.scalar_potential import ScalarPotentialField
 from nami.fields.transformer_velocity import TransformerVelocityField
 from nami.fields.velocity import VelocityField
 from nami.generators.base import GeneratorOperator
@@ -59,7 +60,16 @@ from nami.losses.bregman import (
 from nami.losses.cgm import cgm_loss
 from nami.losses.consistency import consistency_loss
 from nami.losses.log_density import log_density_consistency_loss
+from nami.losses.parameter_flow import (
+    parameter_flow_loss,
+    path_pinned_parameter_flow_loss,
+)
 from nami.losses.regression import regression_loss
+from nami.losses.score_matching import (
+    ctsm_loss,
+    denoising_score_matching_loss,
+    time_score_matching_loss,
+)
 from nami.losses.stochastic_fm import stochastic_fm_loss
 from nami.parameterizations import (
     X0,
@@ -71,14 +81,20 @@ from nami.parameterizations import (
     Velocity,
     VPrediction,
 )
+from nami.paths.parameter import FisherRaoGeodesicPath, LinearParameterPath
 from nami.processes.action import ActionMatching
 from nami.processes.consistency import ConsistencyFlowMatching
 from nami.processes.diffusion import Diffusion
 from nami.processes.fm import FlowMatching
 from nami.processes.gm import GeneratorMatching
+from nami.processes.parameter_flow import ParameterFlow
 from nami.schedules.edm import EDMSchedule
 from nami.schedules.ve import VESchedule
 from nami.schedules.vp import VPSchedule
+from nami.scores.ctsm import CTSMJointScore
+from nami.scores.dsm import DSMSpatialScore
+from nami.scores.mined import MinedJointScore
+from nami.scores.oracle import OracleScore
 from nami.solvers.dpm import DPMSolverPP
 from nami.solvers.heun import Heun
 from nami.solvers.jump import TauLeapingSampler
@@ -103,6 +119,7 @@ __all__ = [  # noqa: RUF022  (deliberately grouped by layer, not alphabetised)
     "GeneratorField",
     "CTMCField",
     "ActionHead",
+    "ScalarPotentialField",  # parameter-flow potential (v = grad phi)
     "DriftFromVelocityScore",
     "MarkovizationDriftFromVelocityScore",
     # Base distributions (source / t=0) for the process
@@ -146,6 +163,11 @@ __all__ = [  # noqa: RUF022  (deliberately grouped by layer, not alphabetised)
     "log_density_consistency_loss",
     "cgm_loss",  # conditional generator matching
     "action_matching_loss",
+    "parameter_flow_loss",  # parameter-flow elliptic-PDE residual (dim theta == 1)
+    "path_pinned_parameter_flow_loss",  # multi-theta, path-locked (DC2 option b)
+    "ctsm_loss",  # full CTSM objective (Yu 2025 Eq. 8), trains time-score nets
+    "denoising_score_matching_loss",  # trains DSM spatial-score nets
+    "time_score_matching_loss",  # trains CTSM time-score nets
     # Bregman divergences (loss geometry for generator matching)
     "BregmanDivergence",
     "KLDivergence",
@@ -157,6 +179,15 @@ __all__ = [  # noqa: RUF022  (deliberately grouped by layer, not alphabetised)
     "ConsistencyFlowMatching",
     "GeneratorMatching",  # generator matching
     "ActionMatching",
+    "ParameterFlow",  # parameter-flow transport (theta_0 -> theta_1)
+    # Parameter-space paths (bind-time context for ParameterFlow)
+    "LinearParameterPath",
+    "FisherRaoGeodesicPath",
+    # Score estimators (frozen targets for parameter_flow_loss)
+    "OracleScore",
+    "MinedJointScore",
+    "CTSMJointScore",  # trained time-score net -> joint score
+    "DSMSpatialScore",  # trained DSM net -> spatial score
     # Solvers: numerical schemes for the process
     "RK4",  # solver to use for ODEs
     "Heun",  # second-order solver to use for ODEs

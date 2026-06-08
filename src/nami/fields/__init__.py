@@ -19,6 +19,7 @@ from nami.fields.composite import (
 from nami.fields.consistency import LogDensityHead
 from nami.fields.ctmc import CTMCField
 from nami.fields.generator import GeneratorField
+from nami.fields.scalar_potential import ScalarPotentialField
 from nami.fields.transformer_velocity import TransformerVelocityField
 from nami.fields.velocity import VelocityField
 
@@ -30,6 +31,7 @@ __all__ = [
     "GeneratorField",
     "LogDensityHead",
     "MarkovizationDriftFromVelocityScore",
+    "ScalarPotentialField",
     "TransformerVelocityField",
     "TwoHeadField",
     "VelocityField",
