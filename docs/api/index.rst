@@ -13,8 +13,10 @@ API Reference
    generators
    interpolants
    losses
+   paths
    processes
    schedules
+   scores
    solvers
    misc
    toys

@@ -1,7 +1,9 @@
-:orphan:
-
 Paths
 =====
 
-The legacy ``nami.paths`` package has been replaced by
-:mod:`nami.interpolants`. See :doc:`interpolants` for the current API.
+.. currentmodule:: nami.paths
+
+.. autosummary::
+   :toctree: _generated
+
+   parameter
