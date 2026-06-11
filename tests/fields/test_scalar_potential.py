@@ -92,3 +92,9 @@ def test_velocity_field_adapter_exposes_protocol(field):
     assert adapter.event_ndim == 1
     assert adapter.event_shape == (2,)
     assert adapter.spec is field.spec
+
+
+def test_velocity_field_requires_context(field):
+    adapter = field.velocity_field()
+    with pytest.raises(ValueError, match="requires theta as the context"):
+        adapter(torch.randn(4, 2), None, None)
