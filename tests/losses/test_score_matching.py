@@ -107,6 +107,29 @@ def test_time_score_loss_zero_on_exact_net():
     assert loss.item() < 1e-12
 
 
+def test_time_score_loss_squeezes_trailing_one_target():
+    target = torch.randn(10, 1)
+
+    class _Exact:
+        def __call__(self, _x, _s):
+            return target
+
+    loss = time_score_matching_loss(
+        _Exact(), x=torch.randn(10, 1), s=torch.rand(10), target=target
+    )
+    assert loss.item() < 1e-12
+
+
+def test_time_score_loss_rejects_shape_mismatch():
+    def net(x, _s):
+        return x.expand(*x.shape[:-1], 2)
+
+    with pytest.raises(ValueError, match="does not match"):
+        time_score_matching_loss(
+            net, x=torch.randn(6, 1), s=torch.rand(6), target=torch.randn(6)
+        )
+
+
 def test_time_score_loss_reductions_and_backward():
     net = nn.Sequential(nn.Linear(2, 32), nn.SiLU(), nn.Linear(32, 1))
 
@@ -219,6 +242,34 @@ def test_ctsm_loss_shapes_reductions_backward():
     )
     mean.backward()
     assert any(p.grad is not None and p.grad.abs().sum() > 0 for p in net.parameters())
+
+
+def test_ctsm_rejects_net_shape_mismatch():
+    schedule = VPSchedule(0.1, 8.0)
+    x_data = torch.randn(6, 1)
+
+    def bad(x, _t):
+        return x.expand(*x.shape[:-1], 2)
+
+    with pytest.raises(ValueError, match="does not match"):
+        ctsm_loss(bad, x_data=x_data, t=torch.full((6,), 0.4), schedule=schedule)
+
+
+def test_ctsm_callable_weighting_broadcasts_scalar():
+    net = nn.Sequential(nn.Linear(2, 16), nn.SiLU(), nn.Linear(16, 1))
+    wrapped = _wrap_time_net(net)
+    schedule = VPSchedule(0.1, 8.0)
+    kwargs = {
+        "x_data": torch.randn(8, 1),
+        "t": torch.full((8,), 0.4),
+        "noise": torch.randn(8, 1),
+        "schedule": schedule,
+    }
+
+    scalar_w = ctsm_loss(wrapped, weighting=lambda _t: torch.tensor(0.5), **kwargs)
+    uniform = ctsm_loss(wrapped, weighting="uniform", **kwargs)
+    assert torch.isfinite(scalar_w)
+    torch.testing.assert_close(scalar_w, 0.5 * uniform)
 
 
 def test_ctsm_weighting_modes():
