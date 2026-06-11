@@ -91,9 +91,10 @@ def denoising_score_matching_loss(
     theta: torch.Tensor
         Conditioning parameters, shape ``(*lead, d_theta)``.
     sigma: float | torch.Tensor
-        Noise scale.  A python float for a single scale, or a tensor
-        broadcastable to ``x`` for a per-sample range (sample it in the
-        caller and pass it in).
+        Noise scale.  A python float for a single scale, a per-sample
+        tensor of shape ``lead`` (one scale per sample — reshaped here to
+        broadcast over the event dims), or a tensor already broadcastable
+        to ``x``.  Sample any range in the caller and pass it in.
     noise: torch.Tensor | None
         Optional pre-drawn standard-normal noise of ``x``'s shape; drawn
         internally when ``None`` (the usual path).
@@ -104,6 +105,9 @@ def denoising_score_matching_loss(
     lead = leading_shape(x, event_ndim)
 
     sigma_t = torch.as_tensor(sigma, device=x.device, dtype=x.dtype)
+    # promote per-sample sigma to broadcastable shape (*lead, 1, 1)
+    if tuple(sigma_t.shape) == lead and event_ndim:
+        sigma_t = sigma_t.reshape(*lead, *([1] * event_ndim))
     if noise is None:
         noise = torch.randn_like(x)
     x_tilde = x + sigma_t * noise
