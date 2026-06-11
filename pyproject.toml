@@ -158,7 +158,7 @@ pre-commit = "*"
 
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/nami"] ###"src/nami_toys"
+packages = ["src/nami", "src/nami_toys"]
 
 [tool.hatch.version]
 source = "vcs"
