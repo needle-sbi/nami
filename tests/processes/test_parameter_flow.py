@@ -107,6 +107,32 @@ def test_dim1_path_is_not_pinned():
     assert process.pinned is False
 
 
+def test_field_property_returns_bound_field():
+    field = _AnalyticPotential()
+    process = ParameterFlow(field, RK4(steps=4))(_unit_path())
+    assert process.field is field
+
+
+def test_transport_raises_when_solver_requires_unset_steps():
+    class _NeedsSteps:
+        requires_steps = True
+        steps = None
+
+        def integrate(self, *_args, **_kwargs):
+            return _kwargs  # never reached: steps validation raises first
+
+    process = ParameterFlow(_AnalyticPotential(), _NeedsSteps())(_unit_path())
+    with pytest.raises(ValueError, match="solver requires steps"):
+        process.transport(torch.randn(4, 1))
+
+
+def test_score_supply_requires_theta_in_dim1_mode():
+    process = ParameterFlow(_AnalyticPotential(), RK4(steps=2))(_unit_path())
+    spatial = OracleScore(lambda x, theta: theta - x)
+    with pytest.raises(ValueError, match="requires theta in dim\\(theta\\) == 1"):
+        process.score_supply(torch.randn(4, 1), None, spatial_score=spatial)
+
+
 def test_score_supply_matches_oracle_on_analytic_potential():
     # score_supply inverts the PDE: -Lap(phi) - grad(phi) . spatial =
     # 0 - 1 * (theta - x) = x - theta, the exact joint score of
