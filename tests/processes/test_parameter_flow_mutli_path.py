@@ -204,6 +204,101 @@ def test_pinned_loss_rejects_bad_s_shape():
         )
 
 
+def test_pinned_loss_rejects_non_flat_event():
+    class _Event2:
+        event_ndim = 2
+
+    with pytest.raises(ValueError, match="event_ndim"):
+        path_pinned_parameter_flow_loss(
+            _Event2(),
+            x=torch.randn(4, 1),
+            s=torch.rand(4),
+            path=_diagonal_path(),
+            joint_score=OracleScore(_joint_score),
+            spatial_score=OracleScore(_spatial_score),
+        )
+
+
+def test_pinned_loss_rejects_theta_dtheta_shape_mismatch():
+    class _MismatchedPath:
+        def theta(self, s):
+            return s.unsqueeze(-1).expand(*s.shape, 2)
+
+        def dtheta_ds(self, s):
+            return s.unsqueeze(-1)  # (*lead, 1) != theta's (*lead, 2)
+
+    with pytest.raises(ValueError, match="must share a shape"):
+        path_pinned_parameter_flow_loss(
+            _AnalyticPerUnitSPotential(THETA_1 - THETA_0),
+            x=torch.randn(4, 2),
+            s=torch.rand(4),
+            path=_MismatchedPath(),
+            joint_score=OracleScore(_joint_score),
+            spatial_score=OracleScore(_spatial_score),
+        )
+
+
+def test_pinned_loss_rejects_spatial_score_shape_mismatch():
+    with pytest.raises(ValueError, match="spatial_score returned shape"):
+        path_pinned_parameter_flow_loss(
+            _AnalyticPerUnitSPotential(THETA_1 - THETA_0),
+            x=torch.randn(4, 2),
+            s=torch.rand(4),
+            path=_diagonal_path(),
+            joint_score=OracleScore(_joint_score),
+            spatial_score=OracleScore(lambda x, _theta: x[..., :1]),
+        )
+
+
+def test_pinned_loss_accepts_flat_directional_score():
+    # directional_score=True with a score returning the flat (*lead,) shape
+    # is used directly with no tangent contraction.
+    path = _diagonal_path()
+    delta = THETA_1 - THETA_0
+    field = _AnalyticPerUnitSPotential(delta)
+    s = torch.rand(64)
+    x = path.theta(s) + torch.randn(64, 2)
+
+    def flat_directional(x, theta):
+        return (delta * (x - theta)).sum(-1)  # shape (*lead,)
+
+    loss = path_pinned_parameter_flow_loss(
+        field,
+        x=x,
+        s=s,
+        path=path,
+        joint_score=flat_directional,
+        spatial_score=OracleScore(_spatial_score),
+        directional_score=True,
+    )
+    assert loss.item() < 1e-10
+
+
+def test_pinned_loss_rejects_bad_directional_score_shape():
+    with pytest.raises(ValueError, match="directional joint_score must return"):
+        path_pinned_parameter_flow_loss(
+            _AnalyticPerUnitSPotential(THETA_1 - THETA_0),
+            x=torch.randn(4, 2),
+            s=torch.rand(4),
+            path=_diagonal_path(),
+            joint_score=lambda x, _theta: torch.zeros(*x.shape[:-1], 3),
+            spatial_score=OracleScore(_spatial_score),
+            directional_score=True,
+        )
+
+
+def test_pinned_loss_rejects_joint_score_shape_mismatch():
+    with pytest.raises(ValueError, match="joint_score returned shape"):
+        path_pinned_parameter_flow_loss(
+            _AnalyticPerUnitSPotential(THETA_1 - THETA_0),
+            x=torch.randn(4, 2),
+            s=torch.rand(4),
+            path=_diagonal_path(),
+            joint_score=lambda x, _theta: x[..., :1],
+            spatial_score=OracleScore(_spatial_score),
+        )
+
+
 def test_pinned_loss_reduction_modes():
     path = _diagonal_path()
     field = ScalarPotentialField(2, theta_dim=2, hidden=16, layers=2)

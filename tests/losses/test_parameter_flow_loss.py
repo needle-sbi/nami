@@ -132,6 +132,49 @@ def test_loss_explicit_estimator_matches_default():
     torch.testing.assert_close(default, explicit)
 
 
+def test_loss_rejects_non_flat_event():
+    class _Event2:
+        event_ndim = 2
+
+    joint, spatial = _gaussian_mean_scores()
+    with pytest.raises(ValueError, match="event_ndim == 1"):
+        parameter_flow_loss(
+            _Event2(),
+            x=torch.randn(4, 1),
+            theta=torch.randn(4, 1),
+            joint_score=joint,
+            spatial_score=spatial,
+        )
+
+
+def test_loss_rejects_joint_score_shape_mismatch():
+    _, spatial = _gaussian_mean_scores()
+    bad_joint = OracleScore(lambda _x, theta: theta.expand(*theta.shape[:-1], 2))
+    with pytest.raises(ValueError, match="joint_score returned shape"):
+        parameter_flow_loss(
+            _AnalyticPotential(),
+            x=torch.randn(4, 1),
+            theta=torch.randn(4, 1),
+            joint_score=bad_joint,
+            spatial_score=spatial,
+            create_graph=False,
+        )
+
+
+def test_loss_rejects_spatial_score_shape_mismatch():
+    joint, _ = _gaussian_mean_scores()
+    bad_spatial = OracleScore(lambda x, _theta: x.expand(*x.shape[:-1], 2))
+    with pytest.raises(ValueError, match="spatial_score returned shape"):
+        parameter_flow_loss(
+            _AnalyticPotential(),
+            x=torch.randn(4, 1),
+            theta=torch.randn(4, 1),
+            joint_score=joint,
+            spatial_score=bad_spatial,
+            create_graph=False,
+        )
+
+
 def test_loss_rejects_multi_theta():
     field = ScalarPotentialField(1, theta_dim=2, hidden=8, layers=2)
     joint, spatial = _gaussian_mean_scores()
