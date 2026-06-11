@@ -146,6 +146,19 @@ class ParameterFlowProcess(ProcessRuntimeMixin):
         dtheta = self._path.dtheta_ds(s_)
         return theta, dtheta
 
+    def _dtheta_for_event(self, dtheta: torch.Tensor, like: torch.Tensor) -> torch.Tensor:
+        r"""Reshape ``(*lead, 1)`` :math:`\dot\theta` to broadcast over the event.
+
+        In ``dim(theta) == 1`` mode :math:`\dot\theta` has shape ``(*lead,
+        1)``, which broadcasts against a flat event ``(*lead, d_x)`` but
+        not a multi-axis one like ``(*lead, C, H, W)``.  Reshape to ``(*lead,)
+        + (1,) * event_ndim`` so the scalar scales the velocity over any
+        event shape.  Identity for ``event_ndim == 1``.
+        """
+        event_ndim = len(self.event_shape)
+        lead = like.shape[: like.ndim - event_ndim]
+        return dtheta.reshape(*lead, *([1] * event_ndim))
+
     def transport(self, x_at_theta0: torch.Tensor) -> torch.Tensor:
         r"""Transport samples from :math:`p_{\theta_0}` to :math:`p_{\theta_1}`.
 
@@ -164,7 +177,7 @@ class ParameterFlowProcess(ProcessRuntimeMixin):
         def f(xi, s):
             theta, dtheta = self._path_at(s, xi)
             v = self._field.velocity(xi, theta, create_graph=False)
-            return v if pinned else v * dtheta
+            return v if pinned else v * self._dtheta_for_event(dtheta, xi)
 
         return self._integrate(f, x_at_theta0, t0=self._s0, t1=self._s1)
 
@@ -211,7 +224,7 @@ class ParameterFlowProcess(ProcessRuntimeMixin):
             if pinned:
                 return v, -lap
             div = lap * dtheta.squeeze(-1)
-            return v * dtheta, -div
+            return v * self._dtheta_for_event(dtheta, xi), -div
 
         kwargs = {}
         if getattr(self._solver, "requires_steps", False):
