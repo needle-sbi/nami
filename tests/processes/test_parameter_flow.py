@@ -44,6 +44,31 @@ class _AnalyticGradient:
         return x * 0 + 1.0
 
 
+class _MultiAxisPotential:
+    """Analytic potential over a multi-axis event (constant unit velocity)."""
+
+    spec = TensorSpec((2, 2))
+    event_ndim = 2
+    event_shape = (2, 2)
+
+    def velocity(self, x, theta, *, create_graph=True):
+        del theta, create_graph
+        return torch.ones_like(x)
+
+    def velocity_field(self):
+        return _MultiAxisGradient()
+
+
+class _MultiAxisGradient:
+    spec = TensorSpec((2, 2))
+    event_ndim = 2
+    event_shape = (2, 2)
+
+    def __call__(self, x, t=None, c=None):
+        del t, c
+        return x * 0 + 1.0
+
+
 def _unit_path() -> LinearParameterPath:
     return LinearParameterPath(torch.tensor([0.0]), torch.tensor([1.0]))
 
@@ -75,6 +100,33 @@ def test_transport_shifts_gaussian_mean():
     x1 = process.transport(x0)
 
     torch.testing.assert_close(x1, x0 + 1.0)
+
+
+def test_transport_dim1_broadcasts_dtheta_over_multi_axis_event():
+    # dim(theta) == 1 scales velocity by theta-dot; for a (2, 2) event the
+    # (lead, 1) theta-dot must reshape to (lead, 1, 1) to broadcast. The
+    # unit path gives theta-dot = 1, so transport is the exact shift x+1.
+    process = ParameterFlow(_MultiAxisPotential(), RK4(steps=8))(_unit_path())
+    x0 = torch.randn(5, 2, 2)
+
+    x1 = process.transport(x0)
+
+    torch.testing.assert_close(x1, x0 + 1.0)
+
+
+def test_transport_with_logp_broadcasts_dtheta_over_multi_axis_event():
+    # The augmented transport multiplies velocity by theta-dot too; a
+    # zero-Laplacian shift carries log p unchanged over the (2, 2) event.
+    process = ParameterFlow(_MultiAxisPotential(), RK4(steps=8))(_unit_path())
+    x0 = torch.randn(4, 2, 2)
+    logp0 = torch.zeros(4)
+
+    x1, logp1 = process.transport_with_logp(
+        x0, logp0, divergence_estimator=ExactDivergence(max_dim=8)
+    )
+
+    torch.testing.assert_close(x1, x0 + 1.0)
+    torch.testing.assert_close(logp1, logp0)
 
 
 def test_transport_with_logp_is_exact_on_gaussian_mean():

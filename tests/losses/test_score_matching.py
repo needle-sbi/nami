@@ -85,6 +85,28 @@ def test_dsm_loss_target_matches_analytic():
     assert loss.item() < 1e-12
 
 
+def test_dsm_loss_per_sample_sigma_vector_event():
+    # A natural per-sample sigma of shape (batch,) must broadcast against a
+    # vector event (batch, d_x): the loss promotes it to (batch, 1) so
+    # sigma * noise broadcasts over the event dim instead of misaligning.
+    noise = torch.randn(8, 2)
+    sigma = torch.rand(8) + 0.1  # per-sample, shape (batch,)
+
+    class _Exact:
+        def __init__(self, x):
+            self._x = x
+
+        def __call__(self, x_tilde, _theta):
+            return (self._x - x_tilde) / sigma.unsqueeze(-1) ** 2
+
+    x = torch.randn(8, 2)
+    theta = torch.randn(8, 2)
+    loss = denoising_score_matching_loss(
+        _Exact(x), x=x, theta=theta, sigma=sigma, noise=noise
+    )
+    assert loss.item() < 1e-12
+
+
 def test_dsm_loss_rejects_shape_mismatch():
     def bad(x_tilde, _theta):
         return x_tilde[..., :1]

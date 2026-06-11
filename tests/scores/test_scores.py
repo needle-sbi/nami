@@ -124,6 +124,35 @@ def test_ctsm_dim1_accepts_flat_time_score():
     torch.testing.assert_close(out.squeeze(-1), 4.0 * s / 2.0)
 
 
+def test_ctsm_rejects_collinear_out_of_segment_theta():
+    # theta = [2, 2] is collinear with the unit path [0,0]->[1,1] (recon
+    # is exact), but maps to s = 2, outside the trained [0, 1] segment.
+    path = LinearParameterPath(torch.tensor([0.0, 0.0]), torch.tensor([1.0, 1.0]))
+    ctsm = CTSMJointScore(lambda _x, s: s.unsqueeze(-1), path, directional=True)
+    off = torch.tensor([[2.0, 2.0]])
+    with pytest.raises(ValueError, match="outside the trained segment"):
+        ctsm(torch.randn(1, 2), off)
+
+
+def test_ctsm_rejects_negative_out_of_segment_theta():
+    path = LinearParameterPath(torch.tensor([0.0]), torch.tensor([2.0]))
+    ctsm = CTSMJointScore(lambda _x, s: s, path)
+    # theta = -1 -> s = -0.5, before the segment start.
+    with pytest.raises(ValueError, match="outside the trained segment"):
+        ctsm(torch.randn(1, 1), torch.tensor([[-1.0]]))
+
+
+def test_ctsm_rejects_bad_net_output_shape():
+    # A net whose last dim is neither absent nor 1 (here d=2) used to be
+    # silently unsqueezed to (*lead, 2, 1); now it raises.
+    path = LinearParameterPath(torch.tensor([0.0]), torch.tensor([2.0]))
+    ctsm = CTSMJointScore(lambda x, _s: x.expand(*x.shape[:-1], 2), path)
+    s = torch.tensor([0.25, 0.5])
+    theta = path.theta(s)
+    with pytest.raises(ValueError, match="time-score net returned shape"):
+        ctsm(torch.randn(2, 1), theta)
+
+
 def test_ctsm_degenerate_path_raises():
     path = LinearParameterPath(torch.tensor([1.0]), torch.tensor([1.0]))
     ctsm = CTSMJointScore(lambda x, _s: x, path)
