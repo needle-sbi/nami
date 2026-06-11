@@ -47,43 +47,48 @@ from nami.processes._common import (
 class FlowMatching(LazyProcess):
     r"""Flow-matching process driven by a :class:`Parameterization`.
 
-    Args:
-        field: Velocity field.
-        base: Base distribution or lazy base distribution.
-        solver: ODE solver.
-        parameterization (Parameterization | None): Velocity target and output
-            projection. Defaults to :func:`velocity_prediction`.
-        t0 (float): Initial integration time.
-        t1 (float): Final integration time.
-        event_ndim (int | None): Event rank fallback when the field does not
-            expose ``event_ndim``. Mutually exclusive with ``spec``.
-        spec (TensorSpec | None): Event specification supplying the event
-            rank. Mutually exclusive with ``event_ndim``.
-        validate_args (bool): Whether to validate target and event shapes.
+    Parameters
+    ----------
+    field
+        Velocity field.
+    base
+        Base distribution or lazy base distribution.
+    solver
+        ODE solver.
+    parameterization
+        Velocity target and output projection. Defaults to
+        :func:`velocity_prediction`.
+    t0, t1
+        Initial and final integration time.
+    event_ndim
+        Event rank fallback when the field does not expose ``event_ndim``.
+        Mutually exclusive with ``spec``.
+    spec
+        Event specification supplying the event rank. Mutually exclusive with
+        ``event_ndim``.
+    validate_args
+        Whether to validate target and event shapes.
+    
+    Returns
+    -------
+    FlowMatchingProcess
+        The flow-matching process.
+        
+    Notes
+    -----
+    Unlike :class:`~nami.processes.diffusion.Diffusion`, FM supports only
+    :class:`~nami.parameterizations.Velocity` — converting score or
+    ``\epsilon`` to velocity needs a schedule the FM process does not carry.
+    The ``parameterization`` kwarg exists for API consistency with
+    ``Diffusion`` and to provide the ``output_transform`` slot, letting a
+    trained field whose raw output needs projection be sampled without a
+    wrapper. The default ``velocity_prediction()`` has identity transform.
 
-    Unlike :class:`~nami.processes.diffusion.Diffusion`, FM has no
-    algebraic dispatch over multiple targets — it only supports
-    :class:`~nami.parameterizations.Velocity`, because converting score
-    or ``\epsilon`` to velocity requires a schedule the FM Process does not carry.
-    The ``parameterization`` kwarg therefore exists primarily for API
-    consistency with ``Diffusion`` and to provide the
-    ``output_transform`` slot, so a trained field whose raw output
-    needs projection (e.g. through a constraint) can be sampled
-    without a wrapper class.
-
-    The default, ``velocity_prediction()``, has identity ``output_transform``.
-
-    .. note::
-
-       ``output_transform`` is applied inside the integration path
-       (``sample`` / ``rsample`` / ``log_prob``).  Estimator-based
-       ``log_prob`` automatically differentiates the *transformed*
-       velocity (via the internal ``TransformedField`` adapter) so
-       the change-of-variables identity holds for any
-       ``output_transform``.  The bundled ``call_and_divergence`` field
-       method path rejects non-identity transforms with an explicit
-       error — its divergence is for the raw output and would mix two
-       different velocities in the density bookkeeping.
+    ``output_transform`` is applied inside the integration path. Estimator-
+    based ``log_prob`` differentiates the *transformed* velocity (via the
+    internal ``TransformedField`` adapter), so change-of-variables holds for
+    any transform; the ``call_and_divergence`` path instead rejects
+    non-identity transforms, since its divergence is for the raw output.
     """
 
     def __init__(
@@ -234,32 +239,15 @@ class FlowMatchingProcess(ProcessRuntimeMixin):
     def _velocity(
         self, x: torch.Tensor, t: torch.Tensor, context: torch.Tensor | None
     ) -> torch.Tensor:
-        """Evaluate the transformed velocity field.
-
-        Args:
-            x (torch.Tensor): State tensor.
-            t (torch.Tensor): Time tensor.
-            context (torch.Tensor | None): Optional conditioning tensor.
-
-        Returns:
-            torch.Tensor: ``output_transform(field(x, t, context))``.
-        """
+        """Return ``output_transform(field(x, t, context))``."""
         return self._parameterization.output_transform(self._field(x, t, context))
 
     def _transformed_field(self):
-        r"""Create an adapter for divergence estimation.
-
-        Returns:
-            TransformedField: Callable whose output is the transformed velocity
-            used by the integrator.
+        r"""Adapter exposing the transformed velocity for divergence estimation.
 
         The change-of-variables identity
-
-        .. math::
-
-           \partial_t \log p_t(x) = -\nabla_x \cdot v(x,t)
-
-        requires the divergence of the same velocity that advances the state.
+        :math:`\partial_t \log p_t(x) = -\nabla_x \cdot v(x,t)` needs the
+        divergence of the same velocity that advances the state.
         """
         return TransformedField(self._field, self._parameterization.output_transform)
 

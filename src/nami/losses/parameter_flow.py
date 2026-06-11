@@ -14,16 +14,14 @@ continuity equation in elliptic form:
         \bigr)^2
     \Bigr]
 
-The two scores are fixed regression targets supplied by
-:class:`~nami.scores.base.ScoreEstimator` objects. This loss does not
-train them; they are upstream objects (closed-form oracles, mined simulator
-scores, or separately-trained networks).
+Both scores are fixed regression targets from
+:class:`~nami.scores.base.ScoreEstimator` objects (oracles, mined simulator
+scores, or separately-trained networks); this loss does not train them.
 
-The Laplacian :math:`\Delta_x\phi` is computed as the divergence of the
-potential's gradient field
+The Laplacian :math:`\Delta_x\phi` is the divergence of the potential's
+gradient field
 (:meth:`~nami.fields.scalar_potential.ScalarPotentialField.velocity_field`),
-so the loss and the runtime log-density divergence share one
-:mod:`nami.divergence` estimator.
+so loss and runtime log-density share one :mod:`nami.divergence` estimator.
 """
 
 from __future__ import annotations
@@ -49,39 +47,40 @@ def parameter_flow_loss(
 
     Parameters
     ----------
-    field
+    field : (ScalarPotentialField)
         Scalar potential with the
-        :class:`~nami.fields.scalar_potential.ScalarPotentialField`
-        surface: ``(x, t, c) -> (*lead,)`` plus ``velocity`` /
-        ``velocity_field`` helpers and ``event_ndim``.
-    x
+        :class:`~nami.fields.scalar_potential.ScalarPotentialField` surface.
+    x : (torch.Tensor)
         Samples from :math:`p_\theta`, shape ``(*lead, *event_shape)``.
-    theta
+    theta : (torch.Tensor)
         Matching parameters, shape ``(*lead, d_theta)``.
-    joint_score
-        Estimator for :math:`\partial_\theta \log p_\theta(x)`,
-        returning ``(*lead, d_theta)``.  Consumed under ``no_grad`` —
-        a frozen target.
-    spatial_score
-        Estimator for :math:`\nabla_x \log p_\theta(x)`, returning
-        ``(*lead, d_x)``.  Also a frozen target.
-    divergence_estimator
-        Estimator applied to the potential's gradient field to obtain
-        :math:`\Delta_x\phi`.  Defaults to
-        ``ExactDivergence(create_graph=create_graph)``.  When supplying
-        your own for training, construct it with ``create_graph=True``
-        or ``loss.backward()`` will not reach the Laplacian term.
-    reduction
+    joint_score : ScoreEstimator
+        Frozen estimator for :math:`\partial_\theta \log p_\theta(x)`,
+        returning ``(*lead, d_theta)``.
+    spatial_score : (ScoreEstimator)
+        Frozen estimator for :math:`\nabla_x \log p_\theta(x)`, returning
+        ``(*lead, d_x)``.
+    divergence_estimator : (DivergenceEstimator)
+        Estimator for :math:`\Delta_x\phi` over the gradient field. Defaults
+        to ``ExactDivergence(create_graph=create_graph)``. A custom one used
+        for training must set ``create_graph=True`` or ``loss.backward()``
+        will not reach the Laplacian term.
+    reduction : (str)
         ``"mean"`` | ``"sum"`` | ``"none"``.
-    create_graph
+    create_graph : (bool)
         Build the second-order graph so ``loss.backward()`` reaches
-        :math:`\phi`'s parameters.  Set ``False`` only for eval-time
-        residual monitoring.
+        :math:`\phi`. Set ``False`` only for eval-time residual monitoring.
+        
+    Returns
+    -------
+    torch.Tensor, shape ``(*lead,)``
+        The loss.
+    
 
     Notes
     -----
     This is the ``dim(theta) == 1`` loss: :math:`\phi` is the
-    *per-unit-*:math:`\theta` potential, and the matching transport scales
+    per-unit-:math:`\theta` potential, and the matching transport scales
     the velocity by :math:`\dot\theta` (see
     :meth:`~nami.processes.parameter_flow.ParameterFlowProcess.transport`).
     For multi-:math:`\theta` use the path-pinned loss,
@@ -162,10 +161,10 @@ def path_pinned_parameter_flow_loss(
 ) -> torch.Tensor:
     r"""Squared residual of the parameter-flow PDE pinned to one path.
 
-    Multi-:math:`\theta` transport is realised as a single scalar potential
-    trained for one fixed :class:`~nami.paths.parameter.ParameterPath`.
-    The continuity equation is projected onto the path's tangent :math:`\dot\theta(s)`, collapsing the
-    :math:`d_\theta`-component vector PDE to one scalar equation in the path parameter ``s``:
+    Multi-:math:`\theta` transport as a single scalar potential trained for
+    one fixed :class:`~nami.paths.parameter.ParameterPath`. Projecting the
+    continuity equation onto the path tangent :math:`\dot\theta(s)` collapses
+    the :math:`d_\theta`-component vector PDE to one scalar equation in ``s``:
 
     .. math::
 
@@ -178,69 +177,61 @@ def path_pinned_parameter_flow_loss(
         \Bigr]
 
     where :math:`\dot\theta(s)\cdot\partial_\theta\log p` is the directional
-    (along-path) derivative :math:`\tfrac{d}{ds}\log p_{\theta(s)}(x)`, a
-    scalar per sample, formed by contracting the joint score against the
-    path tangent.
+    (along-path) derivative :math:`\tfrac{d}{ds}\log p_{\theta(s)}(x)`, formed
+    by contracting the joint score against the path tangent.
 
-    Convention difference vs :func:`parameter_flow_loss`
-    ----------------------------------------------------
-    The two losses define :math:`\phi` with different units, and the
-    transport that consumes the trained field must match:
+    .. note::
 
-    - :func:`parameter_flow_loss` (``dim(theta) == 1``): :math:`\phi` is the
-      per-unit-:math:`\theta` potential.  Transport integrates
-      :math:`\dot x = \dot\theta\,\nabla_x\phi`, i.e. the velocity is
-      scaled by :math:`\dot\theta`.
-
-    - this loss (path-pinned, any :math:`d_\theta`): :math:`\phi` is the
-      per-unit-``s`` potential, the path tangent :math:`\dot\theta(s)`
-      is already baked into the residual.  Transport integrates
-      :math:`\dot x = \nabla_x\phi(x, \theta(s))` directly, with no
-      :math:`\dot\theta` multiplication.  Use
-      :class:`~nami.processes.parameter_flow.ParameterFlowProcess` bound to
-      the same path. A path with ``d_theta > 1`` selects pinned mode automatically.
-
-    The trained :math:`\phi` is therefore path-locked: it is valid only
-    for transport along the path it was trained on.
+       This loss defines :math:`\phi` as the per-unit-``s`` potential, with
+       the path tangent already baked into the residual, so transport
+       integrates :math:`\dot x = \nabla_x\phi(x, \theta(s))` directly.
+       Contrast :func:`parameter_flow_loss`, whose :math:`\phi` is
+       per-unit-:math:`\theta` and whose transport scales by
+       :math:`\dot\theta`. The trained :math:`\phi` is path-locked — valid
+       only along the path it was trained on. Sample with
+       :class:`~nami.processes.parameter_flow.ParameterFlowProcess` bound to
+       the same path; a path with ``d_theta > 1`` selects pinned mode
+       automatically.
 
     Parameters
     ----------
-    field: ScalarPotentialField
-        Scalar potential with the
-        :class:`~nami.fields.scalar_potential.ScalarPotentialField`
-        surface, conditioned on :math:`\theta(s)` (so ``theta_dim ==
-        d_theta``).
-    x: torch.Tensor
+    field : (ScalarPotentialField)
+        Scalar potential
+        (:class:`~nami.fields.scalar_potential.ScalarPotentialField`)
+        conditioned on :math:`\theta(s)`.
+    x : (torch.Tensor)
         Samples from :math:`p_{\theta(s)}`, shape ``(*lead, *event_shape)``.
-    s: torch.Tensor
+    s : (torch.Tensor)
         Path parameters, shape ``(*lead,)`` — one scalar ``s`` per sample.
-    path: ParameterPath
-        The fixed :class:`~nami.paths.parameter.ParameterPath`.  Its
-        :math:`\theta(s)` conditions :math:`\phi` and its
-        :math:`\dot\theta(s)` projects the joint score.
-    joint_score: ScoreEstimator
-        Estimator for :math:`\partial_\theta\log p_\theta(x)`, returning
-        ``(*lead, d_theta)``.  Contracted with :math:`\dot\theta(s)` to the
-        directional derivative.  Consumed under ``no_grad``.  With
-        ``directional_score=True`` it instead returns the already-contracted
+    path : (ParameterPath)
+        Fixed :class:`~nami.paths.parameter.ParameterPath` supplying
+        :math:`\theta(s)` and :math:`\dot\theta(s)`.
+    joint_score : (ScoreEstimator)
+        Frozen estimator for :math:`\partial_\theta\log p_\theta(x)`,
+        returning ``(*lead, d_theta)``, contracted with :math:`\dot\theta(s)`.
+        With ``directional_score=True`` it instead returns the contracted
         along-path derivative :math:`\tfrac{d}{ds}\log p`.
-    spatial_score: ScoreEstimator
-        Estimator for :math:`\nabla_x\log p_\theta(x)`, returning
-        ``(*lead, d_x)``.  Frozen target.
-    directional_score: bool
-        Treat ``joint_score(x, theta)`` as the scalar along-path derivative
-        :math:`\tfrac{d}{ds}\log p`, shape ``(*lead,)`` or ``(*lead, 1)``,
-        and skip the :math:`\dot\theta(s)` contraction.  This is the shape
-        produced by
+    spatial_score : (ScoreEstimator)
+        Frozen estimator for :math:`\nabla_x\log p_\theta(x)`, returning
+        ``(*lead, d_x)``.
+    directional_score : (bool)
+        Treat ``joint_score`` as the scalar :math:`\tfrac{d}{ds}\log p`
+        (shape ``(*lead,)`` or ``(*lead, 1)``) and skip the
+        :math:`\dot\theta(s)` contraction — the shape produced by
         :class:`~nami.scores.ctsm.CTSMJointScore` with ``directional=True``.
-    divergence_estimator: DivergenceEstimator
-        Estimator for :math:`\Delta_x\phi`.  Defaults to
+    divergence_estimator : (DivergenceEstimator)
+        Estimator for :math:`\Delta_x\phi`. Defaults to
         ``ExactDivergence(create_graph=create_graph)``.
-    reduction: str
+    reduction : (str)
         ``"mean"`` | ``"sum"`` | ``"none"``.
-    create_graph: bool
+    create_graph : (bool)
         Build the second-order graph so ``loss.backward()`` reaches
-        :math:`\phi`'s parameters.
+        :math:`\phi`.
+
+    Returns
+    -------
+    torch.Tensor, shape ``(*lead,)``
+        The loss.
     """
     event_ndim = require_event_ndim(field)
     if event_ndim != 1:
