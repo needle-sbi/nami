@@ -112,6 +112,25 @@ def test_ctsm_multitheta_directional_returns_scalar():
     torch.testing.assert_close(out.squeeze(-1), 3.0 * s)
 
 
+def test_ctsm_dim1_accepts_flat_time_score():
+    # A net returning shape (*lead,) (no trailing 1) is promoted to
+    # (*lead, 1) before the chain-rule division.
+    path = LinearParameterPath(torch.tensor([0.0]), torch.tensor([2.0]))
+    ctsm = CTSMJointScore(lambda _x, s: 4.0 * s, path)
+    s = torch.tensor([0.25, 0.5])
+    theta = path.theta(s)
+    out = ctsm(torch.randn(2, 1), theta)
+    assert out.shape == (2, 1)
+    torch.testing.assert_close(out.squeeze(-1), 4.0 * s / 2.0)
+
+
+def test_ctsm_degenerate_path_raises():
+    path = LinearParameterPath(torch.tensor([1.0]), torch.tensor([1.0]))
+    ctsm = CTSMJointScore(lambda x, _s: x, path)
+    with pytest.raises(ValueError, match="degenerate path"):
+        ctsm(torch.randn(2, 1), torch.ones(2, 1))
+
+
 def test_ctsm_non_linear_path_raises_not_implemented():
     class _DummyPath:
         def theta(self, s):
