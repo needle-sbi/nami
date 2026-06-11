@@ -10,15 +10,15 @@ from nami.paths.parameter import LinearParameterPath
 class CTSMJointScore:
     r"""Joint score :math:`\partial_\theta\log p_\theta(x)` from a trained time-score net.
 
-    Wraps a **trained** time-score network
+    Wraps a trained time-score network
     ``net(x, s) -> d/ds log p_{theta(s)}(x)`` (the scalar along-path
-    log-density derivative; train it with
+    log-density derivative. Train it with
     :func:`~nami.losses.score_matching.time_score_matching_loss`) together
     with the :class:`~nami.paths.parameter.ParameterPath` it was trained
     on.  ``__call__(x, theta)`` inverts the path to recover ``s`` and then
     converts the time score to the joint score.
 
-    The net learns the **scalar** derivative along the path,
+    The net learns the scalar derivative along the path,
     :math:`\tfrac{d}{ds}\log p = \dot\theta(s)\cdot\partial_\theta\log p`.
     Converting it to the joint score :math:`\partial_\theta\log p`
     (shape ``(*lead, d_theta)``) requires undoing the chain rule against
@@ -74,11 +74,6 @@ class CTSMJointScore:
 
     def _invert_path(self, theta: torch.Tensor) -> torch.Tensor:
         r"""Recover ``s`` from ``theta`` on a linear path; validate on-segment.
-
-        For :math:`\theta(s) = (1-s)\theta_0 + s\theta_1`,
-        :math:`s = \tfrac{(\theta - \theta_0)\cdot\Delta\theta}{|\Delta\theta|^2}`
-        with :math:`\Delta\theta = \theta_1 - \theta_0`.  Rejects ``theta``
-        that does not lie on the segment within tolerance.
         """
         if not isinstance(self.path, LinearParameterPath):
             msg = (
@@ -107,13 +102,34 @@ class CTSMJointScore:
                 "its own path"
             )
             raise ValueError(msg)
+        
+        # reject theta that is collinear but falls outside [0, 1] (the trained
+        atol = self.on_segment_atol
+        if (s < -atol).any() or (s > 1.0 + atol).any():
+            s_min, s_max = s.min().item(), s.max().item()
+            msg = (
+                "theta is collinear with the path but maps to a path "
+                f"coordinate s in [{s_min:.3e}, {s_max:.3e}] outside the "
+                f"trained segment [0, 1] (atol={atol}); the time-score net "
+                "was trained only on s in [0, 1] and extrapolating it is "
+                "unsupported. Pass on_segment_atol=0 to reject any theta "
+            )
+            raise ValueError(msg)
         return s
 
     def __call__(self, x: torch.Tensor, theta: torch.Tensor) -> torch.Tensor:
         s = self._invert_path(theta)
         time_score = self.net(x, s)
-        if time_score.shape[-1:] != (1,):
+        # reject net output that is not a scalar along-path derivative
+        if time_score.shape == s.shape:
             time_score = time_score.unsqueeze(-1)  # (*lead, 1)
+        elif time_score.shape != s.shape + (1,):
+            msg = (
+                f"time-score net returned shape {tuple(time_score.shape)}; "
+                f"expected {tuple(s.shape)} or {tuple(s.shape + (1,))} (a "
+                "scalar along-path derivative per sample)"
+            )
+            raise ValueError(msg)
 
         delta = (self.path.theta_1 - self.path.theta_0).to(theta)
         d_theta = delta.shape[-1]
