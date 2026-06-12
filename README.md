@@ -12,9 +12,7 @@
 
 Nami is a library for flow-style generative models, with a focus on composable transport-map workflows and SBI applications.
 
-See the [documentation](https://levisamuelevans.github.io/nami/) for a full guide, examples, tutorials, and API reference.
-
-## Quick Start
+See the [documentation](https://levisamuelevans.github.io/nami/) for the full guide, examples, tutorials, and API reference.
 
 For local development, install with [pixi](https://pixi.sh):
 
