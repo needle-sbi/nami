@@ -99,7 +99,8 @@ kernel = "python -m ipykernel install --user --name nami-dev --display-name 'nam
 [tool.pixi.environments]
 default = { features = ["cpu", "docs", "lint", "test", "typecheck", "build", "experiments", "hooks"], solve-group = "cpu" }
 cpu = { features = ["cpu", "docs", "lint", "test", "typecheck", "build", "experiments", "hooks"], solve-group = "cpu" }
-gpu = { features = ["gpu", "docs", "lint", "test", "typecheck", "build", "experiments", "hooks"], solve-group = "gpu" }
+gpu = { features = ["gpu", "cuda12", "docs", "lint", "test", "typecheck", "build", "experiments", "hooks"], solve-group = "gpu12" }
+gpu-cu13 = { features = ["gpu", "cuda13", "docs", "lint", "test", "typecheck", "build", "experiments", "hooks"], solve-group = "gpu13" }
 
 [tool.pixi.dependencies]
 pip = ">=25.3"
@@ -111,16 +112,21 @@ pytorch-cpu = ">=2.0.0,<3"
 [tool.pixi.feature.gpu]
 platforms = ["linux-64"]
 
-[tool.pixi.feature.gpu.system-requirements]
-cuda = "12"
-
 [tool.pixi.feature.gpu.target.linux-64.dependencies]
 pytorch-gpu = ">=2.0.0,<3"
 
-[tool.pixi.feature.gpu.tasks]
-# prevent clobbering of kernel names.
-# run with: pixi run -e gpu kernel-gpu (for cuda)
-kernel-gpu = "python -m ipykernel install --user --name nami-gpu --display-name 'nami (GPU)'"
+[tool.pixi.feature.cuda12.system-requirements]
+cuda = "12"
+
+[tool.pixi.feature.cuda13.system-requirements]
+cuda = "13"
+
+[tool.pixi.feature.cuda12.tasks]
+kernel-gpu = "python -m ipykernel install --user --name nami-gpu-cu12 --display-name 'nami (GPU, cu12)'"
+
+# dedicated option for cuda13
+[tool.pixi.feature.cuda13.tasks]
+kernel-gpu = "python -m ipykernel install --user --name nami-gpu-cu13 --display-name 'nami (GPU, cu13)'"
 
 [tool.pixi.feature.test.dependencies]
 pytest = ">=9.0.0,<10"
