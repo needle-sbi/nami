@@ -34,18 +34,23 @@ For Pixi, common development commands are `pixi run test`, `pixi run lint`, `pix
 
 ### GPU environments
 
-For nvidia GPU workflows, use the `gpu` environment, which pulls `pytorch-gpu` from conda-forge and is pinned to `linux-64` with CUDA 12:
+For nvidia GPU workflows, two environments pull `pytorch-gpu` from conda-forge, pinned to `linux-64`, differing only in CUDA major:
+
+- `gpu` (`cuda = "12"`) is the default. cu12 builds also run on cu13+ drivers, so this one env works across mixed-driver batch nodes.
+- `gpu-cu13` (`cuda = "13"`) unlocks cu13-only kernels. Requires a CUDA >= 13 driver to solve and run. This option is only for cases where the latest nvidia architectures are being used.
 
 ```bash
-pixi run -e gpu setup
+pixi run -e gpu setup        # cu12 portable
+pixi run -e gpu-cu13 setup   # cu13 newest archs
 ```
 
-TODO: [PyTorch v2.12.0](https://github.com/pytorch/pytorch/releases#deprecations) See `MPS` and `Depreciations` sections (e.g.`cu128` no longer in build matrix) and [2.12 blog](https://pytorch.org/blog/pytorch-2-12-release-blog/)
+Pick `gpu-cu13` only where the partition actually has CUDA >= 13 drivers otherwise `gpu` is the safe choice. See [PyTorch v2.12.0](https://github.com/pytorch/pytorch/releases/tag/v2.12.0) (cu128 dropped, cu130 now the default, cu126 retained) and the [2.12 blog](https://pytorch.org/blog/pytorch-2-12-release-blog/).
 
-The `gpu` environment declares `system-requirements = { cuda = "12" }`, so resolving or locking it requires the relevant driver. On a system without an nvidia GPU, set `CONDA_OVERRIDE_CUDA` to solve lock the environment for `linux-64`:
+Each environment declares a `system-requirements` CUDA floor, so resolving or locking it requires a matching driver. On a system without an nvidia GPU, set `CONDA_OVERRIDE_CUDA` to solve/lock for `linux-64`:
 
 ```bash
-CONDA_OVERRIDE_CUDA=12 pixi install -e gpu   # also for `pixi lock`, `pixi info`
+CONDA_OVERRIDE_CUDA=12 pixi install -e gpu        # also for `pixi lock`, `pixi info`
+CONDA_OVERRIDE_CUDA=13 pixi install -e gpu-cu13
 ```
 
 > [!NOTE]
@@ -63,8 +68,9 @@ CONDA_OVERRIDE_CUDA=12 pixi install -e gpu   # also for `pixi lock`, `pixi info`
 When using notebooks, register a kernel like:
 
 ```bash
-pixi run kernel                # cpu/mps registers the "nami (CPU)" kernel
-pixi run -e gpu kernel-gpu     # linux + nvidia, registers the "nami (GPU)" kernel
+pixi run kernel                  # cpu/mps registers the "nami (CPU)" kernel
+pixi run -e gpu kernel-gpu       # linux + nvidia, registers the "nami (GPU, cu12)" kernel
+pixi run -e gpu-cu13 kernel-gpu  # linux + nvidia (cuda >= 13), registers the "nami (GPU, cu13)" kernel
 ```
 
 Open a notebook and select the `nami (CPU)` or `nami (GPU)` kernel via either:
