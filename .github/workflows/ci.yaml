@@ -35,3 +35,21 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: LeviSamuelEvans/nami
+
+  # validate the committed pixi.lock resolves and runs the test suite
+  pixi-locked:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: prefix-dev/setup-pixi@v0.9.6
+        with:
+          environments: cpu
+          locked: true
+          cache: true
+
+      - name: Install nami into locked environment
+        run: pixi run -e cpu setup
+
+      - name: Run tests
+        run: pixi run -e cpu test
