@@ -1,33 +1,95 @@
-  <p align="center">
-    <img src="/docs/assets/nami_logo.svg" width="520" alt="Nami logo">
-  </p>
+<p align="center"><img src="/docs/assets/nami_logo.svg" width="600" alt="Nami logo"></p>
 
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org) [![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B-ee4c2c)](https://pytorch.org)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE) [![codecov](https://codecov.io/gh/LeviSamuelEvans/nami/branch/main/graph/badge.svg)](https://codecov.io/gh/LeviSamuelEvans/nami)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
-[![Documentation](https://github.com/LeviSamuelEvans/nami/actions/workflows/docs.yaml/badge.svg)](https://levisamuelevans.github.io/nami/) 
+[![Documentation](https://github.com/LeviSamuelEvans/nami/actions/workflows/docs.yaml/badge.svg)](https://levisamuelevans.github.io/nami/)
 
 ![Development](https://img.shields.io/badge/status-development-orange?style=for-the-badge)
 
 
 Nami is a library for flow-style generative models, with a focus on composable transport-map workflows and SBI applications.
 
-See the [documentation](https://levisamuelevans.github.io/nami/) for the full guide, examples, tutorials, and API reference.
+See the [documentation](https://levisamuelevans.github.io/nami/) for the full guide, examples, tutorials (UNDERGOING RE-WRITE), and API reference.
 
-For local development, install with [pixi](https://pixi.sh):
+## Development
+
+For local development, either install with [pixi](https://pixi.sh):
 
 ```bash
 git clone https://github.com/LeviSamuelEvans/nami
 cd nami
-pixi run setup
+pixi run setup # pixi run -e gpu setup
 ```
 
-Common development commands are `pixi run test`, `pixi run lint`, `pixi run fmt`, `pixi run typecheck`, and `pixi run docs`.
+or, install directly with `pip` (inside a venv):
 
-Guidelines for contributing will soon be added once the project is more stable. You are very welcome to use any part of the library in your own projects whilst waiting for the contribution guidelines, and for the project to be available on PyPI. Thanks a lot for your interest!
+```bash
+pip install -e . --group dev
+```
+
+Note that `--group` requires pip >= 25.1 (run `pip install --upgrade pip` first if needed). On older pip, install the package and dev tools separately with `pip install -e .` followed by `pip install pytest pytest-cov ruff ty hatch`.
+
+For Pixi, common development commands are `pixi run test`, `pixi run lint`, `pixi run fmt`, `pixi run typecheck`, and `pixi run docs`.
+
+### GPU environments
+
+For nvidia GPU workflows, use the `gpu` environment, which pulls `pytorch-gpu` from conda-forge and is pinned to `linux-64` with CUDA 12:
+
+```bash
+pixi run -e gpu setup
+```
+
+TODO: [PyTorch v2.12.0](https://github.com/pytorch/pytorch/releases#deprecations) See `MPS` and `Depreciations` sections (e.g.`cu128` no longer in build matrix) and [2.12 blog](https://pytorch.org/blog/pytorch-2-12-release-blog/)
+
+The `gpu` environment declares `system-requirements = { cuda = "12" }`, so resolving or locking it requires the relevant driver. On a system without an nvidia GPU, set `CONDA_OVERRIDE_CUDA` to solve lock the environment for `linux-64`:
+
+```bash
+CONDA_OVERRIDE_CUDA=12 pixi install -e gpu   # also for `pixi lock`, `pixi info`
+```
+
+> [!NOTE]
+> Intel GPUs (XPU). The conda-forge `pytorch-gpu` build (and hence the `gpu` Pixi environment) is CUDA-only, so it does not cover Intel GPUs. XPU support is native in PyTorch >= 2.5 (via `torch.xpu`); note this is newer than the project's `torch >= 2.0` floor, so ensure you install a 2.5+ build. Install from PyTorch's XPU wheel index instead of the `gpu` environment:
+>
+> ```bash
+> pip install torch --index-url https://download.pytorch.org/whl/xpu
+> pip install -e . --no-deps --group dev   # reuse if already installed
+> ```
+>
+> Verify with `torch.xpu.is_available()`.
+
+### Jupyter Notebooks
+
+When using notebooks, register a kernel like:
+
+```bash
+pixi run kernel                # cpu/mps registers the "nami (CPU)" kernel
+pixi run -e gpu kernel-gpu     # linux + nvidia, registers the "nami (GPU)" kernel
+```
+
+Open a notebook and select the `nami (CPU)` or `nami (GPU)` kernel via either:
+
+- `VS Code`: open a `.ipynb`, and pick the kernel from the kernel selector in the top-right. (requires the [Jupyter extension](https://marketplace.visualstudio.com/items?itemName=ms-toolsai.jupyter))
+- `JupyterLab`: bundled in the default Pixi environment, so launch it with `pixi run jupyter lab` and select the kernel from the launcher or "Kernel -> Change Kernel".
+
+
+The two kernels are registered under different names to prevent clobbering. You can confirm the active device, and that `nami` is importable, with:
+
+```python
+import torch
+print(torch.cuda.is_available())                 # true on cuda
+print(torch.backends.mps.is_available())         # true on apple silicon
+
+import nami
+print(nami.__version__)                           # nami imports torch, so this also exercises the torch install
+```
+
+TODO: short comments on marimo
 
 ---
 
-This project is supported by HelmholtzAI and DESY as part of the [NEEDLE project](https://needle-sbi.github.io/), funded under grant number XXX (TODO: add grant number).
+Supported by HelmholtzAI and DESY.
+
+[The NEEDLE project](https://needle-sbi.github.io/)
 
 <img src="/docs/_static/institutes/Helmholtz-Logo-Blue-RGB.png" alt="HelmholtzAI" width="160"/> &nbsp;
