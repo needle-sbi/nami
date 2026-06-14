@@ -102,14 +102,8 @@ cpu = { features = ["cpu", "docs", "lint", "test", "typecheck", "build", "experi
 gpu = { features = ["gpu", "docs", "lint", "test", "typecheck", "build", "experiments", "hooks"], solve-group = "gpu" }
 
 [tool.pixi.dependencies]
-python = ">=3.10,<3.14"
-pip = ">=25.3,<26"
-ipykernel = ">=7.1.0,<8"
-matplotlib = ">=3.10.8,<4"
-scipy = ">=1.17.0,<2"
-
-[tool.pixi.pypi-dependencies]
-marimo = ">=0.23.6,<0.24"
+pip = ">=25.3"
+typing-extensions = ">=4.0"
 
 [tool.pixi.feature.cpu.dependencies]
 pytorch-cpu = ">=2.0.0,<3"
