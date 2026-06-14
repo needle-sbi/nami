@@ -146,6 +146,8 @@ sphinx-design = ">=0.7.0,<0.8"
 
 [tool.pixi.feature.experiments.dependencies]
 ipykernel = ">=7.1.0,<8"
+jupyterlab = ">=4.4.0,<5"
+marimo = ">=0.23.9,<0.24"
 matplotlib = ">=3.10.8,<4"
 scipy = ">=1.17.0,<2"
 sbi = ">=0.26.1,<0.27"
