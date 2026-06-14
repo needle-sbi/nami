@@ -80,7 +80,8 @@ channels = ["conda-forge"]
 platforms = ["osx-arm64", "linux-64", "win-64"]
 
 [tool.pixi.tasks]
-setup = "python -m pip install -e ."
+# `--no-deps` to not re-fetch torch from PyPI on top of the conda-provided build
+setup = "python -m pip install -e . --no-deps"
 test = "pytest -q"
 cov = "pytest --cov --cov-report=term-missing"
 lint = "ruff check src tests"
