@@ -128,7 +128,6 @@ pytest-cov = ">=7.0.0,<8"
 
 [tool.pixi.feature.lint.dependencies]
 ruff = ">=0.15.5,<0.16"
-pylint = ">=4.0.0,<5"
 
 [tool.pixi.feature.typecheck.dependencies]
 ty = ">=0.0.33"
