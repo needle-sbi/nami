@@ -197,7 +197,8 @@ report.exclude_also = [
 ]
 
 [tool.ty.environment]
-python-version = "3.12"
+# match requires-python
+python-version = "3.10"
 
 [tool.ty.src]
 include = ["src", "tests"]
