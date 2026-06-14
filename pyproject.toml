@@ -51,7 +51,6 @@ test = [
 ]
 lint = [
   "ruff >=0.15.5,<0.16",
-  "pylint >=4.0.0,<5",
 ]
 typecheck = [
   "mypy >=1.19.0,<2",
