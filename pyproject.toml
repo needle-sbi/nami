@@ -130,6 +130,8 @@ kernel-gpu = "python -m ipykernel install --user --name nami-gpu-cu12 --display-
 [tool.pixi.feature.cuda13.tasks]
 kernel-gpu = "python -m ipykernel install --user --name nami-gpu-cu13 --display-name 'nami (GPU, cu13)'"
 
+# keep in sync with [dependency groups] test
+# TODO: pixi can use PEP 735 directly, then tools come from PyPI over conda-forge
 [tool.pixi.feature.test.dependencies]
 pytest = ">=9.0.0,<10"
 pytest-cov = ">=7.0.0,<8"
@@ -185,6 +187,8 @@ scripts.test = "pytest {args}"
 minversion = "6.0"
 addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config"]
 xfail_strict = true
+# project specific note: torch imports numpy at load time so without it a `UserWarning:...`
+# and the below will make this a hard error, hence why numpy is needed in test dependencies
 filterwarnings = [
   "error",
 ]
