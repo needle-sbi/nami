@@ -1,0 +1,13 @@
+version: 2
+updates:
+  # keep all actions up to date
+  - package-ecosystem: "github-actions"
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "ci"
+    groups:
+      actions:
+        patterns:
+          - "*"

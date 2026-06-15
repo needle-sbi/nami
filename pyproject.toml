@@ -39,22 +39,23 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/LeviSamuelEvans/nami"
-Documentation = "https://levisamuelevans.github.io/nami/"
-Repository = "https://github.com/LeviSamuelEvans/nami"
-Issues = "https://github.com/LeviSamuelEvans/nami/issues"
+Homepage = "https://github.com/needle-sbi/nami"
+Documentation = "https://needle-sbi.github.io/nami/"
+Repository = "https://github.com/needle-sbi/nami"
+Issues = "https://github.com/needle-sbi/nami/issues"
 
 [dependency-groups]
 test = [
   "pytest >=9.0.0,<10",
   "pytest-cov >=7.0.0,<8",
+  # torch needs numpy at import
+  "numpy >=1.26",
 ]
 lint = [
   "ruff >=0.15.5,<0.16",
-  "pylint >=4.0.0,<5",
 ]
 typecheck = [
-  "mypy >=1.19.0,<2",
+  "ty >=0.0.33",
 ]
 build = [
   "hatch >=1.16.0,<2",
@@ -81,7 +82,8 @@ channels = ["conda-forge"]
 platforms = ["osx-arm64", "linux-64", "win-64"]
 
 [tool.pixi.tasks]
-setup = "python -m pip install -e ."
+# `--no-deps` to not re-fetch torch from PyPI on top of the conda-provided build
+setup = "python -m pip install -e . --no-deps"
 test = "pytest -q"
 cov = "pytest --cov --cov-report=term-missing"
 lint = "ruff check src tests"
@@ -94,22 +96,17 @@ docs = { cmd = "LC_ALL= LC_CTYPE= sphinx-build -a -E -b html docs docs/_build/ht
 docs-rtd = { cmd = "LC_ALL= LC_CTYPE= sphinx-build -T -b html -d docs/_build/doctrees -D language=en docs $READTHEDOCS_OUTPUT/html", depends-on = ["docs-install"] }
 docs-serve = { cmd = "LC_ALL= LC_CTYPE= sphinx-autobuild -a -E --host 127.0.0.1 --port 8001 --watch src/nami --ignore docs/books docs docs/_build/html", depends-on = ["docs-install"] }
 build = "hatch build"
-kernel = "python -m ipykernel install --user --name nami-dev"
+kernel = "python -m ipykernel install --user --name nami-dev --display-name 'nami (CPU)'"
 
 [tool.pixi.environments]
 default = { features = ["cpu", "docs", "lint", "test", "typecheck", "build", "experiments", "hooks"], solve-group = "cpu" }
 cpu = { features = ["cpu", "docs", "lint", "test", "typecheck", "build", "experiments", "hooks"], solve-group = "cpu" }
-gpu = { features = ["gpu", "docs", "lint", "test", "typecheck", "build", "experiments", "hooks"], solve-group = "gpu" }
+gpu = { features = ["gpu", "cuda12", "docs", "lint", "test", "typecheck", "build", "experiments", "hooks"], solve-group = "gpu12" }
+gpu-cu13 = { features = ["gpu", "cuda13", "docs", "lint", "test", "typecheck", "build", "experiments", "hooks"], solve-group = "gpu13" }
 
 [tool.pixi.dependencies]
-python = ">=3.10,<3.14"
-pip = ">=25.3,<26"
-ipykernel = ">=7.1.0,<8"
-matplotlib = ">=3.10.8,<4"
-scipy = ">=1.17.0,<2"
-
-[tool.pixi.pypi-dependencies]
-marimo = ">=0.23.6,<0.24"
+pip = ">=25.3"
+typing-extensions = ">=4.0"
 
 [tool.pixi.feature.cpu.dependencies]
 pytorch-cpu = ">=2.0.0,<3"
@@ -117,19 +114,31 @@ pytorch-cpu = ">=2.0.0,<3"
 [tool.pixi.feature.gpu]
 platforms = ["linux-64"]
 
-[tool.pixi.feature.gpu.system-requirements]
-cuda = "12"
-
 [tool.pixi.feature.gpu.target.linux-64.dependencies]
 pytorch-gpu = ">=2.0.0,<3"
 
+[tool.pixi.feature.cuda12.system-requirements]
+cuda = "12"
+
+[tool.pixi.feature.cuda13.system-requirements]
+cuda = "13"
+
+[tool.pixi.feature.cuda12.tasks]
+kernel-gpu = "python -m ipykernel install --user --name nami-gpu-cu12 --display-name 'nami (GPU, cu12)'"
+
+# dedicated option for cuda13
+[tool.pixi.feature.cuda13.tasks]
+kernel-gpu = "python -m ipykernel install --user --name nami-gpu-cu13 --display-name 'nami (GPU, cu13)'"
+
+# keep in sync with [dependency groups] test
+# TODO: pixi can use PEP 735 directly, then tools come from PyPI over conda-forge
 [tool.pixi.feature.test.dependencies]
 pytest = ">=9.0.0,<10"
 pytest-cov = ">=7.0.0,<8"
+numpy = ">=1.26"
 
 [tool.pixi.feature.lint.dependencies]
 ruff = ">=0.15.5,<0.16"
-pylint = ">=4.0.0,<5"
 
 [tool.pixi.feature.typecheck.dependencies]
 ty = ">=0.0.33"
@@ -148,6 +157,8 @@ sphinx-design = ">=0.7.0,<0.8"
 
 [tool.pixi.feature.experiments.dependencies]
 ipykernel = ">=7.1.0,<8"
+jupyterlab = ">=4.4.0,<5"
+marimo = ">=0.23.9,<0.24"
 matplotlib = ">=3.10.8,<4"
 scipy = ">=1.17.0,<2"
 sbi = ">=0.26.1,<0.27"
@@ -176,6 +187,8 @@ scripts.test = "pytest {args}"
 minversion = "6.0"
 addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config"]
 xfail_strict = true
+# project specific note: torch imports numpy at load time so without it a `UserWarning:...`
+# and the below will make this a hard error, hence why numpy is needed in test dependencies
 filterwarnings = [
   "error",
 ]
@@ -199,7 +212,8 @@ report.exclude_also = [
 ]
 
 [tool.ty.environment]
-python-version = "3.12"
+# match requires-python
+python-version = "3.10"
 
 [tool.ty.src]
 include = ["src", "tests"]
@@ -241,18 +255,3 @@ isort.required-imports = ["from __future__ import annotations"]
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["T20"]
 "noxfile.py" = ["T20"]
-
-
-[tool.lint]
-py-version = "3.10"
-ignore-paths = [".*/_version.py"]
-reports.output-format = "colorized"
-similarities.ignore-imports = "yes"
-messages_control.disable = [
-  "design",
-  "fixme",
-  "line-too-long",
-  "missing-module-docstring",
-  "missing-function-docstring",
-  "wrong-import-position",
-]

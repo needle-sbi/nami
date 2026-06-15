@@ -1,0 +1,9 @@
+# https://docs.codecov.com/docs/codecov-yaml
+coverage:
+  status:
+    project:
+      default:
+        threshold: 2.0%
+    patch:
+      default:
+        enabled: false

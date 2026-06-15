@@ -12,26 +12,42 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      
+
       - name: Install dependencies
         run: |
-          pip install --upgrade pip
-          pip install -e .
-          pip install numpy
-          pip install pytest-cov
-      
+          python -m pip install --upgrade pip
+          pip install -e . --group test
+
       - name: Run tests with coverage
         run: pytest --cov=nami --cov-report=xml
-      
+
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          slug: LeviSamuelEvans/nami
+          slug: needle-sbi/nami
+
+  # validate the committed pixi.lock resolves and runs the test suite
+  pixi-locked:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: prefix-dev/setup-pixi@v0.9.6
+        with:
+          environments: cpu
+          locked: true
+          cache: true
+
+      - name: Install nami into locked environment
+        run: pixi run -e cpu setup
+
+      - name: Run tests
+        run: pixi run -e cpu test
