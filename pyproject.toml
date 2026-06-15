@@ -39,10 +39,10 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/LeviSamuelEvans/nami"
-Documentation = "https://levisamuelevans.github.io/nami/"
-Repository = "https://github.com/LeviSamuelEvans/nami"
-Issues = "https://github.com/LeviSamuelEvans/nami/issues"
+Homepage = "https://github.com/needle-sbi/nami"
+Documentation = "https://needle-sbi.github.io/nami/"
+Repository = "https://github.com/needle-sbi/nami"
+Issues = "https://github.com/needle-sbi/nami/issues"
 
 [dependency-groups]
 test = [

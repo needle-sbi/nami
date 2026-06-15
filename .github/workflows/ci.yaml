@@ -32,7 +32,7 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          slug: LeviSamuelEvans/nami
+          slug: needle-sbi/nami
 
   # validate the committed pixi.lock resolves and runs the test suite
   pixi-locked:
