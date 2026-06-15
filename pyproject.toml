@@ -48,6 +48,8 @@ Issues = "https://github.com/needle-sbi/nami/issues"
 test = [
   "pytest >=9.0.0,<10",
   "pytest-cov >=7.0.0,<8",
+  # torch needs numpy at import
+  "numpy >=1.26",
 ]
 lint = [
   "ruff >=0.15.5,<0.16",
@@ -131,6 +133,7 @@ kernel-gpu = "python -m ipykernel install --user --name nami-gpu-cu13 --display-
 [tool.pixi.feature.test.dependencies]
 pytest = ">=9.0.0,<10"
 pytest-cov = ">=7.0.0,<8"
+numpy = ">=1.26"
 
 [tool.pixi.feature.lint.dependencies]
 ruff = ">=0.15.5,<0.16"
