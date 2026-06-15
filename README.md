@@ -3,14 +3,16 @@
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org) [![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B-ee4c2c)](https://pytorch.org)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE) [![codecov](https://codecov.io/gh/needle-sbi/nami/branch/main/graph/badge.svg)](https://codecov.io/gh/needle-sbi/nami)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
-[![Documentation](https://github.com/needle-sbi/nami/actions/workflows/docs.yaml/badge.svg)](https://needle-sbi.github.io/nami/)
+[![Documentation](https://github.com/needle-sbi/nami/actions/workflows/docs.yaml/badge.svg)](https://nami.readthedocs.io/en/latest/)
 
 ![Development](https://img.shields.io/badge/status-development-orange?style=for-the-badge)
 
 
 Nami is a library for flow-style generative models, with a focus on composable transport-map workflows and SBI applications.
 
-See the [documentation](https://needle-sbi.github.io/nami/) for the full guide, examples, tutorials (UNDERGOING RE-WRITE), and API reference.
+See the [documentation](https://nami.readthedocs.io/en/latest/) for the full guide, examples, tutorials (UNDERGOING RE-WRITE), and API reference.
+
+Below are instructions for developers.
 
 ## Development
 
