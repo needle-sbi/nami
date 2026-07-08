@@ -3,11 +3,13 @@ from __future__ import annotations
 import pytest
 import torch
 
+from nami import RK4, ExactDivergence, FlowMatching, StandardNormal
 from nami.diagnostics import (
     describe,
     divergence_stats,
     field_stats,
     reversibility_error,
+    score_projection,
 )
 
 
@@ -215,3 +217,38 @@ def test_reversibility_error_supports_scalar_event_ndim_zero_with_steps_solver()
     torch.testing.assert_close(stats["mean"], torch.tensor(0.0))
     torch.testing.assert_close(stats["std"], torch.tensor(0.0))
     torch.testing.assert_close(stats["max"], torch.tensor(0.0))
+
+
+class _ConstantContextField:
+    """Velocity equal to the context: the flow is the shift x -> x + c."""
+
+    event_ndim = 1
+
+    def __call__(
+        self, x: torch.Tensor, t: torch.Tensor, c: torch.Tensor | None = None
+    ) -> torch.Tensor:
+        _ = t
+        if c is None:
+            return torch.zeros_like(x)
+        return (x * 0) + c
+
+
+def test_score_projection_matches_analytic_toy() -> None:
+    process = FlowMatching(
+        _ConstantContextField(),
+        StandardNormal(event_shape=(2,)),
+        RK4(steps=2),
+    )()
+    x = torch.randn(5, 2)
+    theta = torch.randn(5, 2)
+
+    score = score_projection(
+        process,
+        x,
+        theta,
+        estimator=ExactDivergence(max_dim=8, create_graph=True),
+    )
+
+    assert score.shape == theta.shape
+    assert torch.allclose(score, x - theta, atol=1e-5)
+    assert not theta.requires_grad  # caller's tensor untouched

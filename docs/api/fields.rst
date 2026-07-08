@@ -12,5 +12,6 @@ Fields
    composite
    consistency
    generator
+   scalar_potential
    transformer_velocity
    velocity

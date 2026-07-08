@@ -12,5 +12,7 @@ Losses
    cgm
    consistency
    log_density
+   parameter_flow
    regression
+   score_matching
    stochastic_fm

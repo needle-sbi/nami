@@ -13,3 +13,4 @@ Applied and exploratory notebooks grouped by topic.
    masking/index
    sbi/index
    generators/index
+   pm/index

@@ -103,6 +103,53 @@ def divergence_stats(
     }
 
 
+def score_projection(
+    process,
+    x: torch.Tensor,
+    theta: torch.Tensor,
+    *,
+    estimator=None,
+) -> torch.Tensor:
+    r"""Score projection ``\nabla_\theta \log \hat p_\theta(x)`` via autograd.
+
+    Differentiates the process's change-of-variables ``log_prob`` with
+    respect to the conditioning variable, using the ``c=`` override so
+    ``theta`` enters as an autograd leaf rather than bind-time context.
+
+    The per-sample gradient is recovered from a single ``autograd.grad``
+    call on the summed log-prob because ``\log p_{\theta_i}(x_i)`` does
+    not depend on ``\theta_j`` for ``i != j``.
+
+    Parameters
+    ----------
+    process
+        A bound runtime process (e.g.
+        :class:`~nami.processes.fm.FlowMatchingProcess`) whose
+        ``log_prob`` accepts ``c=`` and ``estimator=``.
+    x
+        Evaluation points, shape ``(*lead, *event_shape)``.
+    theta
+        Conditioning values, shape ``(*lead, d_theta)``.  Detached and
+        cloned internally; the caller's tensor is not mutated.
+    estimator
+        Optional divergence estimator forwarded to ``log_prob``.  Must
+        be constructed with ``create_graph=True`` (e.g.
+        ``ExactDivergence(create_graph=True)``) — otherwise the
+        divergence term of the change-of-variables integral is detached
+        from ``theta`` and the projection is silently wrong.
+
+    Returns
+    -------
+    Tensor, shape ``(*lead, d_theta)``
+        ``\nabla_\theta \log \hat p_\theta(x)``.
+    """
+    theta = theta.detach().clone().requires_grad_(True)
+    with torch.enable_grad():
+        logp = process.log_prob(x, c=theta, estimator=estimator)
+        (grad_theta,) = torch.autograd.grad(logp.sum(), theta)
+    return grad_theta
+
+
 def reversibility_error(
     field,
     solver,
