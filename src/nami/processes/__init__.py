@@ -18,6 +18,7 @@ from nami.processes.consistency import (
 from nami.processes.diffusion import Diffusion, DiffusionProcess
 from nami.processes.fm import FlowMatching, FlowMatchingProcess
 from nami.processes.gm import GeneratorMatching, GeneratorMatchingProcess
+from nami.processes.parameter_flow import ParameterFlow, ParameterFlowProcess
 
 __all__ = [
     "ActionMatching",
@@ -30,4 +31,6 @@ __all__ = [
     "FlowMatchingProcess",
     "GeneratorMatching",
     "GeneratorMatchingProcess",
+    "ParameterFlow",
+    "ParameterFlowProcess",
 ]

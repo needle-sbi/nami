@@ -1,3 +1,5 @@
+r"""Scalar head that predicts :math:`\\log p_t(x_t)`."""
+
 from __future__ import annotations
 
 import torch

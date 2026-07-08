@@ -27,7 +27,16 @@ from nami.losses.bridge import bridge_matching_loss
 from nami.losses.cgm import cgm_loss
 from nami.losses.consistency import consistency_loss
 from nami.losses.log_density import log_density_consistency_loss
+from nami.losses.parameter_flow import (
+    parameter_flow_loss,
+    path_pinned_parameter_flow_loss,
+)
 from nami.losses.regression import regression_loss
+from nami.losses.score_matching import (
+    ctsm_loss,
+    denoising_score_matching_loss,
+    time_score_matching_loss,
+)
 from nami.losses.stochastic_fm import stochastic_fm_loss
 
 __all__ = [
@@ -40,7 +49,12 @@ __all__ = [
     "bridge_matching_loss",
     "cgm_loss",
     "consistency_loss",
+    "ctsm_loss",
+    "denoising_score_matching_loss",
     "log_density_consistency_loss",
+    "parameter_flow_loss",
+    "path_pinned_parameter_flow_loss",
     "regression_loss",
     "stochastic_fm_loss",
+    "time_score_matching_loss",
 ]

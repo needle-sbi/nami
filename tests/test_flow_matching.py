@@ -144,6 +144,47 @@ def test_sample_return_logp_matches_separate_log_prob():
     assert torch.allclose(log_prob, expected, atol=2e-3, rtol=2e-3)
 
 
+def test_log_prob_c_override_matches_bound_context():
+    # The c= override is evaluation-scoped conditioning: a process bound
+    # with context must agree with an unconditional bind overridden at
+    # log_prob time.
+    context = torch.randn(5, 2)
+    x = torch.randn(5, 2)
+    lazy = FlowMatching(
+        PlainField(),
+        StandardNormal(event_shape=(2,)),
+        RK4(steps=2),
+    )
+    estimator = ExactDivergence(max_dim=8)
+
+    bound = lazy(context).log_prob(x, estimator=estimator)
+    overridden = lazy().log_prob(x, c=context, estimator=estimator)
+
+    assert torch.allclose(bound, overridden)
+
+
+def test_log_prob_c_override_is_autograd_leaf():
+    # PlainField's velocity is the constant c, so the flow is the shift
+    # x -> x - c and log p_c(x) = log N(x - c; 0, I) exactly (RK4 is
+    # exact on constants).  Hence grad_c log p_c(x) = x - c — conditioning
+    # passed as a function argument, not bind-time context.
+    theta = torch.randn(5, 2, requires_grad=True)
+    x = torch.randn(5, 2)
+    process = FlowMatching(
+        PlainField(),
+        StandardNormal(event_shape=(2,)),
+        RK4(steps=2),
+    )()
+
+    log_prob = process.log_prob(
+        x, c=theta, estimator=ExactDivergence(max_dim=8, create_graph=True)
+    )
+    (grad_theta,) = torch.autograd.grad(log_prob.sum(), theta)
+
+    assert grad_theta.shape == theta.shape
+    assert torch.allclose(grad_theta, x - theta.detach(), atol=1e-5)
+
+
 class LearnableScaleField(nn.Module):
     event_ndim = 1
 

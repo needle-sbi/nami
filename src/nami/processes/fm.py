@@ -377,7 +377,9 @@ class FlowMatchingProcess(ProcessRuntimeMixin):
             estimator=estimator,
         )
 
-    def log_prob(self, x: torch.Tensor, *, estimator=None) -> torch.Tensor:
+    def log_prob(
+        self, x: torch.Tensor, *, c: torch.Tensor | None = None, estimator=None
+    ) -> torch.Tensor:
         """Evaluate log-density via change of variables.
 
         Callers should usually pass ``estimator=...`` unless the field
@@ -385,11 +387,18 @@ class FlowMatchingProcess(ProcessRuntimeMixin):
         divergence estimator here because the tradeoff is model-dependent:
         exact traces are deterministic but can be expensive, while
         Hutchinson-style estimators scale better but add stochasticity.
+
+        ``c`` overrides the bind-time context for this evaluation only.
+        This lets conditioning variables enter as *function arguments* —
+        autograd leaves — so gradients like ``\\nabla_c \\log p_c(x)`` (e.g.
+        the score projection in
+        :func:`~nami.diagnostics.score_projection`) can be taken without
+        re-binding the process.
         """
         event_ndim = require_event_ndim(self._field)
         lead = x.shape[:-event_ndim] if event_ndim else x.shape
         logp0 = torch.zeros(lead, device=x.device, dtype=x.dtype)
-        context = self._expand_context(self._context, x)
+        context = self._expand_context(c if c is not None else self._context, x)
 
         def f_aug(xi, t):
             tt = cast_time(t, xi)
